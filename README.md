@@ -7,7 +7,7 @@
 1. 在 Windows 檔案總管中開啟本資料夾。
 2. 雙擊 `index.html`，建議使用最新版 Microsoft Edge 或 Google Chrome。
 3. 按「開啟 JSON」，選取 FUXA 配置。
-4. 可用 View 清單上方的「新增」建立空白畫布；選取 View 後可用「刪除」移除（至少保留一個 View）。若被刪 View 是起始頁，工具會將起始頁改為剩餘 View；導覽列中指向該 View 的項目會自動移除。
+4. 可用 View 清單上方的「新增」建立空白畫布；新 View 會自動在畫布左上方放置顯示 View 名稱的 Label。選取 View 後按「改名」可修改名稱及該 Label 文字；名稱不可空白或與其他 View 重複。按「刪除」可移除選取的 View（至少保留一個 View）。若被刪 View 是起始頁，工具會將起始頁改為剩餘 View；導覽列中指向該 View 的項目會自動移除。
 5. 選擇左側 View；新增一筆或批次選取 Tag。
 6. 編輯每列的 Label、Tag、圖形樣式與狀態色；設定 Grid 後確認右側預覽。
 7. 按「另存新 JSON」。輸出檔名為 `<原檔名>.generated.json`。

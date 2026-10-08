@@ -14,7 +14,9 @@
     models: new Map(),
     baselines: new Map(),
     originalViewIds: [],
+    originalViewNames: [],
     originalLayout: null,
+    viewTitleIds: new Map(),
     selectedViewId: "",
     usedIds: new Set(),
     usedViewIds: new Set(),
@@ -33,6 +35,7 @@
     viewMeta: $("#selected-view-meta"),
     rows: $("#component-rows"),
     addView: $("#add-view-button"),
+    renameView: $("#rename-view-button"),
     deleteView: $("#delete-view-button"),
     previewHost: $("#preview-host"),
     previewSize: $("#preview-size"),
@@ -48,6 +51,9 @@
     batchConfirm: $("#batch-confirm"),
     newViewDialog: $("#new-view-dialog"),
     newViewName: $("#new-view-name"),
+    viewNameDialogTitle: $("#view-name-dialog-title"),
+    viewNameDialogDescription: $("#view-name-dialog-description"),
+    viewNameConfirm: $("#new-view-confirm"),
     deleteViewDialog: $("#delete-view-dialog"),
     deleteViewMessage: $("#delete-view-message")
   };
@@ -128,7 +134,9 @@
     state.usedViewIds = new Set(config.hmi.views.map((view) => view.id).filter(Boolean));
     state.createdIds = new Set();
     state.originalViewIds = config.hmi.views.map((view) => view.id);
+    state.originalViewNames = config.hmi.views.map((view) => [view.id, view.name || ""]);
     state.originalLayout = clone(config.hmi.layout || null);
+    state.viewTitleIds = new Map();
     state.undoStack = [];
     state.redoStack = [];
 
@@ -163,6 +171,7 @@
       layout: state.config.hmi.layout,
       models: Array.from(state.models.entries()),
       baselines: Array.from(state.baselines.entries()),
+      viewTitleIds: Array.from(state.viewTitleIds.entries()),
       selectedViewId: state.selectedViewId
     });
   }
@@ -180,6 +189,7 @@
     state.config.hmi.layout = saved.layout;
     state.models = new Map(saved.models);
     state.baselines = new Map(saved.baselines);
+    state.viewTitleIds = new Map(saved.viewTitleIds || []);
     state.selectedViewId = saved.selectedViewId;
     renderAll();
   }
@@ -607,6 +617,8 @@
   function isDirty() {
     const currentViewIds = state.config.hmi.views.map((view) => view.id);
     if (JSON.stringify(currentViewIds) !== JSON.stringify(state.originalViewIds)) return true;
+    const currentViewNames = state.config.hmi.views.map((view) => [view.id, view.name || ""]);
+    if (JSON.stringify(currentViewNames) !== JSON.stringify(state.originalViewNames)) return true;
     if (JSON.stringify(state.config.hmi.layout || null) !== JSON.stringify(state.originalLayout)) return true;
     for (const [viewId, model] of state.models) {
       const current = JSON.stringify({
@@ -631,6 +643,7 @@
     elements.addMany.disabled = !model || state.tags.size === 0;
     elements.save.disabled = !state.config;
     elements.addView.disabled = !state.config;
+    elements.renameView.disabled = !view;
     elements.deleteView.disabled = !view || state.config.hmi.views.length <= 1;
     renderGridControls();
     renderRows();
@@ -673,9 +686,27 @@
 
   function openNewViewDialog() {
     if (!state.config) return;
+    elements.newViewDialog.dataset.mode = "create";
     elements.newViewName.value = "";
+    elements.viewNameDialogTitle.textContent = "新增空白 View";
+    elements.viewNameDialogDescription.textContent = "建立空白畫布，之後可新增 Tag 元件。";
+    elements.viewNameConfirm.textContent = "建立 View";
     elements.newViewDialog.showModal();
     elements.newViewName.focus();
+  }
+
+  function openRenameViewDialog() {
+    const view = selectedView();
+    if (!view) return;
+    elements.newViewDialog.dataset.mode = "rename";
+    elements.newViewDialog.dataset.viewId = view.id;
+    elements.newViewName.value = view.name || "";
+    elements.viewNameDialogTitle.textContent = "修改 View 名稱";
+    elements.viewNameDialogDescription.textContent = "修改名稱不會變更 View ID 或其導覽連結。";
+    elements.viewNameConfirm.textContent = "儲存名稱";
+    elements.newViewDialog.showModal();
+    elements.newViewName.focus();
+    elements.newViewName.select();
   }
 
   function createBlankView(name) {
@@ -698,14 +729,53 @@
     }
     const id = D.generateId("v", state.usedViewIds, window.crypto);
     state.usedIds.add(id);
+    const titleId = allocateId("svg");
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("width", String(profile.width));
+    svg.setAttribute("height", String(profile.height));
+    svg.setAttribute("xmlns", SVG_NS);
+    svg.setAttribute("xmlns:svg", SVG_NS);
+    const layer = createSvgNode(document, "g", {});
+    const layerTitle = createSvgNode(document, "title", {});
+    layerTitle.textContent = "Layer 1";
+    layer.append(layerTitle);
+    const title = createSvgNode(document, "text", {
+      "data-name": "view_title",
+      id: titleId,
+      x: 20,
+      y: 36,
+      fill: "#000000",
+      stroke: "#000000",
+      "stroke-width": 0,
+      "font-size": 24,
+      "font-family": "sans-serif",
+      "text-anchor": "start",
+      "xml:space": "preserve"
+    });
+    title.textContent = name;
+    layer.append(title);
+    svg.append(layer);
     return {
-      id,
-      name,
-      profile,
-      items: {},
-      variables: {},
-      svgcontent: `<svg width="${profile.width}" height="${profile.height}" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">\n <g>\n  <title>Layer 1</title>\n </g>\n</svg>`,
-      type: "svg"
+      titleId,
+      view: {
+        id,
+        name,
+        profile,
+        items: {
+          [titleId]: {
+            id: titleId,
+            type: "svg-ext-shapes-text",
+            name: "view_title",
+            property: null,
+            label: "Shapes",
+            hide: false,
+            lock: false
+          }
+        },
+        variables: {},
+        svgcontent: new XMLSerializer().serializeToString(svg),
+        type: "svg"
+      }
     };
   }
 
@@ -722,7 +792,8 @@
       return false;
     }
     rememberUndo();
-    const view = createBlankView(normalizedName);
+    const { view, titleId } = createBlankView(normalizedName);
+    state.viewTitleIds.set(view.id, titleId);
     state.config.hmi.views.push(view);
     const model = {
       viewId: view.id,
@@ -739,6 +810,37 @@
     state.selectedViewId = view.id;
     renderAll();
     setStatus(`已新增空白 View「${normalizedName}」。`, "success");
+    return true;
+  }
+
+  function renameView(viewId, name) {
+    const view = state.config.hmi.views.find((candidate) => candidate.id === viewId);
+    if (!view) return false;
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      setStatus("View 名稱不可空白。", "error");
+      return false;
+    }
+    if (state.config.hmi.views.some((candidate) =>
+      candidate.id !== viewId &&
+      (candidate.name || "").trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase()
+    )) {
+      setStatus(`View「${normalizedName}」已存在，請使用不同名稱。`, "error");
+      return false;
+    }
+    if (view.name === normalizedName) return true;
+    rememberUndo();
+    const titleId = state.viewTitleIds.get(viewId);
+    if (titleId) {
+      const titleNode = D.findById(D.parseSvg(view.svgcontent, window.DOMParser), titleId);
+      if (titleNode) {
+        titleNode.textContent = normalizedName;
+        view.svgcontent = new XMLSerializer().serializeToString(titleNode.ownerDocument);
+      }
+    }
+    view.name = normalizedName;
+    renderAll();
+    setStatus(`已將 View 名稱修改為「${normalizedName}」。`, "success");
     return true;
   }
 
@@ -772,6 +874,7 @@
     state.config.hmi.views.splice(index, 1);
     state.models.delete(viewId);
     state.baselines.delete(viewId);
+    state.viewTitleIds.delete(viewId);
     state.selectedViewId = fallback ? fallback.id : state.config.hmi.views[0].id;
     renderAll();
     setStatus(`已刪除 View，並處理其起始頁／導覽引用。`, "success");
@@ -1015,11 +1118,15 @@
   elements.addOne.addEventListener("click", () => addComponent("", ""));
   elements.addMany.addEventListener("click", openBatchDialog);
   elements.addView.addEventListener("click", openNewViewDialog);
+  elements.renameView.addEventListener("click", openRenameViewDialog);
   elements.deleteView.addEventListener("click", deleteSelectedView);
   elements.newViewDialog.addEventListener("submit", (event) => {
     if (event.submitter && event.submitter.value !== "confirm") return;
     event.preventDefault();
-    if (createView(elements.newViewName.value)) elements.newViewDialog.close();
+    const succeeded = elements.newViewDialog.dataset.mode === "rename"
+      ? renameView(elements.newViewDialog.dataset.viewId, elements.newViewName.value)
+      : createView(elements.newViewName.value);
+    if (succeeded) elements.newViewDialog.close();
   });
   elements.deleteViewDialog.addEventListener("submit", (event) => {
     if (event.submitter && event.submitter.value !== "confirm") return;

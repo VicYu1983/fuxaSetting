@@ -35,6 +35,7 @@
           </div>
           <div class="view-actions">
             <button id="add-view-button" class="secondary compact-button" disabled>新增</button>
+            <button id="rename-view-button" class="secondary compact-button" disabled>改名</button>
             <button id="delete-view-button" class="danger compact-button" disabled>刪除</button>
           </div>
         </div>
@@ -130,16 +131,16 @@
     <form method="dialog" id="new-view-form">
       <div class="dialog-heading">
         <div>
-          <h2>新增空白 View</h2>
-          <p class="muted">建立空白畫布，之後可新增 Tag 元件。</p>
+          <h2 id="view-name-dialog-title">新增空白 View</h2>
+          <p id="view-name-dialog-description" class="muted">建立空白畫布，之後可新增 Tag 元件。</p>
         </div>
-        <button class="icon-button" value="cancel" aria-label="關閉">×</button>
+        <button class="icon-button" value="cancel" formnovalidate aria-label="關閉">×</button>
       </div>
       <label class="search-label">View 名稱
         <input id="new-view-name" type="text" maxlength="100" required autocomplete="off">
       </label>
       <div class="dialog-actions">
-        <button class="secondary" value="cancel">取消</button>
+        <button class="secondary" value="cancel" formnovalidate>取消</button>
         <button id="new-view-confirm" class="primary" value="confirm">建立 View</button>
       </div>
     </form>

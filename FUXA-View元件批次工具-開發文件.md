@@ -8,7 +8,8 @@
 
 - 採免安裝、免伺服器的原生 JavaScript 網頁，而非原提案的 TypeScript/Vite；可用 Edge 或 Chrome 直接開啟 `index.html`。
 - 已包含 JSON 載入、View 清單、既有 Tag 搜尋／批次新增、Tag／Label／樣式編輯、排序／刪除、Grid 預覽、Undo/Redo、另存新檔及資料驗證。
-- 已支援建立空白 View、刪除選取 View；新增的 View 不會自動加入 FUXA 導覽列。
+- 已支援建立空白 View、刪除選取 View；新增時會建立一個左上角 View 名稱 Label，不會自動加入 FUXA 導覽列。
+- 已支援修改 View 名稱；名稱變更納入 dirty check 與 Undo/Redo，不改變 View ID 或導覽連結。
 - 已實作 `items` 與 SVG 同步、保留未管理元件、原檔逐字複製、Bool 狀態配色及本機資料處理。
 - 自動化測試使用 Node.js 內建測試執行器；實際匯入 FUXA 的相容性仍需現場驗證。
 
@@ -21,9 +22,10 @@
 ### 1.2 範圍內（第一版）
 
 - 載入 FUXA JSON、列出 `hmi.views`。
-- 新增空白 View、刪除選取的 View，至少保留一個 View。
+- 新增空白 View（含左上角名稱 Label）、刪除選取的 View，至少保留一個 View。
 - 對選定 View 的「Tag 元件」清單做 CRUD。
 - 每個 Tag 元件 = 1 個圖形元件（綁定 Tag）+ 1 個 Label（文字）。
+- 新 View 標題為 FUXA 原生文字元件（`svg-ext-shapes-text`），文字與 View 名稱一致；修改 View 名稱會同步更新該 Label。
 - Grid 自動排列、View 預覽（唯讀，不可拖曳）。
 - 同步寫入 `items` 與 `svgcontent`，輸出新 JSON。
 
@@ -333,7 +335,8 @@ type Placement = {
 
 - 顯示 `view.name`、受管理項目數、非管理綁 Tag 項目數、是否有未儲存變更（●）。
 - 選取後載入右側內容。
-- 清單標題列提供「新增」與「刪除」；新增透過名稱對話框建立空白 View，名稱不可空白且不得與現有 View 重複（忽略大小寫）。
+- 清單標題列提供「新增」、「改名」與「刪除」；新增透過名稱對話框建立空白 View，改名編輯選取 View 的名稱。名稱不可空白且不得與其他 View 重複（忽略大小寫）。
+- 新增的 View 在畫布左上方顯示 View 名稱 Label；使用工具改名時同步變更 Label 文字。
 - 刪除前顯示確認對話框及導覽引用影響；至少保留一個 View。
 
 ### 9.3 元件清單（CRUD）
@@ -405,6 +408,7 @@ type Placement = {
 | 單元（已實作） | Node.js `node --test tests/domain.test.cjs` | 範例配置檢查、Tag 索引、Grid、CRLF 往返、ID 碰撞重試全通過 |
 | 手動（已執行） | Edge 載入範例、批次新增 1 筆、另存 | UI 載入 8 個 View／220 個 Tag；加入項目並通過匯出前資料驗證 |
 | 單元（已實作） | 刪除 View 的 layout 參照處理 | 移除導覽引用並將 `start` 指向指定的保留 View |
+| 手動（已執行） | 新增 View 標題與修改名稱 | 預覽顯示左上角文字元件，改名、Undo、Redo 皆同步更新文字 |
 | 單元（待補） | `applyView` 與 managed item 刪除 | 新增／刪除／修改後 items 與 SVG 同步，保留非管理內容與 events |
 | 整合 | 對範例 `電力設備及發電機_B2F` 重建 | 產生結果可被 `JSON.parse`、通過 §10.3 自我驗證 |
 | 手動 | 匯入 FUXA（實機） | 新元件在 FUXA 編輯器可選取、屬性面板顯示正確 Tag、執行時顏色隨 Tag 值變化；Label 位置如預覽 |
@@ -440,6 +444,7 @@ M2 完成後若實機匯入有相容性問題，需先修正再往下做（其�
 
 - 載入範例後不做任何修改直接另存，輸出與原檔逐字相同。
 - 新增空白 View 後另存，既有 Views 與非相關配置保持不變；刪除被導覽引用的 View 後，不留下其 layout 參照，起始頁指向仍存在的 View。
+- 新增空白 View 後，`items` 與 `svgcontent` 均包含位於左上方、文字等於 View 名稱的 FUXA 原生 Label；改名後兩者同步更新。
 - 在任一 View 批次新增 N 個 Tag 元件：預覽依 Grid 顯示，匯入 FUXA 後每個元件綁定正確 Tag、Label 文字正確、位置與預覽一致。
 - 刪除／修改後 `items` 與 `svgcontent` 無孤兒項目。
 - 未編輯的 View、`devices`、`scripts`、`hmi.layout` 與原檔深度相等。
