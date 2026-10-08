@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>FUXA View 元件批次工具</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="./domain.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>FUXA View 元件批次工具</h1>
+      <span id="file-name" class="muted">尚未載入配置</span>
+    </div>
+    <div class="toolbar">
+      <label class="button secondary" for="config-file">開啟 JSON</label>
+      <input id="config-file" type="file" accept=".json,application/json" hidden>
+      <button id="undo-button" class="secondary" disabled>復原</button>
+      <button id="redo-button" class="secondary" disabled>重做</button>
+      <button id="save-button" class="primary" disabled>另存新 JSON</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="status" class="status info" role="status">請選擇 FUXA 配置 JSON。檔案只在本機瀏覽器處理。</div>
+    <section id="workspace" class="workspace" hidden>
+      <aside class="panel view-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Views</h2>
+            <p class="muted">選擇要管理的畫面</p>
+          </div>
+        </div>
+        <div id="view-list" class="view-list"></div>
+      </aside>
+
+      <section class="panel editor-panel">
+        <div class="panel-heading editor-heading">
+          <div>
+            <h2 id="selected-view-name">選取 View</h2>
+            <p id="selected-view-meta" class="muted"></p>
+          </div>
+          <div class="button-row">
+            <button id="add-one-button" class="secondary" disabled>新增一筆</button>
+            <button id="add-many-button" class="primary" disabled>批次新增</button>
+          </div>
+        </div>
+
+        <div class="grid-settings">
+          <label>欄數 <input id="grid-columns" type="number" min="1" max="24" value="4"></label>
+          <label>起點 X <input id="grid-x" type="number" min="0" value="60"></label>
+          <label>起點 Y <input id="grid-y" type="number" min="0" value="80"></label>
+          <label>欄距 <input id="grid-gap-x" type="number" min="0" value="40"></label>
+          <label>列距 <input id="grid-gap-y" type="number" min="0" value="40"></label>
+          <label>Label 位置
+            <select id="grid-label-position">
+              <option value="above">圖形上方</option>
+              <option value="below">圖形下方</option>
+              <option value="left">圖形左側</option>
+              <option value="right">圖形右側</option>
+            </select>
+          </label>
+          <label>Label 間距 <input id="grid-label-offset" type="number" min="0" value="10"></label>
+          <label>字體大小 <input id="grid-font-size" type="number" min="8" max="72" value="14"></label>
+        </div>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Label</th>
+                <th>Tag（設備／名稱）</th>
+                <th>圖形</th>
+                <th>狀態色</th>
+                <th>排序／刪除</th>
+              </tr>
+            </thead>
+            <tbody id="component-rows">
+              <tr><td colspan="6" class="empty-cell">載入配置後選擇一個 View。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="editor-note">既有、非本工具建立的 Tag 元件會列為唯讀項目，不會被重新排列。新增項目使用自動 Grid 排列；手動位置調整請在 FUXA 編輯器完成。</p>
+      </section>
+
+      <section class="panel preview-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>View 預覽</h2>
+            <p id="preview-size" class="muted"></p>
+          </div>
+          <span id="preview-warning" class="warning-badge" hidden>排列超出畫布</span>
+        </div>
+        <div class="preview-scroll">
+          <div id="preview-host" class="preview-host"></div>
+        </div>
+        <p class="editor-note">預覽不可拖曳。儲存時，受管理項目會依 Grid 重新排列；既有元件以淡色顯示。</p>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="batch-dialog">
+    <form method="dialog" id="batch-form">
+      <div class="dialog-heading">
+        <div>
+          <h2>批次新增 Tag 元件</h2>
+          <p class="muted">選取多個 Tag；Label 預設使用 Tag 名稱。</p>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="關閉">×</button>
+      </div>
+      <label class="search-label">搜尋 Tag
+        <input id="tag-search" type="search" placeholder="輸入設備或 Tag 名稱">
+      </label>
+      <div id="tag-choices" class="tag-choices"></div>
+      <div class="dialog-actions">
+        <button class="secondary" value="cancel">取消</button>
+        <button id="batch-confirm" class="primary" value="confirm">加入選取項目</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

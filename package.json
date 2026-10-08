@@ -1,0 +1,7 @@
+{
+  "name": "fuxa-view-batch-editor",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/domain.test.cjs"
+  }
+}
