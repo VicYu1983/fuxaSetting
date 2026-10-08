@@ -28,6 +28,8 @@ button:not(:disabled):hover, .button:hover { border-color: #94a3b8; }
 .primary { color: #fff; background: var(--blue); border-color: var(--blue); }
 .primary:not(:disabled):hover { background: #1d4ed8; border-color: #1d4ed8; }
 .secondary { background: #fff; }
+.danger { color: #b91c1c; background: #fff; border-color: #fecaca; }
+.danger:not(:disabled):hover { color: #991b1b; border-color: #f87171; background: #fef2f2; }
 
 .topbar {
   display: flex; justify-content: space-between; align-items: center; gap: 16px;
@@ -49,6 +51,8 @@ main { padding: 16px 20px 24px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px; border-bottom: 1px solid var(--border); }
 .panel-heading h2 { margin: 0; font-size: 16px; }
 .panel-heading p { margin: 4px 0 0; font-size: 12px; }
+.view-actions { display: flex; gap: 5px; }
+.compact-button { padding: 6px 8px; font-size: 11px; }
 .muted { color: var(--muted); }
 .view-list { max-height: calc(100vh - 190px); overflow: auto; padding: 8px; }
 .view-option { display: block; width: 100%; text-align: left; padding: 10px; margin: 2px 0; border-color: transparent; }

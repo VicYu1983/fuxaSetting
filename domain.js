@@ -191,6 +191,39 @@
     throw new Error("無法產生唯一元件 ID。");
   }
 
+  function removeLayoutViewReferences(layout, viewId, replacementViewId) {
+    let removed = 0;
+    function visit(value) {
+      if (Array.isArray(value)) {
+        for (let index = value.length - 1; index >= 0; index -= 1) {
+          const entry = value[index];
+          if (isRecord(entry) && entry.view === viewId) {
+            value.splice(index, 1);
+            removed += 1;
+          } else {
+            visit(entry);
+          }
+        }
+        return;
+      }
+      if (!isRecord(value)) return;
+      for (const [key, child] of Object.entries(value)) {
+        if (key === "view" && child === viewId) {
+          delete value[key];
+          removed += 1;
+        } else if (key !== "start") {
+          visit(child);
+        }
+      }
+    }
+    if (isRecord(layout) && layout.start === viewId) {
+      layout.start = replacementViewId;
+      removed += 1;
+    }
+    visit(layout);
+    return removed;
+  }
+
   function hasViewShape(view) {
     return isRecord(view) && typeof view.id === "string" &&
       isRecord(view.items) && typeof view.svgcontent === "string";
@@ -199,6 +232,7 @@
   return {
     DEFAULT_GRID, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
     buildTagIndex, findById, generateId, hasViewShape, isRecord,
-    layoutComponents, parseSvg, readManaged, serializeConfig, validateConfig
+    layoutComponents, parseSvg, readManaged, removeLayoutViewReferences,
+    serializeConfig, validateConfig
   };
 });

@@ -13,8 +13,11 @@
     tags: new Map(),
     models: new Map(),
     baselines: new Map(),
+    originalViewIds: [],
+    originalLayout: null,
     selectedViewId: "",
     usedIds: new Set(),
+    usedViewIds: new Set(),
     createdIds: new Set(),
     undoStack: [],
     redoStack: []
@@ -29,6 +32,8 @@
     viewName: $("#selected-view-name"),
     viewMeta: $("#selected-view-meta"),
     rows: $("#component-rows"),
+    addView: $("#add-view-button"),
+    deleteView: $("#delete-view-button"),
     previewHost: $("#preview-host"),
     previewSize: $("#preview-size"),
     previewWarning: $("#preview-warning"),
@@ -40,7 +45,11 @@
     dialog: $("#batch-dialog"),
     tagChoices: $("#tag-choices"),
     tagSearch: $("#tag-search"),
-    batchConfirm: $("#batch-confirm")
+    batchConfirm: $("#batch-confirm"),
+    newViewDialog: $("#new-view-dialog"),
+    newViewName: $("#new-view-name"),
+    deleteViewDialog: $("#delete-view-dialog"),
+    deleteViewMessage: $("#delete-view-message")
   };
   const batchSelection = new Set();
   const gridInputs = {
@@ -80,6 +89,7 @@
   function reserveExistingIds(config) {
     const ids = new Set();
     for (const view of config.hmi.views) {
+      if (typeof view.id === "string") ids.add(view.id);
       if (D.isRecord(view.items)) {
         for (const id of Object.keys(view.items)) ids.add(id);
       }
@@ -115,7 +125,10 @@
     state.models = new Map();
     state.baselines = new Map();
     state.usedIds = reserveExistingIds(config);
+    state.usedViewIds = new Set(config.hmi.views.map((view) => view.id).filter(Boolean));
     state.createdIds = new Set();
+    state.originalViewIds = config.hmi.views.map((view) => view.id);
+    state.originalLayout = clone(config.hmi.layout || null);
     state.undoStack = [];
     state.redoStack = [];
 
@@ -145,12 +158,13 @@
   }
 
   function modelSnapshot() {
-    const serializable = Array.from(state.models.entries()).map(([id, model]) => [id, {
-      viewId: model.viewId,
-      components: model.components,
-      grid: model.grid
-    }]);
-    return JSON.stringify(serializable);
+    return JSON.stringify({
+      views: state.config.hmi.views,
+      layout: state.config.hmi.layout,
+      models: Array.from(state.models.entries()),
+      baselines: Array.from(state.baselines.entries()),
+      selectedViewId: state.selectedViewId
+    });
   }
 
   function rememberUndo() {
@@ -161,14 +175,12 @@
   }
 
   function restoreSnapshot(snapshot) {
-    const saved = new Map(JSON.parse(snapshot));
-    for (const [viewId, model] of saved) {
-      const current = state.models.get(viewId);
-      if (current) {
-        current.components = model.components;
-        current.grid = model.grid;
-      }
-    }
+    const saved = JSON.parse(snapshot);
+    state.config.hmi.views = saved.views;
+    state.config.hmi.layout = saved.layout;
+    state.models = new Map(saved.models);
+    state.baselines = new Map(saved.baselines);
+    state.selectedViewId = saved.selectedViewId;
     renderAll();
   }
 
@@ -593,6 +605,9 @@
   }
 
   function isDirty() {
+    const currentViewIds = state.config.hmi.views.map((view) => view.id);
+    if (JSON.stringify(currentViewIds) !== JSON.stringify(state.originalViewIds)) return true;
+    if (JSON.stringify(state.config.hmi.layout || null) !== JSON.stringify(state.originalLayout)) return true;
     for (const [viewId, model] of state.models) {
       const current = JSON.stringify({
         components: model.components,
@@ -615,6 +630,8 @@
     elements.addOne.disabled = !model;
     elements.addMany.disabled = !model || state.tags.size === 0;
     elements.save.disabled = !state.config;
+    elements.addView.disabled = !state.config;
+    elements.deleteView.disabled = !view || state.config.hmi.views.length <= 1;
     renderGridControls();
     renderRows();
     renderPreview();
@@ -652,6 +669,112 @@
       managed: true
     });
     renderAll();
+  }
+
+  function openNewViewDialog() {
+    if (!state.config) return;
+    elements.newViewName.value = "";
+    elements.newViewDialog.showModal();
+    elements.newViewName.focus();
+  }
+
+  function createBlankView(name) {
+    const profile = {
+      width: 1024,
+      height: 768,
+      bkcolor: "#ffffffff",
+      margin: 10,
+      align: "topCenter",
+      gridType: "fixed",
+      viewRenderDelay: 0
+    };
+    const active = selectedView();
+    if (active && D.isRecord(active.profile)) {
+      Object.assign(profile, {
+        width: Number(active.profile.width) || profile.width,
+        height: Number(active.profile.height) || profile.height,
+        bkcolor: active.profile.bkcolor || profile.bkcolor
+      });
+    }
+    const id = D.generateId("v", state.usedViewIds, window.crypto);
+    state.usedIds.add(id);
+    return {
+      id,
+      name,
+      profile,
+      items: {},
+      variables: {},
+      svgcontent: `<svg width="${profile.width}" height="${profile.height}" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">\n <g>\n  <title>Layer 1</title>\n </g>\n</svg>`,
+      type: "svg"
+    };
+  }
+
+  function createView(name) {
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      setStatus("View 名稱不可空白。", "error");
+      return false;
+    }
+    if (state.config.hmi.views.some((view) =>
+      (view.name || "").trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase()
+    )) {
+      setStatus(`View「${normalizedName}」已存在，請使用不同名稱。`, "error");
+      return false;
+    }
+    rememberUndo();
+    const view = createBlankView(normalizedName);
+    state.config.hmi.views.push(view);
+    const model = {
+      viewId: view.id,
+      components: [],
+      originalComponents: [],
+      unmanaged: [],
+      grid: { ...D.DEFAULT_GRID }
+    };
+    state.models.set(view.id, model);
+    state.baselines.set(view.id, JSON.stringify({
+      components: model.components,
+      grid: model.grid
+    }));
+    state.selectedViewId = view.id;
+    renderAll();
+    setStatus(`已新增空白 View「${normalizedName}」。`, "success");
+    return true;
+  }
+
+  function deleteSelectedView() {
+    const view = selectedView();
+    if (!view || state.config.hmi.views.length <= 1) return;
+    const index = state.config.hmi.views.findIndex((candidate) => candidate.id === view.id);
+    const remaining = state.config.hmi.views.filter((candidate) => candidate.id !== view.id);
+    const fallback = remaining[Math.min(index, remaining.length - 1)] || remaining[0];
+    const layoutPreview = clone(state.config.hmi.layout || {});
+    const referenceCount = D.removeLayoutViewReferences(layoutPreview, view.id, fallback.id);
+    const startWasDeleted = state.config.hmi.layout &&
+      state.config.hmi.layout.start === view.id;
+    elements.deleteViewMessage.textContent =
+      `確定刪除「${view.name || view.id}」？${referenceCount
+        ? `將自動移除 ${referenceCount - (startWasDeleted ? 1 : 0)} 個導覽引用，${startWasDeleted ? `並將起始頁改為「${fallback.name || fallback.id}」。` : ""}`
+        : "此 View 沒有導覽引用。"} 無法還原的 JSON 輸出前仍可使用復原功能。`;
+    elements.deleteViewDialog.showModal();
+    elements.deleteViewDialog.dataset.viewId = view.id;
+    elements.deleteViewDialog.dataset.fallbackId = fallback.id;
+  }
+
+  function confirmDeleteView(viewId, fallbackId) {
+    const index = state.config.hmi.views.findIndex((view) => view.id === viewId);
+    if (index < 0 || state.config.hmi.views.length <= 1) return;
+    rememberUndo();
+    const fallback = state.config.hmi.views.find((view) => view.id === fallbackId);
+    if (state.config.hmi.layout) {
+      D.removeLayoutViewReferences(state.config.hmi.layout, viewId, fallbackId);
+    }
+    state.config.hmi.views.splice(index, 1);
+    state.models.delete(viewId);
+    state.baselines.delete(viewId);
+    state.selectedViewId = fallback ? fallback.id : state.config.hmi.views[0].id;
+    renderAll();
+    setStatus(`已刪除 View，並處理其起始頁／導覽引用。`, "success");
   }
 
   function openBatchDialog() {
@@ -891,6 +1014,20 @@
 
   elements.addOne.addEventListener("click", () => addComponent("", ""));
   elements.addMany.addEventListener("click", openBatchDialog);
+  elements.addView.addEventListener("click", openNewViewDialog);
+  elements.deleteView.addEventListener("click", deleteSelectedView);
+  elements.newViewDialog.addEventListener("submit", (event) => {
+    if (event.submitter && event.submitter.value !== "confirm") return;
+    event.preventDefault();
+    if (createView(elements.newViewName.value)) elements.newViewDialog.close();
+  });
+  elements.deleteViewDialog.addEventListener("submit", (event) => {
+    if (event.submitter && event.submitter.value !== "confirm") return;
+    event.preventDefault();
+    const { viewId, fallbackId } = elements.deleteViewDialog.dataset;
+    elements.deleteViewDialog.close();
+    confirmDeleteView(viewId, fallbackId);
+  });
   elements.tagSearch.addEventListener("input", () => renderTagChoices(elements.tagSearch.value));
   elements.dialog.addEventListener("submit", handleBatchConfirm);
   elements.save.addEventListener("click", saveConfig);

@@ -8,6 +8,7 @@
 
 - 採免安裝、免伺服器的原生 JavaScript 網頁，而非原提案的 TypeScript/Vite；可用 Edge 或 Chrome 直接開啟 `index.html`。
 - 已包含 JSON 載入、View 清單、既有 Tag 搜尋／批次新增、Tag／Label／樣式編輯、排序／刪除、Grid 預覽、Undo/Redo、另存新檔及資料驗證。
+- 已支援建立空白 View、刪除選取 View；新增的 View 不會自動加入 FUXA 導覽列。
 - 已實作 `items` 與 SVG 同步、保留未管理元件、原檔逐字複製、Bool 狀態配色及本機資料處理。
 - 自動化測試使用 Node.js 內建測試執行器；實際匯入 FUXA 的相容性仍需現場驗證。
 
@@ -20,6 +21,7 @@
 ### 1.2 範圍內（第一版）
 
 - 載入 FUXA JSON、列出 `hmi.views`。
+- 新增空白 View、刪除選取的 View，至少保留一個 View。
 - 對選定 View 的「Tag 元件」清單做 CRUD。
 - 每個 Tag 元件 = 1 個圖形元件（綁定 Tag）+ 1 個 Label（文字）。
 - Grid 自動排列、View 預覽（唯讀，不可拖曳）。
@@ -31,7 +33,9 @@
 - 事件、互動、腳本、ranges 以外的動態設定。
 - 預覽中拖曳、縮放、手動改位置。
 - 覆蓋原檔、任何網路傳輸。
-- 修改 `hmi.layout`、`scripts`、`devices` 等非 View 區塊（必須原樣保留）。
+- 修改 `scripts`、`devices` 等非 View 區塊（必須原樣保留）；`hmi.layout` 僅在刪除 View 時清理必要引用。
+
+> 新增 View 不會自動建立導覽項目，需在 FUXA 編輯器中自行加入導覽。刪除 View 時會自動更新 `hmi.layout`：移除導覽項目中指向該 View 的項目；若起始頁指向該 View，改指向剩餘 Views 中相鄰的一個。
 
 ## 2. 技術選型建議
 
@@ -214,7 +218,8 @@ tests/domain.test.cjs    // Node.js 內建測試
 3. `JSON.parse`；檢查必要結構（§10.1）。失敗 → 顯示錯誤，不進入編輯。
 4. 建立 Tag 索引（遍歷全部 `devices[*].tags`，含 FuxaServer）。
 5. 對每個 View 執行 `viewReader`，得到 `ViewModel`（受管理項目＋唯讀項目＋其他元件外框）。
-6. **整份配置深拷貝為「工作副本」**；原始物件不再修改。
+6. 記錄初始 View ID 清單及 `hmi.layout`，供 dirty check 使用。
+7. 配置作為記憶體工作副本；來源檔案文字保持不變。
 
 ### 6.2 編輯
 
@@ -328,6 +333,8 @@ type Placement = {
 
 - 顯示 `view.name`、受管理項目數、非管理綁 Tag 項目數、是否有未儲存變更（●）。
 - 選取後載入右側內容。
+- 清單標題列提供「新增」與「刪除」；新增透過名稱對話框建立空白 View，名稱不可空白且不得與現有 View 重複（忽略大小寫）。
+- 刪除前顯示確認對話框及導覽引用影響；至少保留一個 View。
 
 ### 9.3 元件清單（CRUD）
 
@@ -377,6 +384,7 @@ type Placement = {
 ### 10.3 儲存時
 
 - 若任一受管理項目有「錯誤」級別問題 → 阻擋並指出列。
+- View ID 清單或 `hmi.layout` 與載入時不同，也視為未儲存變更。
 - 儲存後**自我驗證**：重新解析輸出字串，檢查：
   1. 各 View 的 `items` 鍵與 `svgcontent` 中對應 id 一一存在（受管理項目）。
   2. 每個受管理元件的 `variableId` 都存在於 Tag 索引，且與清單一致。
@@ -396,6 +404,7 @@ type Placement = {
 | --- | --- | --- |
 | 單元（已實作） | Node.js `node --test tests/domain.test.cjs` | 範例配置檢查、Tag 索引、Grid、CRLF 往返、ID 碰撞重試全通過 |
 | 手動（已執行） | Edge 載入範例、批次新增 1 筆、另存 | UI 載入 8 個 View／220 個 Tag；加入項目並通過匯出前資料驗證 |
+| 單元（已實作） | 刪除 View 的 layout 參照處理 | 移除導覽引用並將 `start` 指向指定的保留 View |
 | 單元（待補） | `applyView` 與 managed item 刪除 | 新增／刪除／修改後 items 與 SVG 同步，保留非管理內容與 events |
 | 整合 | 對範例 `電力設備及發電機_B2F` 重建 | 產生結果可被 `JSON.parse`、通過 §10.3 自我驗證 |
 | 手動 | 匯入 FUXA（實機） | 新元件在 FUXA 編輯器可選取、屬性面板顯示正確 Tag、執行時顏色隨 Tag 值變化；Label 位置如預覽 |
@@ -419,7 +428,7 @@ type Placement = {
 
 ## 14. 開發里程碑
 
-1. **M1 基礎**：已完成載入／序列化、Tag 索引、View 列表與 roundtrip 測試。
+1. **M1 基礎**：已完成載入／序列化、Tag 索引、View 列表、新增／刪除 View 與 roundtrip 測試。
 2. **M2 寫入核心**：已完成 SVG 元件建立、ID、Tag 綁定與匯出自我驗證；待以實際 FUXA 匯入驗證。
 3. **M3 排列與預覽**：已完成 Grid、自動預覽與設定面板。
 4. **M4 清單 CRUD**：已完成單筆／批次新增、編輯、刪除、排序、Undo/Redo。
@@ -430,6 +439,7 @@ M2 完成後若實機匯入有相容性問題，需先修正再往下做（其�
 ## 15. 驗收標準
 
 - 載入範例後不做任何修改直接另存，輸出與原檔逐字相同。
+- 新增空白 View 後另存，既有 Views 與非相關配置保持不變；刪除被導覽引用的 View 後，不留下其 layout 參照，起始頁指向仍存在的 View。
 - 在任一 View 批次新增 N 個 Tag 元件：預覽依 Grid 顯示，匯入 FUXA 後每個元件綁定正確 Tag、Label 文字正確、位置與預覽一致。
 - 刪除／修改後 `items` 與 `svgcontent` 無孤兒項目。
 - 未編輯的 View、`devices`、`scripts`、`hmi.layout` 與原檔深度相等。

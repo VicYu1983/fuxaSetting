@@ -33,6 +33,10 @@
             <h2>Views</h2>
             <p class="muted">選擇要管理的畫面</p>
           </div>
+          <div class="view-actions">
+            <button id="add-view-button" class="secondary compact-button" disabled>新增</button>
+            <button id="delete-view-button" class="danger compact-button" disabled>刪除</button>
+          </div>
         </div>
         <div id="view-list" class="view-list"></div>
       </aside>
@@ -119,6 +123,39 @@
       <div class="dialog-actions">
         <button class="secondary" value="cancel">取消</button>
         <button id="batch-confirm" class="primary" value="confirm">加入選取項目</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="new-view-dialog">
+    <form method="dialog" id="new-view-form">
+      <div class="dialog-heading">
+        <div>
+          <h2>新增空白 View</h2>
+          <p class="muted">建立空白畫布，之後可新增 Tag 元件。</p>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="關閉">×</button>
+      </div>
+      <label class="search-label">View 名稱
+        <input id="new-view-name" type="text" maxlength="100" required autocomplete="off">
+      </label>
+      <div class="dialog-actions">
+        <button class="secondary" value="cancel">取消</button>
+        <button id="new-view-confirm" class="primary" value="confirm">建立 View</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="delete-view-dialog">
+    <form method="dialog" id="delete-view-form">
+      <div class="dialog-heading">
+        <div>
+          <h2>刪除 View</h2>
+          <p id="delete-view-message" class="muted"></p>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="關閉">×</button>
+      </div>
+      <div class="dialog-actions">
+        <button class="secondary" value="cancel">取消</button>
+        <button id="delete-view-confirm" class="danger" value="confirm">刪除 View</button>
       </div>
     </form>
   </dialog>

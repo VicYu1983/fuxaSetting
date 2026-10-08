@@ -67,3 +67,30 @@ test("generated ids retry collisions and reserve the accepted value", () => {
   assert.equal(id, "SHE_01010101-01010101");
   assert.equal(used.has(id), true);
 });
+
+test("removing a View clears navigation references and replaces its start View", () => {
+  const layout = {
+    start: "view-old",
+    navigation: {
+      items: [
+        {
+          text: "Group",
+          view: "view-other",
+          children: [
+            { text: "Old page", view: "view-old" },
+            { text: "Keep page", view: "view-other" }
+          ]
+        },
+        { text: "Remove group", view: "view-old", children: [] }
+      ]
+    }
+  };
+  const removed = D.removeLayoutViewReferences(layout, "view-old", "view-other");
+  assert.equal(removed, 3);
+  assert.equal(layout.start, "view-other");
+  assert.deepEqual(layout.navigation.items, [{
+    text: "Group",
+    view: "view-other",
+    children: [{ text: "Keep page", view: "view-other" }]
+  }]);
+});
