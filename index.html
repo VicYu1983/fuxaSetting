@@ -19,6 +19,7 @@
       <label class="button secondary" for="config-file">開啟 JSON</label>
       <input id="config-file" type="file" accept=".json,application/json" hidden>
       <button id="device-mgr-button" class="secondary" disabled>ModbusTCP / Tag 管理</button>
+      <button id="floor-manager-button" class="secondary" disabled>Tag 樓層分組</button>
       <button id="undo-button" class="secondary" disabled>復原</button>
       <button id="redo-button" class="secondary" disabled>重做</button>
       <button id="save-button" class="primary" disabled>另存新 JSON</button>
@@ -52,6 +53,10 @@
           <div class="button-row">
             <button id="quick-batch-tags-button" class="secondary" disabled>批次建立 Tag</button>
             <button id="add-one-button" class="secondary" disabled>新增一筆</button>
+            <select id="add-floor-select" aria-label="選擇要加入 View 的樓層" disabled>
+              <option value="">選擇樓層…</option>
+            </select>
+            <button id="add-floor-button" class="secondary" disabled>加入整層 Tag</button>
             <button id="add-many-button" class="primary" disabled>批次選取加入 View</button>
           </div>
         </div>
@@ -91,7 +96,7 @@
             </tbody>
           </table>
         </div>
-        <p class="editor-note">既有、非本工具建立的 Tag 元件會列為唯讀項目，不會被重新排列。新增項目使用自動 Grid 排列；手動位置調整請在 FUXA 編輯器完成。</p>
+        <p class="editor-note">既有 FUXA Tag 元件會依樓層自動移動，保留原外觀與綁定；不可安全移動的元件會列出原因並保留原位。與 Tag 水平置中且位於上方 80 單位內的獨立文字會一併移動。各樓層共用 Grid；超出畫布不會縮小或阻止輸出。</p>
       </section>
 
       <section class="panel preview-panel">
@@ -105,7 +110,7 @@
         <div class="preview-scroll">
           <div id="preview-host" class="preview-host"></div>
         </div>
-        <p class="editor-note">預覽不可拖曳。儲存時，受管理項目會依 Grid 重新排列；既有元件以淡色顯示。</p>
+        <p class="editor-note">預覽不可拖曳。儲存時，工具建立的元件與可安全移動的既有 Tag 元件會依樓層區塊及 Grid 排列；既有元件以淡色顯示。</p>
       </section>
     </section>
   </main>
@@ -287,11 +292,14 @@
             <label>遞增步長 (step)
               <input id="batch-tag-step" type="number" min="1" value="1" required>
             </label>
+            <label>批次預設樓層
+              <input id="batch-tag-floor" type="text" list="floor-options" placeholder="例如：4F">
+            </label>
           </div>
 
           <label class="search-label">
-            貼上或輸入 Tag 名稱（每行一個，可直接由 Excel 複製名稱與位址貼上）：
-            <textarea id="batch-tag-input" rows="7" class="batch-tag-textarea" placeholder="男廁所緊急壓扣&#10;女廁所緊急壓扣&#10;殘障廁所緊急壓扣&#10;吊裝平台磁簧&#10;&#10;也可支援：名稱, 位址 或 名稱\t位址"></textarea>
+            貼上或輸入 Tag 名稱（每行一個；第 6 欄可個別指定樓層）：
+            <textarea id="batch-tag-input" rows="7" class="batch-tag-textarea" placeholder="男廁所緊急壓扣&#10;女廁所緊急壓扣&#10;殘障廁所緊急壓扣&#10;吊裝平台磁簧&#10;&#10;欄位：名稱, 位址, 型別, 區段, 備註, 樓層"></textarea>
           </label>
 
           <div class="batch-preview-container">
@@ -308,11 +316,12 @@
                     <th>位址 (address)</th>
                     <th>區段 (memaddress)</th>
                     <th>型別 (type)</th>
+                    <th>樓層</th>
                     <th>狀態</th>
                   </tr>
                 </thead>
                 <tbody id="batch-tag-preview-body">
-                  <tr><td colspan="6" class="empty-cell">在上方文字框輸入或貼上 Tag 名稱以預覽。</td></tr>
+                  <tr><td colspan="7" class="empty-cell">在上方文字框輸入或貼上 Tag 名稱以預覽。</td></tr>
                 </tbody>
               </table>
             </div>
@@ -330,6 +339,32 @@
           </div>
         </form>
       </section>
+    </div>
+  </dialog>
+  <dialog id="floor-manager-dialog" class="large-dialog">
+    <div class="dialog-inner floor-manager">
+      <div class="dialog-heading">
+        <div>
+          <h2>Tag 樓層分組</h2>
+          <p class="muted">設定樓層後會立即更新分組，並自動重新排列使用該 Tag 的工具管理元件。</p>
+        </div>
+        <button id="floor-manager-close" class="icon-button" type="button" aria-label="關閉">×</button>
+      </div>
+      <datalist id="floor-options"></datalist>
+      <div class="floor-manager-toolbar">
+        <input id="floor-tag-search" type="search" placeholder="搜尋設備或 Tag">
+        <div class="button-row">
+          <button id="floor-group-view" class="secondary compact-button active" type="button">依樓層分組</button>
+          <button id="floor-list-view" class="secondary compact-button" type="button">平面清單</button>
+        </div>
+      </div>
+      <div class="floor-bulk-toolbar">
+        <label class="checkbox-label"><input id="floor-select-visible" type="checkbox"> 全選可見 Tag</label>
+        <input id="floor-bulk-value" type="text" list="floor-options" placeholder="輸入或選擇樓層">
+        <button id="floor-bulk-apply" class="secondary compact-button" type="button">套用至選取項目</button>
+        <span id="floor-selected-count" class="muted">已選 0 個</span>
+      </div>
+      <div id="floor-tag-list" class="floor-tag-list"></div>
     </div>
   </dialog>
 </body>

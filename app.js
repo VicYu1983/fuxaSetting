@@ -3,6 +3,7 @@
 
   const D = window.FuxaToolDomain;
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const FLOOR_LAYOUT_MARKER = "floor-layout-v1";
   const $ = (selector) => document.querySelector(selector);
   const state = {
     config: null,
@@ -14,6 +15,7 @@
     tags: new Map(),
     models: new Map(),
     baselines: new Map(),
+    floorBaselines: new Map(),
     originalViewIds: [],
     originalViewNames: [],
     originalLayout: null,
@@ -47,6 +49,8 @@
     previewWarning: $("#preview-warning"),
     addOne: $("#add-one-button"),
     addMany: $("#add-many-button"),
+    addFloor: $("#add-floor-button"),
+    addFloorSelect: $("#add-floor-select"),
     save: $("#save-button"),
     undo: $("#undo-button"),
     redo: $("#redo-button"),
@@ -62,6 +66,18 @@
     deleteViewDialog: $("#delete-view-dialog"),
     deleteViewMessage: $("#delete-view-message"),
     deviceMgrButton: $("#device-mgr-button"),
+    floorManagerButton: $("#floor-manager-button"),
+    floorManagerDialog: $("#floor-manager-dialog"),
+    floorManagerClose: $("#floor-manager-close"),
+    floorTagSearch: $("#floor-tag-search"),
+    floorGroupView: $("#floor-group-view"),
+    floorListView: $("#floor-list-view"),
+    floorSelectVisible: $("#floor-select-visible"),
+    floorBulkValue: $("#floor-bulk-value"),
+    floorBulkApply: $("#floor-bulk-apply"),
+    floorSelectedCount: $("#floor-selected-count"),
+    floorTagList: $("#floor-tag-list"),
+    floorOptions: $("#floor-options"),
     quickBatchTagsButton: $("#quick-batch-tags-button"),
     deviceMgrDialog: $("#device-mgr-dialog"),
     deviceMgrClose: $("#device-mgr-close"),
@@ -99,6 +115,7 @@
     batchTagStartAddr: $("#batch-tag-start-addr"),
     batchTagStep: $("#batch-tag-step"),
     batchTagInput: $("#batch-tag-input"),
+    batchTagFloor: $("#batch-tag-floor"),
     batchPreviewCount: $("#batch-preview-count"),
     batchTagPreviewBody: $("#batch-tag-preview-body"),
     batchAlsoAddView: $("#batch-also-add-view"),
@@ -106,6 +123,8 @@
     batchCreateTagsConfirm: $("#batch-create-tags-confirm")
   };
   const batchSelection = new Set();
+  const floorSelection = new Set();
+  let floorDisplayMode = "group";
   const gridInputs = {
     columns: $("#grid-columns"),
     originX: $("#grid-x"),
@@ -132,6 +151,145 @@
 
   function selectedModel() {
     return state.models.get(state.selectedViewId);
+  }
+
+  function floorSignature(model) {
+    return JSON.stringify(model.components.map((component) => {
+      const tag = state.tags.get(component.tagId);
+      return [component.tagId, tag ? tag.floor : ""];
+    }));
+  }
+
+  function floorTitleKey(floor) {
+    return `floor:${floor}`;
+  }
+
+  function measureSvgItem(doc, id) {
+    const node = D.findById(doc, id);
+    if (!node) throw new Error("找不到對應的 SVG 元件。");
+    const svg = document.createElementNS(SVG_NS, "svg");
+    const sourceRoot = doc.documentElement;
+    const viewBox = sourceRoot.getAttribute("viewBox");
+    svg.setAttribute("viewBox", viewBox || "0 0 1000 1000");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("width", "1000");
+    svg.setAttribute("height", "1000");
+    svg.setAttribute("visibility", "hidden");
+    const cloneNode = node.cloneNode(true);
+    if (cloneNode.getAttribute("data-fuxa-floor-layout") === FLOOR_LAYOUT_MARKER) {
+      cloneNode.removeAttribute("transform");
+    }
+    svg.append(cloneNode);
+    document.body.append(svg);
+    try {
+      const bounds = cloneNode.getBBox();
+      if (![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite) ||
+          bounds.width <= 0 || bounds.height <= 0) {
+        throw new Error("無法取得有效的 SVG 外框。");
+      }
+      return {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height
+      };
+    } finally {
+      svg.remove();
+    }
+  }
+
+  function hasSvgTransform(node) {
+    let current = node;
+    while (current && current.localName !== "svg") {
+      if (current.getAttribute("transform")) {
+        const isToolPosition = current === node &&
+          current.getAttribute("data-fuxa-floor-layout") === FLOOR_LAYOUT_MARKER &&
+          /^translate\(-?\d+(?:\.\d+)? -?\d+(?:\.\d+)?\)$/.test(current.getAttribute("transform"));
+        if (!isToolPosition) return true;
+      }
+      current = current.parentElement;
+    }
+    return false;
+  }
+
+  function prepareMovableTagComponents(parsed) {
+    const components = [];
+    const unsupported = [...parsed.unmanaged];
+    for (const item of parsed.movableTags || []) {
+      try {
+        const bounds = measureSvgItem(parsed.doc, item.id);
+        components.push({
+          key: `existing-${item.id}`,
+          tagId: item.tagId,
+          label: item.name,
+          template: "existing",
+          shapeId: item.id,
+          seq: Number.MAX_SAFE_INTEGER,
+          type: item.type,
+          managed: false,
+          originalBounds: bounds,
+          layoutWidth: bounds.width,
+          layoutHeight: bounds.height,
+          companions: []
+        });
+      } catch (error) {
+        unsupported.push({
+          ...item,
+          reason: error.message
+        });
+      }
+    }
+    return { components, unsupported };
+  }
+
+  function attachExistingTagLabels(view, parsed, components) {
+    const usedLabels = new Set();
+    const labels = [];
+    for (const [id, item] of Object.entries(view.items || {})) {
+      if (!item || item.type !== "svg-ext-shapes-text" ||
+          (item.property && typeof item.property.variableId === "string") ||
+          item.name === "fuxa_floor_section_title" ||
+          /^tc_\d+_label$/.test(item.name || "")) continue;
+      const node = D.findById(parsed.doc, id);
+      if (!node || node.localName !== "text" || hasSvgTransform(node)) continue;
+      try {
+        labels.push({ id, bounds: measureSvgItem(parsed.doc, id) });
+      } catch (_) {
+        // An unrelated text element that cannot be measured is left untouched.
+      }
+    }
+    for (const component of components) {
+      const shape = component.originalBounds;
+      const centerX = shape.x + shape.width / 2;
+      const candidate = labels
+        .filter(({ id, bounds }) => {
+          if (usedLabels.has(id)) return false;
+          const centerDiff = Math.abs(bounds.x + bounds.width / 2 - centerX);
+          const verticalGap = shape.y - (bounds.y + bounds.height);
+          return centerDiff <= Math.max(2, Math.min(8, shape.width * 0.1)) &&
+            verticalGap >= -2 && verticalGap <= 80;
+        })
+        .sort((left, right) => {
+          const leftGap = shape.y - (left.bounds.y + left.bounds.height);
+          const rightGap = shape.y - (right.bounds.y + right.bounds.height);
+          return leftGap - rightGap;
+        })[0];
+      if (!candidate) continue;
+      usedLabels.add(candidate.id);
+      component.companions.push(candidate);
+    }
+  }
+
+  function prepareViewTagComponents(view, parsed) {
+    const prepared = prepareMovableTagComponents(parsed);
+    attachExistingTagLabels(view, parsed, prepared.components);
+    return prepared;
+  }
+
+  function needsFloorLayout(model) {
+    return D.groupComponentsByFloor(model.components, state.tags).some((group) =>
+      !Object.prototype.hasOwnProperty.call(model.originalFloorTitles || {}, floorTitleKey(group.floor))
+    );
   }
 
   function allocateId(prefix) {
@@ -179,6 +337,7 @@
     state.tags = D.buildTagIndex(config);
     state.models = new Map();
     state.baselines = new Map();
+    state.floorBaselines = new Map();
     state.usedIds = reserveExistingIds(config);
     state.usedViewIds = new Set(config.hmi.views.map((view) => view.id).filter(Boolean));
     state.usedDeviceIds = new Set(Object.keys(config.devices || {}));
@@ -206,12 +365,16 @@
       if (!D.hasViewShape(view)) continue;
       const parsed = D.readManaged(view, window.DOMParser);
       if (parsed.error) continue;
+      const existing = prepareViewTagComponents(view, parsed);
+      const components = [...parsed.records, ...existing.components];
       state.models.set(view.id, {
         viewId: view.id,
-        components: parsed.records,
-        originalComponents: clone(parsed.records),
-        unmanaged: parsed.unmanaged,
-        grid: { ...D.DEFAULT_GRID }
+        components,
+        originalComponents: clone(components),
+        unmanaged: existing.unsupported,
+        grid: { ...D.DEFAULT_GRID },
+        floorTitles: { ...(parsed.floorTitles || {}) },
+        originalFloorTitles: { ...(parsed.floorTitles || {}) }
       });
     }
     for (const [viewId, model] of state.models) {
@@ -219,6 +382,7 @@
         components: model.components,
         grid: model.grid
       }));
+      state.floorBaselines.set(viewId, floorSignature(model));
     }
     state.selectedViewId = config.hmi.views.length ? config.hmi.views[0].id : "";
     elements.fileName.textContent = state.fileName;
@@ -234,6 +398,7 @@
       devices: state.config.devices,
       models: Array.from(state.models.entries()),
       baselines: Array.from(state.baselines.entries()),
+      floorBaselines: Array.from(state.floorBaselines.entries()),
       viewTitleIds: Array.from(state.viewTitleIds.entries()),
       selectedViewId: state.selectedViewId,
       selectedDeviceId: state.selectedDeviceId
@@ -264,6 +429,7 @@
     }
     state.models = new Map(saved.models);
     state.baselines = new Map(saved.baselines);
+    state.floorBaselines = new Map(saved.floorBaselines || []);
     state.viewTitleIds = new Map(saved.viewTitleIds || []);
     state.selectedViewId = saved.selectedViewId;
     if (saved.selectedDeviceId) state.selectedDeviceId = saved.selectedDeviceId;
@@ -421,9 +587,42 @@
       row.append(cell);
       elements.rows.append(row);
     }
-    model.components.forEach((component, index) => {
-      elements.rows.append(createManagedRow(component, index, model.components.length));
-    });
+    for (const group of D.groupComponentsByFloor(model.components, state.tags)) {
+      const groupRow = document.createElement("tr");
+      groupRow.className = "floor-section-row";
+      const groupCell = document.createElement("th");
+      groupCell.colSpan = 6;
+      groupCell.textContent = `${group.title} · ${group.items.length} 個 Tag`;
+      groupRow.append(groupCell);
+      elements.rows.append(groupRow);
+      for (const component of group.items) {
+        if (component.managed === false) {
+          const row = document.createElement("tr");
+          row.className = "readonly-row";
+          const sequence = document.createElement("td");
+          sequence.textContent = "—";
+          const label = document.createElement("td");
+          label.textContent = component.label;
+          const tagCell = document.createElement("td");
+          const tag = state.tags.get(component.tagId);
+          tagCell.textContent = tag ? `${tag.deviceName}／${tag.name}` : `Tag 不存在（${component.tagId}）`;
+          const type = document.createElement("td");
+          type.textContent = `既有元件：${component.type || "SVG"}`;
+          const palette = document.createElement("td");
+          palette.textContent = "保留原設定";
+          const operations = document.createElement("td");
+          operations.textContent = "依樓層自動移動";
+          row.append(sequence, label, tagCell, type, palette, operations);
+          elements.rows.append(row);
+        } else {
+          elements.rows.append(createManagedRow(
+            component,
+            model.components.indexOf(component),
+            model.components.length
+          ));
+        }
+      }
+    }
     for (const item of model.unmanaged) {
       const row = document.createElement("tr");
       row.className = "readonly-row";
@@ -439,7 +638,7 @@
       const palette = document.createElement("td");
       palette.textContent = "—";
       const operations = document.createElement("td");
-      operations.textContent = "非工具管理";
+      operations.textContent = item.reason || "結構不支援自動移動";
       row.append(sequence, label, tagCell, type, palette, operations);
       elements.rows.append(row);
     }
@@ -458,7 +657,9 @@
       title.textContent = view.name || view.id || "未命名 View";
       const summary = document.createElement("small");
       summary.textContent = model
-        ? `${model.components.length} 筆可管理 · ${model.unmanaged.length} 筆唯讀`
+        ? `${model.components.filter((item) => item.managed !== false).length} 筆工具管理 · ` +
+          `${model.components.filter((item) => item.managed === false).length} 筆既有元件可重排 · ` +
+          `${model.unmanaged.length} 筆保留唯讀`
         : "結構無效 · 唯讀";
       button.append(title, summary);
       button.addEventListener("click", () => {
@@ -557,9 +758,11 @@
   function managedIds(model) {
     const ids = new Set();
     for (const component of [...(model.originalComponents || []), ...model.components]) {
+      if (component.managed === false) continue;
       ids.add(component.shapeId);
-      ids.add(component.labelId);
+      if (component.labelId) ids.add(component.labelId);
     }
+    for (const id of Object.values(model.floorTitles || {})) ids.add(id);
     return ids;
   }
 
@@ -612,22 +815,96 @@
     };
   }
 
+  function buildFloorTitleNode(doc, section, id, grid) {
+    const text = createSvgNode(doc, "text", {
+      "data-name": "fuxa_floor_section_title",
+      "data-floor-group": section.floor,
+      id,
+      type: "svg-ext-shapes-text",
+      x: section.x,
+      y: section.titleY,
+      fill: "#1d4ed8",
+      stroke: "#1d4ed8",
+      "stroke-width": "0",
+      "font-size": grid.labelFontSize,
+      "font-family": "sans-serif",
+      "font-weight": "bold",
+      "text-anchor": "start",
+      "xml:space": "preserve"
+    });
+    text.textContent = section.title;
+    return text;
+  }
+
+  function buildFloorTitleEntry(existing, id) {
+    return {
+      ...(existing || {}),
+      id,
+      type: "svg-ext-shapes-text",
+      name: "fuxa_floor_section_title",
+      property: null,
+      label: "Shapes",
+      hide: false,
+      lock: false
+    };
+  }
+
+  function existingTagTransform(component, placement) {
+    const dx = placement.shape.x - component.originalBounds.x;
+    const dy = placement.shape.y - component.originalBounds.y;
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return "";
+    const x = Number(dx.toFixed(3));
+    const y = Number(dy.toFixed(3));
+    return `translate(${x} ${y})`;
+  }
+
   function applyModelToView(view, model) {
     const doc = D.parseSvg(view.svgcontent, window.DOMParser);
     const layer = getLayer(doc);
     if (!layer) throw new Error(`View「${view.name || view.id}」找不到可安全插入元件的 SVG 圖層。`);
     const previousItems = { ...view.items };
     removeManagedFromView(view, model, doc);
-    const placements = D.layoutComponents(model.components, model.grid);
-    for (const [index, component] of model.components.entries()) {
-      const placement = placements[index];
-      const previousShape = previousItems[component.shapeId];
-      const previousLabel = previousItems[component.labelId];
-      const shapeNode = buildShapeNode(doc, component, placement);
-      const labelNode = buildLabelNode(doc, component, placement, model.grid);
-      layer.append(shapeNode, labelNode);
-      view.items[component.shapeId] = buildItemEntry(previousShape, component, shapeNode);
-      view.items[component.labelId] = buildLabelEntry(previousLabel, component);
+    const layout = D.layoutFloorComponents(model.components, model.grid, state.tags);
+    for (const section of layout.sections) {
+      const titleKey = floorTitleKey(section.floor);
+      const titleId = model.floorTitles[titleKey] || allocateId("svg");
+      model.floorTitles[titleKey] = titleId;
+      const titleNode = buildFloorTitleNode(doc, section, titleId, model.grid);
+      layer.append(titleNode);
+      view.items[titleId] = buildFloorTitleEntry(previousItems[titleId], titleId);
+      for (const { component, placement } of section.entries) {
+        if (component.managed === false) {
+          const node = D.findById(doc, component.shapeId);
+          if (!node) throw new Error(`既有 Tag 元件 ${component.shapeId} 在 SVG 中不存在。`);
+          const transform = existingTagTransform(component, placement);
+          if (transform) {
+            node.setAttribute("transform", transform);
+            node.setAttribute("data-fuxa-floor-layout", FLOOR_LAYOUT_MARKER);
+          } else {
+            node.removeAttribute("transform");
+            node.removeAttribute("data-fuxa-floor-layout");
+          }
+          for (const companion of component.companions || []) {
+            const labelNode = D.findById(doc, companion.id);
+            if (!labelNode) throw new Error(`既有 Tag 標籤 ${companion.id} 在 SVG 中不存在。`);
+            if (transform) {
+              labelNode.setAttribute("transform", transform);
+              labelNode.setAttribute("data-fuxa-floor-layout", FLOOR_LAYOUT_MARKER);
+            } else {
+              labelNode.removeAttribute("transform");
+              labelNode.removeAttribute("data-fuxa-floor-layout");
+            }
+          }
+          continue;
+        }
+        const previousShape = previousItems[component.shapeId];
+        const previousLabel = previousItems[component.labelId];
+        const shapeNode = buildShapeNode(doc, component, placement);
+        const labelNode = buildLabelNode(doc, component, placement, model.grid);
+        layer.append(shapeNode, labelNode);
+        view.items[component.shapeId] = buildItemEntry(previousShape, component, shapeNode);
+        view.items[component.labelId] = buildLabelEntry(previousLabel, component);
+      }
     }
     view.svgcontent = new XMLSerializer().serializeToString(doc);
   }
@@ -676,20 +953,33 @@
       }
       const layer = getLayer(svg);
       if (!layer) throw new Error("無法建立預覽圖層。");
-      const placements = D.layoutComponents(model.components, model.grid);
-      for (const [index, component] of model.components.entries()) {
-        const previewComponent = { ...component };
-        const shape = buildShapeNode(svg.ownerDocument, previewComponent, placements[index]);
-        const label = buildLabelNode(svg.ownerDocument, previewComponent, placements[index], model.grid);
-        shape.removeAttribute("opacity");
-        label.removeAttribute("opacity");
-        for (const child of Array.from(shape.querySelectorAll("*"))) child.removeAttribute("opacity");
-        layer.append(shape, label);
+      const layout = D.layoutFloorComponents(model.components, model.grid, state.tags);
+      for (const section of layout.sections) {
+        const titleKey = floorTitleKey(section.floor);
+        const titleId = model.floorTitles[titleKey] ||
+          (model.floorTitles[titleKey] = allocateId("svg"));
+        const previousTitle = D.findById(svg, titleId);
+        if (previousTitle && previousTitle.parentNode) previousTitle.parentNode.removeChild(previousTitle);
+        const title = buildFloorTitleNode(svg.ownerDocument, section, titleId, model.grid);
+        layer.append(title);
+        title.removeAttribute("opacity");
+        for (const { component, placement } of section.entries) {
+          const previewComponent = { ...component };
+          const shape = buildShapeNode(svg.ownerDocument, previewComponent, placement);
+          const label = buildLabelNode(svg.ownerDocument, previewComponent, placement, model.grid);
+          shape.removeAttribute("opacity");
+          label.removeAttribute("opacity");
+          for (const child of Array.from(shape.querySelectorAll("*"))) child.removeAttribute("opacity");
+          layer.append(shape, label);
+        }
       }
       elements.previewHost.append(svg);
       elements.previewSize.textContent = `${width} × ${height}`;
-      const outside = placements.some(({ shape }) =>
-        shape.x < 0 || shape.y < 0 || shape.x + shape.width > width || shape.y + shape.height > height
+      const outside = layout.placements.some(({ placement }) => {
+        const { shape } = placement;
+        return shape.x < 0 || shape.y < 0 || shape.x + shape.width > width || shape.y + shape.height > height;
+      }) || layout.sections.some((section) =>
+        section.titleY < 0 || section.titleY > height || section.x > width
       );
       elements.previewWarning.hidden = !outside;
     } catch (error) {
@@ -708,6 +998,7 @@
     if (JSON.stringify(currentViewNames) !== JSON.stringify(state.originalViewNames)) return true;
     if (JSON.stringify(state.config.hmi.layout || null) !== JSON.stringify(state.originalLayout)) return true;
     for (const [viewId, model] of state.models) {
+      if (needsFloorLayout(model)) return true;
       const current = JSON.stringify({
         components: model.components,
         grid: model.grid
@@ -719,6 +1010,8 @@
 
   function renderAll() {
     if (!state.config) return;
+    renderFloorOptions();
+    updateAddFloorOptions();
     renderViewList();
     const view = selectedView();
     const model = selectedModel();
@@ -728,7 +1021,10 @@
       : "";
     elements.addOne.disabled = !model;
     elements.addMany.disabled = !model || state.tags.size === 0;
+    elements.addFloor.disabled = !model || state.tags.size === 0;
+    elements.addFloorSelect.disabled = !model || state.tags.size === 0;
     elements.deviceMgrButton.disabled = !state.config;
+    elements.floorManagerButton.disabled = !state.config;
     elements.quickBatchTagsButton.disabled = !state.config;
     elements.save.disabled = !state.config;
     elements.addView.disabled = !state.config;
@@ -750,27 +1046,62 @@
     renderPreview();
   }
 
-  function addComponent(tagId, label) {
+  function makeComponent(tagId, label) {
     const model = selectedModel();
-    if (!model) return;
     const seq = model.components.reduce((max, item) => Math.max(max, item.seq), 0) + 1;
-    const shapeId = allocateId("SHE");
-    const labelId = allocateId("svg");
-    const shapeInnerIds = [allocateId("SHE")];
-    rememberUndo();
-    model.components.push({
+    return {
       key: `new-${crypto.randomUUID()}`,
       seq,
       tagId: tagId || "",
       label: label || "",
       template: "rect",
       palette: "normal",
-      shapeId,
-      labelId,
-      shapeInnerIds,
+      shapeId: allocateId("SHE"),
+      labelId: allocateId("svg"),
+      shapeInnerIds: [allocateId("SHE")],
       managed: true
-    });
+    };
+  }
+
+  function addComponent(tagId, label) {
+    const model = selectedModel();
+    if (!model) return;
+    rememberUndo();
+    model.components.push(makeComponent(tagId, label));
     renderAll();
+  }
+
+  function updateAddFloorOptions() {
+    const previous = elements.addFloorSelect.value;
+    const floors = Array.from(new Set(Array.from(state.tags.values()).map((tag) => tag.floor)));
+    floors.sort(D.compareFloors);
+    elements.addFloorSelect.replaceChildren(makeOption("", "選擇樓層…", false));
+    for (const floor of floors) {
+      const value = floor || "__unset__";
+      elements.addFloorSelect.append(makeOption(value, floor || "未設定樓層", value === previous));
+    }
+    if (Array.from(elements.addFloorSelect.options).some((option) => option.value === previous)) {
+      elements.addFloorSelect.value = previous;
+    }
+  }
+
+  function addFloorToView() {
+    const model = selectedModel();
+    const selectedFloor = elements.addFloorSelect.value;
+    if (!model || !selectedFloor) return;
+    const floor = selectedFloor === "__unset__" ? "" : selectedFloor;
+    const existing = new Set(model.components.map((component) => component.tagId));
+    const tags = Array.from(state.tags.values()).filter((tag) =>
+      tag.floor === floor && !existing.has(tag.id)
+    );
+    if (!tags.length) {
+      setStatus("此樓層沒有尚未加入此 View 的 Tag。", "info");
+      return;
+    }
+    rememberUndo();
+    for (const tag of tags) model.components.push(makeComponent(tag.id, tag.name));
+    renderAll();
+    setStatus(`已將「${floor || "未設定樓層"}」的 ${tags.length} 個 Tag 加入此 View。`, "success");
   }
 
   function openNewViewDialog() {
@@ -889,13 +1220,16 @@
       components: [],
       originalComponents: [],
       unmanaged: [],
-      grid: { ...D.DEFAULT_GRID }
+      grid: { ...D.DEFAULT_GRID },
+      floorTitles: {},
+      originalFloorTitles: {}
     };
     state.models.set(view.id, model);
     state.baselines.set(view.id, JSON.stringify({
       components: model.components,
       grid: model.grid
     }));
+    state.floorBaselines.set(view.id, floorSignature(model));
     state.selectedViewId = view.id;
     renderAll();
     setStatus(`已新增空白 View「${normalizedName}」。`, "success");
@@ -963,6 +1297,7 @@
     state.config.hmi.views.splice(index, 1);
     state.models.delete(viewId);
     state.baselines.delete(viewId);
+    state.floorBaselines.delete(viewId);
     state.viewTitleIds.delete(viewId);
     state.selectedViewId = fallback ? fallback.id : state.config.hmi.views[0].id;
     renderAll();
@@ -1048,6 +1383,7 @@
   function getTagIdValidationError() {
     for (const model of state.models.values()) {
       for (const component of model.components) {
+        if (component.managed === false) continue;
         if (!component.tagId || !state.tags.has(component.tagId)) {
           return `項目「${component.label || "(未命名 Label)"}」尚未連結有效 Tag，請先修正。`;
         }
@@ -1071,7 +1407,32 @@
       }
       for (const model of state.models.values()) {
         if (model.viewId !== view.id) continue;
+        const floorLayout = D.layoutFloorComponents(model.components, model.grid, state.tags);
         for (const component of model.components) {
+          if (component.managed === false) {
+            const node = D.findById(doc, component.shapeId);
+            const item = view.items[component.shapeId];
+            if (!node || !item || item.property?.variableId !== component.tagId) {
+              throw new Error(`既有 Tag 元件 ${component.shapeId} 的 SVG 或 Tag 綁定未保留。`);
+            }
+            const entry = floorLayout.placements.find(({ component: placed }) => placed.key === component.key);
+            const expectedTransform = entry ? existingTagTransform(component, entry.placement) : null;
+            if (!entry || (node.getAttribute("transform") || "") !== expectedTransform ||
+                (node.getAttribute("data-fuxa-floor-layout") || "") !==
+                  (expectedTransform ? FLOOR_LAYOUT_MARKER : "")) {
+              throw new Error(`既有 Tag 元件 ${component.shapeId} 的新位置未正確寫入 SVG。`);
+            }
+            for (const companion of component.companions || []) {
+              const labelNode = D.findById(doc, companion.id);
+              if (!labelNode ||
+                  (labelNode.getAttribute("transform") || "") !== expectedTransform ||
+                  (labelNode.getAttribute("data-fuxa-floor-layout") || "") !==
+                    (expectedTransform ? FLOOR_LAYOUT_MARKER : "")) {
+                throw new Error(`既有 Tag 元件 ${component.shapeId} 的對應文字標籤未同步移動。`);
+              }
+            }
+            continue;
+          }
           if (!D.findById(doc, component.shapeId) || !D.findById(doc, component.labelId)) {
             throw new Error(`View「${view.name || view.id}」的元件與 Label 未同步寫入 SVG。`);
           }
@@ -1085,8 +1446,19 @@
             throw new Error(`元件 ${component.shapeId} 連結到不存在的 Tag：${component.tagId || "(空白)"}`);
           }
         }
+        for (const section of floorLayout.sections) {
+          const titleId = model.floorTitles[floorTitleKey(section.floor)];
+          const titleNode = titleId ? D.findById(doc, titleId) : null;
+          const titleItem = titleId ? view.items[titleId] : null;
+          if (!titleNode || !titleItem ||
+              titleItem.name !== "fuxa_floor_section_title" ||
+              titleNode.getAttribute("data-floor-group") !== section.floor) {
+            throw new Error(`View「${view.name || view.id}」的「${section.title}」樓層標題未正確寫入。`);
+          }
+        }
         const currentIds = managedIds({ components: model.components, originalComponents: [] });
         for (const original of model.originalComponents || []) {
+          if (original.managed === false) continue;
           if (currentIds.has(original.shapeId)) continue;
           if (view.items[original.shapeId] || view.items[original.labelId] ||
               D.findById(doc, original.shapeId) || D.findById(doc, original.labelId)) {
@@ -1106,6 +1478,7 @@
       setStatus(error, "error");
       return;
     }
+    const dirty = isDirty();
     const output = clone(state.config);
     try {
       const modifiedViewIds = new Set();
@@ -1113,12 +1486,12 @@
         const view = output.hmi.views.find((item) => item.id === viewId);
         if (!view) continue;
         const current = JSON.stringify({ components: model.components, grid: model.grid });
-        if (current === state.baselines.get(viewId)) continue;
+        const floorsChanged = floorSignature(model) !== state.floorBaselines.get(viewId);
+        if (current === state.baselines.get(viewId) && !floorsChanged && !needsFloorLayout(model)) continue;
         if (model.components.length === 0 && !JSON.parse(state.baselines.get(viewId)).components.length) continue;
         applyModelToView(view, model);
         modifiedViewIds.add(viewId);
       }
-      const dirty = isDirty();
       const outputText = dirty
         ? D.serializeConfig(output, state.lineEnding, state.hasTrailingNewline)
         : state.originalText;
@@ -1465,12 +1838,14 @@
     const step = Number(elements.batchTagStep.value) || 1;
     const defaultMem = elements.batchTagMemaddress.value;
     const defaultType = elements.batchTagType.value;
+    const defaultFloor = elements.batchTagFloor.value;
 
     const specs = D.parseTagBatchInput(text, {
       startAddress: startAddr,
       step,
       defaultMemAddress: defaultMem,
-      defaultType
+      defaultType,
+      defaultFloor
     });
 
     elements.batchPreviewCount.textContent = `${specs.length} 筆 Tag`;
@@ -1479,7 +1854,7 @@
     if (!specs.length) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 6;
+      td.colSpan = 7;
       td.className = "empty-cell";
       td.textContent = "在上方文字框輸入或貼上 Tag 名稱以預覽。";
       tr.append(td);
@@ -1510,6 +1885,9 @@
       const tdType = document.createElement("td");
       tdType.textContent = spec.type;
 
+      const tdFloor = document.createElement("td");
+      tdFloor.textContent = spec.floor || "未設定";
+
       const tdStatus = document.createElement("td");
       const badge = document.createElement("span");
       const isAddrDup = existingAddrs.has(`${spec.memaddress}_${spec.address}`);
@@ -1526,7 +1904,7 @@
       }
       tdStatus.append(badge);
 
-      tr.append(tdIndex, tdName, tdAddr, tdMem, tdType, tdStatus);
+      tr.append(tdIndex, tdName, tdAddr, tdMem, tdType, tdFloor, tdStatus);
       elements.batchTagPreviewBody.append(tr);
     }
   }
@@ -1545,12 +1923,14 @@
     const step = Number(elements.batchTagStep.value) || 1;
     const defaultMem = elements.batchTagMemaddress.value;
     const defaultType = elements.batchTagType.value;
+    const defaultFloor = elements.batchTagFloor.value;
 
     const specs = D.parseTagBatchInput(text, {
       startAddress: startAddr,
       step,
       defaultMemAddress: defaultMem,
-      defaultType
+      defaultType,
+      defaultFloor
     });
 
     if (!specs.length) {
@@ -1593,8 +1973,117 @@
     setStatus(`已成功為設備「${dev.name || dev.id}」批次新增 ${created.length} 個 Tag${viewMsg}。`, "success");
   }
 
+  function renderFloorOptions() {
+    const floors = Array.from(new Set(Array.from(state.tags.values())
+      .map((tag) => tag.floor)
+      .filter(Boolean))).sort(D.compareFloors);
+    elements.floorOptions.replaceChildren();
+    for (const floor of floors) {
+      const option = document.createElement("option");
+      option.value = floor;
+      elements.floorOptions.append(option);
+    }
+  }
+
+  function updateFloorSelectionSummary(visibleIds) {
+    elements.floorSelectedCount.textContent = `已選 ${floorSelection.size} 個`;
+    const selectedVisible = visibleIds.filter((id) => floorSelection.has(id)).length;
+    elements.floorSelectVisible.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    elements.floorSelectVisible.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+  }
+
+  function renderFloorTagList() {
+    elements.floorTagList.replaceChildren();
+    renderFloorOptions();
+    const query = elements.floorTagSearch.value.trim().toLocaleLowerCase();
+    const tags = Array.from(state.tags.values()).filter((tag) =>
+      `${tag.deviceName} ${tag.name} ${tag.floor}`.toLocaleLowerCase().includes(query)
+    );
+    const groups = floorDisplayMode === "group"
+      ? D.groupByFloor(tags, (tag) => tag.floor)
+      : [{ floor: "", title: "", items: tags }];
+    const visibleIds = tags.map((tag) => tag.id);
+
+    if (!tags.length) {
+      const empty = document.createElement("div");
+      empty.className = "floor-tag-list-empty";
+      empty.textContent = "沒有符合條件的 Tag。";
+      elements.floorTagList.append(empty);
+    }
+
+    for (const group of groups) {
+      const groupNode = document.createElement("section");
+      groupNode.className = "floor-tag-group";
+      if (group.title) {
+        const title = document.createElement("div");
+        title.className = "floor-tag-group-title";
+        title.textContent = `${group.title} · ${group.items.length} 個 Tag`;
+        groupNode.append(title);
+      }
+      for (const tag of group.items) {
+        const row = document.createElement("div");
+        row.className = "floor-tag-row";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.dataset.floorSelectTag = tag.id;
+        checkbox.checked = floorSelection.has(tag.id);
+        checkbox.setAttribute("aria-label", `選取 ${tag.deviceName}／${tag.name}`);
+        const name = document.createElement("span");
+        name.className = "floor-tag-name";
+        name.textContent = tag.name;
+        const device = document.createElement("span");
+        device.className = "floor-tag-device";
+        device.textContent = tag.deviceName;
+        const floor = document.createElement("input");
+        floor.type = "text";
+        floor.value = tag.floor;
+        floor.placeholder = "未設定樓層";
+        floor.setAttribute("list", "floor-options");
+        floor.dataset.floorTagId = tag.id;
+        floor.setAttribute("aria-label", `${tag.name} 的樓層`);
+        row.append(checkbox, name, device, floor);
+        groupNode.append(row);
+      }
+      elements.floorTagList.append(groupNode);
+    }
+    updateFloorSelectionSummary(visibleIds);
+  }
+
+  function setFloorsForTags(tagIds, value) {
+    const floor = D.normalizeFloor(value);
+    const changed = tagIds.filter((id) => {
+      const tag = state.tags.get(id);
+      if (!tag) return false;
+      const hasStoredFloor = D.isRecord(tag.record.extra) &&
+        Object.prototype.hasOwnProperty.call(tag.record.extra, "floor");
+      const storedFloor = hasStoredFloor ? tag.record.extra.floor : undefined;
+      return tag.floor !== floor ||
+        (floor ? storedFloor !== floor : hasStoredFloor);
+    });
+    if (!changed.length) return 0;
+
+    rememberUndo();
+    for (const id of changed) {
+      const tag = state.tags.get(id);
+      D.setTagFloor(tag.record, floor);
+    }
+    state.tags = D.buildTagIndex(state.config);
+    renderAll();
+    if (elements.floorManagerDialog.open) renderFloorTagList();
+    return changed.length;
+  }
+
+  function openFloorManager() {
+    if (!state.config) return;
+    floorSelection.clear();
+    elements.floorTagSearch.value = "";
+    renderFloorTagList();
+    elements.floorManagerDialog.showModal();
+  }
+
   elements.addOne.addEventListener("click", () => addComponent("", ""));
   elements.addMany.addEventListener("click", openBatchDialog);
+  elements.addFloor.addEventListener("click", addFloorToView);
   elements.addView.addEventListener("click", openNewViewDialog);
   elements.renameView.addEventListener("click", openRenameViewDialog);
   elements.deleteView.addEventListener("click", deleteSelectedView);
@@ -1621,6 +2110,7 @@
 
   // ModbusTCP & Tag Management
   elements.deviceMgrButton.addEventListener("click", () => openDeviceMgr("device"));
+  elements.floorManagerButton.addEventListener("click", openFloorManager);
   elements.quickBatchTagsButton.addEventListener("click", () => openDeviceMgr("tags"));
   elements.deviceMgrClose.addEventListener("click", () => elements.deviceMgrDialog.close());
   elements.batchCancelBtn.addEventListener("click", () => elements.deviceMgrDialog.close());
@@ -1640,8 +2130,63 @@
   elements.batchTagDevice.addEventListener("change", onBatchDeviceChange);
   elements.batchTagMemaddress.addEventListener("change", onBatchDeviceChange);
   elements.batchTagType.addEventListener("change", renderBatchTagPreview);
+  elements.batchTagFloor.addEventListener("input", renderBatchTagPreview);
   elements.batchTagStartAddr.addEventListener("input", renderBatchTagPreview);
   elements.batchTagStep.addEventListener("input", renderBatchTagPreview);
   elements.batchTagInput.addEventListener("input", renderBatchTagPreview);
   elements.batchCreateTagsForm.addEventListener("submit", handleBatchCreateTagsSubmit);
+  elements.floorManagerClose.addEventListener("click", () => elements.floorManagerDialog.close());
+  elements.floorTagSearch.addEventListener("input", renderFloorTagList);
+  elements.floorGroupView.addEventListener("click", () => {
+    floorDisplayMode = "group";
+    elements.floorGroupView.classList.add("active");
+    elements.floorListView.classList.remove("active");
+    renderFloorTagList();
+  });
+  elements.floorListView.addEventListener("click", () => {
+    floorDisplayMode = "list";
+    elements.floorListView.classList.add("active");
+    elements.floorGroupView.classList.remove("active");
+    renderFloorTagList();
+  });
+  elements.floorTagList.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.dataset.floorSelectTag) {
+      if (target.checked) floorSelection.add(target.dataset.floorSelectTag);
+      else floorSelection.delete(target.dataset.floorSelectTag);
+      updateFloorSelectionSummary(Array.from(elements.floorTagList.querySelectorAll("[data-floor-select-tag]"))
+        .map((input) => input.dataset.floorSelectTag));
+      return;
+    }
+    if (target.dataset.floorTagId) {
+      const changed = setFloorsForTags([target.dataset.floorTagId], target.value);
+      if (changed) {
+        elements.floorBulkValue.value = "";
+        setStatus(`已更新 ${changed} 個 Tag 的樓層，相關工具管理元件已即時重新排列。`, "success");
+      } else {
+        target.value = D.normalizeFloor(target.value);
+      }
+    }
+  });
+  elements.floorSelectVisible.addEventListener("change", () => {
+    const visibleIds = Array.from(elements.floorTagList.querySelectorAll("[data-floor-select-tag]"))
+      .map((input) => input.dataset.floorSelectTag);
+    for (const id of visibleIds) {
+      if (elements.floorSelectVisible.checked) floorSelection.add(id);
+      else floorSelection.delete(id);
+    }
+    renderFloorTagList();
+  });
+  elements.floorBulkApply.addEventListener("click", () => {
+    if (!floorSelection.size) {
+      setStatus("請先選取要設定樓層的 Tag。", "warning");
+      return;
+    }
+    const changed = setFloorsForTags(Array.from(floorSelection), elements.floorBulkValue.value);
+    elements.floorBulkValue.value = "";
+    setStatus(changed
+      ? `已更新 ${changed} 個 Tag 的樓層，相關工具管理元件已即時重新排列。`
+      : "選取的 Tag 樓層沒有變更。", changed ? "success" : "info");
+  });
 })();

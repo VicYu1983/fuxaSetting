@@ -33,7 +33,10 @@
                     },
                     "scaleReadFunction": null,
                     "scaleWriteFunction": null,
-                    "unsPath": null
+                    "unsPath": null,
+                    "extra": {
+                        "floor":"B3F"
+                    }
                 },
                 "t_8083741d-0bfe4db1": {
                     "id": "t_8083741d-0bfe4db1",

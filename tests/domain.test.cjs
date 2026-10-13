@@ -15,6 +15,58 @@ test("FUXA sample config is accepted and indexes tags by globally unique id", ()
   assert.equal(tags.get("t_3e02b442-c00c462b").deviceName, "B1F-03");
 });
 
+test("normalizes floor metadata without discarding other extra fields", () => {
+  const tag = { id: "t1", extra: { note: "keep", owner: "ops" } };
+  assert.equal(D.getTagFloor(tag), "");
+  assert.equal(D.setTagFloor(tag, " b02f "), "B2F");
+  assert.deepEqual(tag.extra, { note: "keep", owner: "ops", floor: "B2F" });
+  assert.equal(D.setTagFloor(tag, "4f"), "4F");
+  assert.equal(tag.extra.floor, "4F");
+  assert.equal(D.setTagFloor(tag, ""), "");
+  assert.deepEqual(tag.extra, { note: "keep", owner: "ops" });
+  assert.equal(D.normalizeFloor("屋頂"), "屋頂");
+});
+
+test("groups floors in natural order and leaves unassigned tags last", () => {
+  const groups = D.groupByFloor(
+    ["Roof", "first", "basement", "custom", "unset"],
+    (value) => ({
+      Roof: "屋頂",
+      first: "1f",
+      basement: "b2f",
+      custom: "機房層"
+    })[value] || ""
+  );
+  assert.deepEqual(groups.map((group) => group.title), ["B2F", "1F", "屋頂", "機房層", "未設定樓層"]);
+});
+
+test("lays out each floor as a titled section using one shared grid", () => {
+  const tags = new Map([
+    ["a", { floor: "1F" }],
+    ["b", { floor: "1F" }],
+    ["c", { floor: "B1F" }],
+    ["manually-removed", { floor: "3F" }]
+  ]);
+  const components = ["a", "b", "c"].map((tagId, index) => ({
+    key: tagId,
+    tagId,
+    template: "rect",
+    seq: index
+  }));
+  const result = D.layoutFloorComponents(components, {
+    ...D.DEFAULT_GRID,
+    columns: 2,
+    originX: 10,
+    originY: 20,
+    gapY: 5
+  }, tags);
+  assert.deepEqual(result.sections.map((section) => section.title), ["B1F", "1F"]);
+  assert.equal(result.sections[0].entries[0].placement.shape.x, 10);
+  assert.ok(result.sections[1].titleY > result.sections[0].entries[0].placement.shape.y);
+  assert.equal(result.placements.length, 3);
+  assert.equal(result.placements.some(({ component }) => component.tagId === "manually-removed"), false);
+});
+
 test("rejects incomplete or non-FUXA-shaped configurations", () => {
   assert.throws(() => D.validateConfig(null), /不是可辨識的 FUXA 配置/);
   assert.throws(() => D.validateConfig({ devices: {}, hmi: { views: {} } }), /不是可辨識的 FUXA 配置/);
@@ -46,9 +98,24 @@ test("grid places entries row-major and supports all label positions", () => {
   }
 });
 
+test("grid reserves per-column and per-row space for existing SVG Tag bounds", () => {
+  const placements = D.layoutComponents([
+    { key: "existing-wide", template: "existing", layoutWidth: 100, layoutHeight: 50 },
+    { key: "standard", template: "rect" },
+    { key: "next-row", template: "rect" }
+  ], {
+    columns: 2, originX: 10, originY: 20, gapX: 10, gapY: 5,
+    labelFontSize: 10, labelOffset: 0
+  });
+
+  assert.equal(placements[0].shape.width, 100);
+  assert.equal(placements[1].shape.x, 120);
+  assert.equal(placements[2].shape.y, 85);
+});
+
 test("serialization preserves the source file's CRLF and trailing newline policy", () => {
-  const text = fs.readFileSync(fixturePath, "utf8");
-  const config = JSON.parse(text);
+  const config = { devices: {}, hmi: { views: [] } };
+  const text = `${JSON.stringify(config, null, 4).replace(/\n/g, "\r\n")}\r\n`;
   const lineEnding = text.includes("\r\n") ? "\r\n" : "\n";
   const hasTrailingNewline = /(?:\r\n|\n)$/.test(text);
   assert.equal(D.serializeConfig(config, lineEnding, hasTrailingNewline), text);
@@ -157,29 +224,48 @@ test("parses tag batch input with automatic increment and custom columns", () =>
     address: 1,
     type: "Bool",
     memaddress: "000000",
-    description: null
+    description: null,
+    floor: ""
   });
   assert.deepEqual(specs[1], {
     name: "點位二",
     address: 10,
     type: "Bool",
     memaddress: "000000",
-    description: null
+    description: null,
+    floor: ""
   });
   assert.deepEqual(specs[2], {
     name: "點位三",
     address: 20,
     type: "Bool",
     memaddress: "100000",
-    description: "這是備註"
+    description: "這是備註",
+    floor: ""
   });
+
   assert.deepEqual(specs[3], {
     name: "點位四",
     address: 21,
     type: "Bool",
     memaddress: "000000",
-    description: null
+    description: null,
+    floor: ""
   });
+});
+
+test("parses and creates batch tags with a normalized shared or per-tag floor", () => {
+  const specs = D.parseTagBatchInput("Tag A\nTag B\t7\tBool\t000000\t\tb1f", {
+    startAddress: 1,
+    defaultFloor: "4f"
+  });
+  assert.deepEqual(specs.map((spec) => spec.floor), ["4F", "B1F"]);
+  const device = { tags: {} };
+  let id = 1;
+  const created = D.batchCreateTags(device, specs, new Set(), {
+    getRandomValues(bytes) { bytes.fill(id++); return bytes; }
+  });
+  assert.deepEqual(created.map((tag) => tag.extra.floor), ["4F", "B1F"]);
 });
 
 test("batch creates tags under a device and detects next available address", () => {
@@ -250,4 +336,3 @@ test("synchronizes connection tag in FuxaServer device 0 and handles device remo
   assert.equal(config.devices["d_demo"], undefined);
   assert.equal(Object.keys(config.devices["0"].tags).length, 0);
 });
-

@@ -16,6 +16,11 @@
     alarm: ["#ff0000ff", "#00ff07ff"]
   });
   const MANAGED_NAME = /^tc_(\d+)$/;
+  const FLOOR_LAYOUT_TRANSFORM = /^translate\(-?\d+(?:\.\d+)? -?\d+(?:\.\d+)?\)$/;
+  const SVG_GRAPHICS = new Set([
+    "g", "rect", "circle", "ellipse", "path", "polygon", "polyline",
+    "line", "text", "image", "use"
+  ]);
 
   function isRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -42,11 +47,82 @@
           name: typeof tag.name === "string" ? tag.name : id,
           type: typeof tag.type === "string" ? tag.type : "",
           deviceId,
-          deviceName
+          deviceName,
+          floor: getTagFloor(tag),
+          record: tag
         });
       }
     }
     return index;
+  }
+
+  function normalizeFloor(value) {
+    const floor = typeof value === "string" ? value.trim() : "";
+    if (!floor) return "";
+    const basement = floor.match(/^b\s*(\d+)\s*f?$/i);
+    if (basement) return `B${Number(basement[1])}F`;
+    const aboveGround = floor.match(/^(\d+)\s*f$/i);
+    if (aboveGround) return `${Number(aboveGround[1])}F`;
+    return floor;
+  }
+
+  function getTagFloor(tag) {
+    return isRecord(tag) && isRecord(tag.extra) ? normalizeFloor(tag.extra.floor) : "";
+  }
+
+  function setTagFloor(tag, value) {
+    if (!isRecord(tag)) throw new Error("無效的 Tag 資料。");
+    const floor = normalizeFloor(value);
+    if (!isRecord(tag.extra)) tag.extra = {};
+    if (floor) tag.extra.floor = floor;
+    else delete tag.extra.floor;
+    if (Object.keys(tag.extra).length === 0) delete tag.extra;
+    return floor;
+  }
+
+  function compareFloors(left, right) {
+    const a = normalizeFloor(left);
+    const b = normalizeFloor(right);
+    if (a === b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
+
+    function rank(value) {
+      const basement = value.match(/^B(\d+)F$/);
+      if (basement) return { category: 0, value: -Number(basement[1]) };
+      const level = value.match(/^(\d+)F$/);
+      if (level) return { category: 1, value: Number(level[1]) };
+      if (/^(屋頂|RF|ROOF)$/i.test(value)) return { category: 2, value: 0 };
+      return { category: 3, value: value.toLocaleLowerCase() };
+    }
+
+    const rankA = rank(a);
+    const rankB = rank(b);
+    if (rankA.category !== rankB.category) return rankA.category - rankB.category;
+    if (rankA.value < rankB.value) return -1;
+    if (rankA.value > rankB.value) return 1;
+    return a.localeCompare(b, "zh-Hant");
+  }
+
+  function groupByFloor(items, getFloor) {
+    const groups = new Map();
+    for (const item of items || []) {
+      const floor = normalizeFloor(getFloor(item));
+      if (!groups.has(floor)) groups.set(floor, []);
+      groups.get(floor).push(item);
+    }
+    return Array.from(groups, ([floor, entries]) => ({
+      floor,
+      title: floor || "未設定樓層",
+      items: entries
+    })).sort((a, b) => compareFloors(a.floor, b.floor));
+  }
+
+  function groupComponentsByFloor(components, tags) {
+    return groupByFloor(components, (component) => {
+      const tag = tags instanceof Map ? tags.get(component.tagId) : tags && tags[component.tagId];
+      return tag ? tag.floor : "";
+    });
   }
 
   function parseSvg(svgText, Parser) {
@@ -72,18 +148,34 @@
   function readManaged(view, Parser) {
     const records = [];
     const unmanaged = [];
+    const movableTags = [];
     if (!isRecord(view.items) || typeof view.svgcontent !== "string") {
-      return { records, unmanaged, error: "View 缺少 items 或 svgcontent。" };
+      return { records, unmanaged, movableTags, error: "View 缺少 items 或 svgcontent。" };
     }
     let doc;
     try {
       doc = parseSvg(view.svgcontent, Parser);
     } catch (error) {
-      return { records, unmanaged, error: error.message };
+      return { records, unmanaged, movableTags, error: error.message };
     }
 
     const consumed = new Set();
+    const floorTitles = {};
+    const idCounts = new Map();
+    for (const node of Array.from(doc.getElementsByTagName("*"))) {
+      const id = node.getAttribute("id");
+      if (id) idCounts.set(id, (idCounts.get(id) || 0) + 1);
+    }
     for (const [shapeId, shapeItem] of Object.entries(view.items)) {
+      if (shapeItem && shapeItem.name === "fuxa_floor_section_title") {
+        const titleNode = findById(doc, shapeId);
+        const floor = titleNode && titleNode.getAttribute("data-floor-group");
+        if (titleNode && floor !== null) {
+          floorTitles[`floor:${normalizeFloor(floor)}`] = shapeId;
+          consumed.add(shapeId);
+          continue;
+        }
+      }
       const match = MANAGED_NAME.exec(itemName(shapeItem));
       if (!match || !shapeItem || shapeItem.id !== shapeId) continue;
       const seq = Number(match[1]);
@@ -121,16 +213,43 @@
     for (const [id, item] of Object.entries(view.items)) {
       if (consumed.has(id)) continue;
       if (item && item.property && typeof item.property.variableId === "string") {
-        unmanaged.push({
+        const node = findById(doc, id);
+        let reason = "";
+        if (!node) {
+          reason = "找不到對應的 SVG 元件";
+        } else if (idCounts.get(id) !== 1) {
+          reason = "SVG 元件 ID 重複，無法安全辨識位置";
+        } else if (node.namespaceURI !== "http://www.w3.org/2000/svg" ||
+                   !SVG_GRAPHICS.has(node.localName)) {
+          reason = `不支援移動 SVG ${node.localName} 元件`;
+        } else if (node.getAttribute("transform") &&
+                   !(node.getAttribute("data-fuxa-floor-layout") === "floor-layout-v1" &&
+                     FLOOR_LAYOUT_TRANSFORM.test(node.getAttribute("transform")))) {
+          reason = "元件已有 transform，為避免改變原有定位而不自動移動";
+        } else {
+          let parent = node.parentElement;
+          while (parent && parent.localName !== "svg") {
+            if (parent.getAttribute("transform")) {
+              reason = "上層 SVG 群組已有 transform，為避免改變原有定位而不自動移動";
+              break;
+            }
+            parent = parent.parentElement;
+          }
+        }
+        const candidate = {
           id,
           name: itemName(item) || id,
           tagId: item.property.variableId,
-          type: typeof item.type === "string" ? item.type : ""
-        });
+          type: typeof item.type === "string" ? item.type : "",
+          nodeName: node ? node.localName : "",
+          reason
+        };
+        if (reason) unmanaged.push(candidate);
+        else movableTags.push(candidate);
       }
     }
     records.sort((a, b) => a.seq - b.seq);
-    return { records, unmanaged, doc };
+    return { records, unmanaged, movableTags, floorTitles, doc };
   }
 
   function layoutComponents(components, settings) {
@@ -140,13 +259,33 @@
     const gapY = Math.max(0, Number(grid.gapY) || 0);
     const labelOffset = Math.max(0, Number(grid.labelOffset) || 0);
     const fontSize = Math.max(8, Number(grid.labelFontSize) || DEFAULT_GRID.labelFontSize);
-    const placements = [];
-    for (const [index, component] of components.entries()) {
-      const size = component.template === "cylinder" ? CYLINDER_SIZE : RECT_SIZE;
+    const rows = Math.ceil(components.length / columns);
+    const columnWidths = Array(columns).fill(0);
+    const rowHeights = Array(rows).fill(0);
+    const sizes = components.map((component) => {
+      const standard = component.template === "cylinder" ? CYLINDER_SIZE : RECT_SIZE;
+      const width = Number(component.layoutWidth);
+      const height = Number(component.layoutHeight);
+      return {
+        width: Number.isFinite(width) && width > 0 ? width : standard.width,
+        height: Number.isFinite(height) && height > 0 ? height : standard.height
+      };
+    });
+    for (const [index, size] of sizes.entries()) {
       const col = index % columns;
       const row = Math.floor(index / columns);
-      const cellX = Number(grid.originX) + col * (size.width + gapX);
-      const cellY = Number(grid.originY) + row * (size.height + gapY + fontSize + labelOffset);
+      columnWidths[col] = Math.max(columnWidths[col], size.width);
+      rowHeights[row] = Math.max(rowHeights[row], size.height + fontSize + labelOffset);
+    }
+    const placements = [];
+    for (const [index, component] of components.entries()) {
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      const size = sizes[index];
+      const cellX = Number(grid.originX) +
+        columnWidths.slice(0, col).reduce((sum, width) => sum + width + gapX, 0);
+      const cellY = Number(grid.originY) +
+        rowHeights.slice(0, row).reduce((sum, height) => sum + height + gapY, 0);
       const shape = { x: cellX, y: cellY, width: size.width, height: size.height };
       const centerX = cellX + size.width / 2;
       const centerY = cellY + size.height / 2;
@@ -168,6 +307,42 @@
       placements.push({ key: component.key, shape, label });
     }
     return placements;
+  }
+
+  function layoutFloorComponents(components, settings, tags) {
+    const grid = { ...DEFAULT_GRID, ...settings };
+    const columns = Math.max(1, Math.floor(Number(grid.columns) || 1));
+    const sectionGap = Math.max(0, Number(grid.gapY) || 0);
+    const titleFontSize = Math.max(8, Number(grid.labelFontSize) || DEFAULT_GRID.labelFontSize);
+    const sections = [];
+    const placements = [];
+    let nextTitleY = Number(grid.originY) || 0;
+
+    for (const group of groupComponentsByFloor(components, tags)) {
+      const titleY = nextTitleY + titleFontSize;
+      const sectionGrid = {
+        ...grid,
+        originY: titleY + sectionGap + titleFontSize + Number(grid.labelOffset || 0)
+      };
+      const sectionPlacements = layoutComponents(group.items, sectionGrid);
+      const entries = group.items.map((component, index) => ({
+        component,
+        placement: sectionPlacements[index]
+      }));
+      const bottom = entries.reduce((max, entry) =>
+        Math.max(max, entry.placement.shape.y + entry.placement.shape.height), sectionGrid.originY);
+      sections.push({
+        floor: group.floor,
+        title: group.title,
+        titleY,
+        x: Number(grid.originX) || 0,
+        entries
+      });
+      placements.push(...entries);
+      const rows = Math.ceil(group.items.length / columns);
+      nextTitleY = rows ? bottom + sectionGap : titleY + titleFontSize + sectionGap;
+    }
+    return { sections, placements };
   }
 
   function serializeConfig(config, lineEnding, hasTrailingNewline) {
@@ -298,6 +473,7 @@
     const opts = options || {};
     const defaultMemAddress = typeof opts.defaultMemAddress === "string" ? opts.defaultMemAddress : "000000";
     const defaultType = typeof opts.defaultType === "string" ? opts.defaultType : "Bool";
+    const defaultFloor = normalizeFloor(opts.defaultFloor);
     const step = Math.max(1, Math.floor(Number(opts.step) || 1));
     let nextAutoAddress = Math.max(0, Math.floor(Number(opts.startAddress) || 1));
 
@@ -324,13 +500,15 @@
       const type = (parts.length > 2 && parts[2]) ? parts[2] : defaultType;
       const memaddress = (parts.length > 3 && parts[3]) ? parts[3] : defaultMemAddress;
       const description = (parts.length > 4 && parts[4]) ? parts[4] : null;
+      const floor = normalizeFloor(parts.length > 5 && parts[5] ? parts[5] : defaultFloor);
 
       results.push({
         name,
         address,
         type,
         memaddress,
-        description
+        description,
+        floor
       });
     }
 
@@ -360,6 +538,8 @@
         description: spec.description !== undefined ? spec.description : null,
         timestamp
       };
+      const floor = normalizeFloor(spec.floor);
+      if (floor) tag.extra = { floor };
       device.tags[id] = tag;
       created.push(tag);
     }
@@ -415,7 +595,9 @@
   return {
     DEFAULT_GRID, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
     buildTagIndex, findById, generateId, hasViewShape, isRecord,
-    layoutComponents, parseSvg, readManaged, removeLayoutViewReferences,
+    layoutComponents, layoutFloorComponents, groupByFloor, groupComponentsByFloor,
+    normalizeFloor, compareFloors, getTagFloor, setTagFloor,
+    parseSvg, readManaged, removeLayoutViewReferences,
     serializeConfig, validateConfig,
     createModbusTcpDevice, updateModbusTcpDevice, getNextAvailableAddress,
     parseTagBatchInput, batchCreateTags, syncDeviceConnectionTag, removeDevice
