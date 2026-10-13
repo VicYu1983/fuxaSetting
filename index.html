@@ -18,6 +18,7 @@
     <div class="toolbar">
       <label class="button secondary" for="config-file">開啟 JSON</label>
       <input id="config-file" type="file" accept=".json,application/json" hidden>
+      <button id="device-mgr-button" class="secondary" disabled>ModbusTCP / Tag 管理</button>
       <button id="undo-button" class="secondary" disabled>復原</button>
       <button id="redo-button" class="secondary" disabled>重做</button>
       <button id="save-button" class="primary" disabled>另存新 JSON</button>
@@ -49,8 +50,9 @@
             <p id="selected-view-meta" class="muted"></p>
           </div>
           <div class="button-row">
+            <button id="quick-batch-tags-button" class="secondary" disabled>批次建立 Tag</button>
             <button id="add-one-button" class="secondary" disabled>新增一筆</button>
-            <button id="add-many-button" class="primary" disabled>批次新增</button>
+            <button id="add-many-button" class="primary" disabled>批次選取加入 View</button>
           </div>
         </div>
 
@@ -159,6 +161,176 @@
         <button id="delete-view-confirm" class="danger" value="confirm">刪除 View</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="device-mgr-dialog" class="large-dialog">
+    <div class="dialog-inner">
+      <div class="dialog-heading">
+        <div>
+          <h2>ModbusTCP 設定與 Tag 管理</h2>
+          <p class="muted">管理 ModbusTCP 設備通訊設定，或為指定設備批次建立 Tag。</p>
+        </div>
+        <button id="device-mgr-close" class="icon-button" type="button" aria-label="關閉">×</button>
+      </div>
+
+      <div class="dialog-tabs">
+        <button id="tab-btn-device" type="button" class="tab-button active">ModbusTCP 設備設定</button>
+        <button id="tab-btn-tags" type="button" class="tab-button">批次新增 Tag</button>
+      </div>
+
+      <!-- Tab 1: ModbusTCP 設備設定 -->
+      <section id="tab-pane-device" class="tab-pane active">
+        <div class="device-mgr-layout">
+          <div class="device-list-pane">
+            <div class="device-list-header">
+              <input id="device-search" type="search" placeholder="搜尋設備名稱或位址…">
+              <button id="new-device-btn" type="button" class="secondary compact-button">+ 新增設備</button>
+            </div>
+            <div id="device-list" class="device-list"></div>
+          </div>
+          <div class="device-form-pane">
+            <form id="device-form">
+              <div class="form-title-row">
+                <h3 id="device-form-title">新增 ModbusTCP 設備</h3>
+                <span id="device-id-badge" class="muted badge badge-muted"></span>
+              </div>
+              <div class="form-grid">
+                <label>設備名稱 *
+                  <input id="dev-name" type="text" required placeholder="例如：4F、B1F-03">
+                </label>
+                <label class="checkbox-label">
+                  <input id="dev-enabled" type="checkbox" checked> 啟用設備
+                </label>
+                <label>連線位址 (IP:Port)
+                  <input id="dev-address" type="text" placeholder="127.0.0.1:502">
+                </label>
+                <label>站號 (Slave ID)
+                  <input id="dev-slaveid" type="text" value="1">
+                </label>
+                <label>輪詢週期 (ms)
+                  <input id="dev-polling" type="number" min="10" step="10" value="200">
+                </label>
+                <label>連線選項
+                  <input id="dev-conn-option" type="text" value="TcpPort">
+                </label>
+                <label>超時時間 (ms)
+                  <input id="dev-timeout" type="number" min="100" step="100" value="2000">
+                </label>
+                <label>延遲 (ms)
+                  <input id="dev-delay" type="number" min="0" value="10">
+                </label>
+              </div>
+
+              <details class="advanced-details">
+                <summary>通訊進階參數（通常使用預設值）</summary>
+                <div class="form-grid">
+                  <label>波特率 (Baudrate)
+                    <input id="dev-baudrate" type="number" value="9600">
+                  </label>
+                  <label>資料位 (Databits)
+                    <input id="dev-databits" type="number" value="8">
+                  </label>
+                  <label>停止位 (Stopbits)
+                    <input id="dev-stopbits" type="number" value="1">
+                  </label>
+                  <label>同位檢查 (Parity)
+                    <select id="dev-parity">
+                      <option value="None">None</option>
+                      <option value="Even">Even</option>
+                      <option value="Odd">Odd</option>
+                    </select>
+                  </label>
+                  <label class="checkbox-label">
+                    <input id="dev-force-fc16" type="checkbox"> 強制使用 FC16
+                  </label>
+                </div>
+              </details>
+
+              <div class="device-tags-summary" id="device-tags-summary">
+                <span id="device-tags-count-text" class="muted">目前 Tag 數：0</span>
+                <button id="go-to-batch-tags-btn" type="button" class="secondary compact-button">批次為此設備新增 Tag →</button>
+              </div>
+
+              <div class="dialog-actions">
+                <button id="delete-device-btn" type="button" class="danger compact-button" hidden>刪除此設備</button>
+                <button id="save-device-btn" type="submit" class="primary">儲存設備設定</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 2: 批次新增 Tag -->
+      <section id="tab-pane-tags" class="tab-pane">
+        <form id="batch-create-tags-form">
+          <div class="form-grid tag-setup-grid">
+            <label>目標設備 *
+              <select id="batch-tag-device" required></select>
+            </label>
+            <label>記憶體區段 (memaddress)
+              <select id="batch-tag-memaddress">
+                <option value="000000">000000 (0x 線圈 Coils，讀寫 1-bit)</option>
+                <option value="100000">100000 (1x 離散輸入 Discrete Inputs，唯讀 1-bit)</option>
+                <option value="300000">300000 (3x 輸入暫存器 Input Registers，唯讀 16-bit)</option>
+                <option value="400000">400000 (4x 保持暫存器 Holding Registers，讀寫 16-bit)</option>
+              </select>
+            </label>
+            <label>資料型別 (type)
+              <select id="batch-tag-type">
+                <option value="Bool">Bool (布林)</option>
+                <option value="number">number (數值)</option>
+                <option value="string">string (字串)</option>
+              </select>
+            </label>
+            <label>起始位址 (address)
+              <input id="batch-tag-start-addr" type="number" min="0" value="1" required>
+            </label>
+            <label>遞增步長 (step)
+              <input id="batch-tag-step" type="number" min="1" value="1" required>
+            </label>
+          </div>
+
+          <label class="search-label">
+            貼上或輸入 Tag 名稱（每行一個，可直接由 Excel 複製名稱與位址貼上）：
+            <textarea id="batch-tag-input" rows="7" class="batch-tag-textarea" placeholder="男廁所緊急壓扣&#10;女廁所緊急壓扣&#10;殘障廁所緊急壓扣&#10;吊裝平台磁簧&#10;&#10;也可支援：名稱, 位址 或 名稱\t位址"></textarea>
+          </label>
+
+          <div class="batch-preview-container">
+            <div class="preview-header">
+              <strong>即時解析預覽</strong>
+              <span id="batch-preview-count" class="muted">0 筆 Tag</span>
+            </div>
+            <div class="table-scroll batch-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tag 名稱</th>
+                    <th>位址 (address)</th>
+                    <th>區段 (memaddress)</th>
+                    <th>型別 (type)</th>
+                    <th>狀態</th>
+                  </tr>
+                </thead>
+                <tbody id="batch-tag-preview-body">
+                  <tr><td colspan="6" class="empty-cell">在上方文字框輸入或貼上 Tag 名稱以預覽。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="batch-options-row">
+            <label class="checkbox-label">
+              <input id="batch-also-add-view" type="checkbox" checked> 同時將建立的 Tag 作為元件加入當前 View
+            </label>
+          </div>
+
+          <div class="dialog-actions">
+            <button id="batch-cancel-btn" type="button" class="secondary">關閉</button>
+            <button id="batch-create-tags-confirm" type="submit" class="primary" disabled>確認批次建立 Tag</button>
+          </div>
+        </form>
+      </section>
+    </div>
   </dialog>
 </body>
 </html>

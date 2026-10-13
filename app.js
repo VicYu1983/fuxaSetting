@@ -7,6 +7,7 @@
   const state = {
     config: null,
     originalText: "",
+    originalDevices: "",
     lineEnding: "\n",
     hasTrailingNewline: false,
     fileName: "",
@@ -18,8 +19,12 @@
     originalLayout: null,
     viewTitleIds: new Map(),
     selectedViewId: "",
+    selectedDeviceId: "",
+    isCreatingNewDevice: false,
     usedIds: new Set(),
     usedViewIds: new Set(),
+    usedDeviceIds: new Set(),
+    usedTagIds: new Set(),
     createdIds: new Set(),
     undoStack: [],
     redoStack: []
@@ -55,7 +60,50 @@
     viewNameDialogDescription: $("#view-name-dialog-description"),
     viewNameConfirm: $("#new-view-confirm"),
     deleteViewDialog: $("#delete-view-dialog"),
-    deleteViewMessage: $("#delete-view-message")
+    deleteViewMessage: $("#delete-view-message"),
+    deviceMgrButton: $("#device-mgr-button"),
+    quickBatchTagsButton: $("#quick-batch-tags-button"),
+    deviceMgrDialog: $("#device-mgr-dialog"),
+    deviceMgrClose: $("#device-mgr-close"),
+    tabBtnDevice: $("#tab-btn-device"),
+    tabBtnTags: $("#tab-btn-tags"),
+    tabPaneDevice: $("#tab-pane-device"),
+    tabPaneTags: $("#tab-pane-tags"),
+    deviceSearch: $("#device-search"),
+    newDeviceBtn: $("#new-device-btn"),
+    deviceList: $("#device-list"),
+    deviceForm: $("#device-form"),
+    deviceFormTitle: $("#device-form-title"),
+    deviceIdBadge: $("#device-id-badge"),
+    devName: $("#dev-name"),
+    devEnabled: $("#dev-enabled"),
+    devAddress: $("#dev-address"),
+    devSlaveId: $("#dev-slaveid"),
+    devPolling: $("#dev-polling"),
+    devConnOption: $("#dev-conn-option"),
+    devTimeout: $("#dev-timeout"),
+    devDelay: $("#dev-delay"),
+    devBaudrate: $("#dev-baudrate"),
+    devDatabits: $("#dev-databits"),
+    devStopbits: $("#dev-stopbits"),
+    devParity: $("#dev-parity"),
+    devForceFC16: $("#dev-force-fc16"),
+    deviceTagsCountText: $("#device-tags-count-text"),
+    goToBatchTagsBtn: $("#go-to-batch-tags-btn"),
+    deleteDeviceBtn: $("#delete-device-btn"),
+    saveDeviceBtn: $("#save-device-btn"),
+    batchCreateTagsForm: $("#batch-create-tags-form"),
+    batchTagDevice: $("#batch-tag-device"),
+    batchTagMemaddress: $("#batch-tag-memaddress"),
+    batchTagType: $("#batch-tag-type"),
+    batchTagStartAddr: $("#batch-tag-start-addr"),
+    batchTagStep: $("#batch-tag-step"),
+    batchTagInput: $("#batch-tag-input"),
+    batchPreviewCount: $("#batch-preview-count"),
+    batchTagPreviewBody: $("#batch-tag-preview-body"),
+    batchAlsoAddView: $("#batch-also-add-view"),
+    batchCancelBtn: $("#batch-cancel-btn"),
+    batchCreateTagsConfirm: $("#batch-create-tags-confirm")
   };
   const batchSelection = new Set();
   const gridInputs = {
@@ -124,6 +172,7 @@
     }
     state.config = config;
     state.originalText = text;
+    state.originalDevices = JSON.stringify(config.devices);
     state.lineEnding = text.includes("\r\n") ? "\r\n" : "\n";
     state.hasTrailingNewline = /(?:\r\n|\n)$/.test(text);
     state.fileName = fileName || "fuxa-config.json";
@@ -132,6 +181,19 @@
     state.baselines = new Map();
     state.usedIds = reserveExistingIds(config);
     state.usedViewIds = new Set(config.hmi.views.map((view) => view.id).filter(Boolean));
+    state.usedDeviceIds = new Set(Object.keys(config.devices || {}));
+    state.usedTagIds = new Set();
+    for (const dev of Object.values(config.devices || {})) {
+      if (D.isRecord(dev) && D.isRecord(dev.tags)) {
+        for (const tagId of Object.keys(dev.tags)) {
+          state.usedTagIds.add(tagId);
+        }
+      }
+    }
+    const devKeys = Object.keys(config.devices || {});
+    const firstModbus = devKeys.find((id) => config.devices[id] && config.devices[id].type === "ModbusTCP");
+    state.selectedDeviceId = firstModbus || devKeys.find((id) => id !== "0") || devKeys[0] || "";
+    state.isCreatingNewDevice = false;
     state.createdIds = new Set();
     state.originalViewIds = config.hmi.views.map((view) => view.id);
     state.originalViewNames = config.hmi.views.map((view) => [view.id, view.name || ""]);
@@ -169,10 +231,12 @@
     return JSON.stringify({
       views: state.config.hmi.views,
       layout: state.config.hmi.layout,
+      devices: state.config.devices,
       models: Array.from(state.models.entries()),
       baselines: Array.from(state.baselines.entries()),
       viewTitleIds: Array.from(state.viewTitleIds.entries()),
-      selectedViewId: state.selectedViewId
+      selectedViewId: state.selectedViewId,
+      selectedDeviceId: state.selectedDeviceId
     });
   }
 
@@ -187,11 +251,33 @@
     const saved = JSON.parse(snapshot);
     state.config.hmi.views = saved.views;
     state.config.hmi.layout = saved.layout;
+    if (saved.devices) {
+      state.config.devices = saved.devices;
+      state.tags = D.buildTagIndex(state.config);
+      state.usedDeviceIds = new Set(Object.keys(state.config.devices));
+      state.usedTagIds = new Set();
+      for (const dev of Object.values(state.config.devices)) {
+        if (D.isRecord(dev) && D.isRecord(dev.tags)) {
+          for (const tid of Object.keys(dev.tags)) state.usedTagIds.add(tid);
+        }
+      }
+    }
     state.models = new Map(saved.models);
     state.baselines = new Map(saved.baselines);
     state.viewTitleIds = new Map(saved.viewTitleIds || []);
     state.selectedViewId = saved.selectedViewId;
+    if (saved.selectedDeviceId) state.selectedDeviceId = saved.selectedDeviceId;
     renderAll();
+    if (elements.deviceMgrDialog.open) {
+      renderDeviceList(elements.deviceSearch.value);
+      if (state.selectedDeviceId && state.config.devices[state.selectedDeviceId]) {
+        selectDevice(state.selectedDeviceId);
+      } else {
+        prepareNewDevice();
+      }
+      updateBatchDeviceOptions();
+      renderBatchTagPreview();
+    }
   }
 
   function updateHistoryButtons() {
@@ -615,6 +701,7 @@
   }
 
   function isDirty() {
+    if (JSON.stringify(state.config.devices) !== state.originalDevices) return true;
     const currentViewIds = state.config.hmi.views.map((view) => view.id);
     if (JSON.stringify(currentViewIds) !== JSON.stringify(state.originalViewIds)) return true;
     const currentViewNames = state.config.hmi.views.map((view) => [view.id, view.name || ""]);
@@ -641,6 +728,8 @@
       : "";
     elements.addOne.disabled = !model;
     elements.addMany.disabled = !model || state.tags.size === 0;
+    elements.deviceMgrButton.disabled = !state.config;
+    elements.quickBatchTagsButton.disabled = !state.config;
     elements.save.disabled = !state.config;
     elements.addView.disabled = !state.config;
     elements.renameView.disabled = !view;
@@ -1115,6 +1204,395 @@
     });
   }
 
+  function openDeviceMgr(tabName, targetDeviceId) {
+    if (!state.config) return;
+    if (targetDeviceId && state.config.devices[targetDeviceId]) {
+      state.selectedDeviceId = targetDeviceId;
+      state.isCreatingNewDevice = false;
+    }
+    renderDeviceList(elements.deviceSearch.value);
+    if (state.selectedDeviceId && state.config.devices[state.selectedDeviceId]) {
+      selectDevice(state.selectedDeviceId);
+    } else {
+      prepareNewDevice();
+    }
+    updateBatchDeviceOptions();
+    if (targetDeviceId) {
+      elements.batchTagDevice.value = targetDeviceId;
+      onBatchDeviceChange();
+    }
+    switchDeviceMgrTab(tabName || "device");
+    elements.deviceMgrDialog.showModal();
+  }
+
+  function switchDeviceMgrTab(tabName) {
+    const isDevice = tabName === "device";
+    elements.tabBtnDevice.classList.toggle("active", isDevice);
+    elements.tabBtnTags.classList.toggle("active", !isDevice);
+    elements.tabPaneDevice.classList.toggle("active", isDevice);
+    elements.tabPaneTags.classList.toggle("active", !isDevice);
+    if (!isDevice) {
+      if (state.selectedDeviceId && elements.batchTagDevice.value !== state.selectedDeviceId) {
+        elements.batchTagDevice.value = state.selectedDeviceId;
+        onBatchDeviceChange();
+      } else {
+        renderBatchTagPreview();
+      }
+    }
+  }
+
+  function renderDeviceList(filterQuery) {
+    elements.deviceList.replaceChildren();
+    if (!state.config || !state.config.devices) return;
+    const query = (filterQuery || "").trim().toLowerCase();
+    const devices = Object.values(state.config.devices).filter((dev) => {
+      if (!D.isRecord(dev)) return false;
+      const name = String(dev.name || dev.id || "").toLowerCase();
+      const addr = String(dev.property && dev.property.address ? dev.property.address : "").toLowerCase();
+      const type = String(dev.type || "").toLowerCase();
+      return name.includes(query) || addr.includes(query) || type.includes(query);
+    });
+
+    for (const dev of devices) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "device-item";
+      if (!state.isCreatingNewDevice && dev.id === state.selectedDeviceId) {
+        button.classList.add("active");
+      }
+      const top = document.createElement("div");
+      top.className = "device-item-top";
+      const title = document.createElement("span");
+      title.className = "device-item-title";
+      title.textContent = dev.name || dev.id;
+
+      const badge = document.createElement("span");
+      badge.className = `badge ${dev.enabled ? "badge-success" : "badge-muted"}`;
+      badge.textContent = dev.enabled ? "已啟用" : "停用";
+      top.append(title, badge);
+
+      const meta = document.createElement("div");
+      meta.className = "device-item-meta";
+      const tagCount = dev.tags ? Object.keys(dev.tags).length : 0;
+      const addrText = (dev.property && dev.property.address) ? dev.property.address : "無位址";
+      meta.textContent = `${dev.type || "ModbusTCP"} · ${addrText} · ${tagCount} 個 Tag`;
+
+      button.append(top, meta);
+      button.addEventListener("click", () => {
+        state.isCreatingNewDevice = false;
+        selectDevice(dev.id);
+        renderDeviceList(elements.deviceSearch.value);
+      });
+      elements.deviceList.append(button);
+    }
+
+    if (!devices.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-cell";
+      empty.textContent = "查無符合條件的設備。";
+      elements.deviceList.append(empty);
+    }
+  }
+
+  function selectDevice(deviceId) {
+    const dev = state.config.devices[deviceId];
+    if (!dev) return;
+    state.selectedDeviceId = deviceId;
+    state.isCreatingNewDevice = false;
+    elements.deviceFormTitle.textContent = `編輯設備：${dev.name || dev.id}`;
+    elements.deviceIdBadge.textContent = dev.id;
+    elements.devName.value = dev.name || "";
+    elements.devEnabled.checked = Boolean(dev.enabled);
+    elements.devAddress.value = (dev.property && dev.property.address) ? dev.property.address : "";
+    elements.devSlaveId.value = (dev.property && dev.property.slaveid !== undefined && dev.property.slaveid !== null) ? String(dev.property.slaveid) : "1";
+    elements.devPolling.value = dev.polling || 200;
+    elements.devConnOption.value = (dev.property && dev.property.connectionOption) ? dev.property.connectionOption : "TcpPort";
+    elements.devTimeout.value = (dev.property && dev.property.timeout !== undefined && dev.property.timeout !== null) ? dev.property.timeout : 2000;
+    elements.devDelay.value = (dev.property && dev.property.delay !== undefined && dev.property.delay !== null) ? dev.property.delay : 10;
+    elements.devBaudrate.value = (dev.property && dev.property.baudrate) ? dev.property.baudrate : 9600;
+    elements.devDatabits.value = (dev.property && dev.property.databits) ? dev.property.databits : 8;
+    elements.devStopbits.value = (dev.property && dev.property.stopbits) ? dev.property.stopbits : 1;
+    elements.devParity.value = (dev.property && dev.property.parity) ? dev.property.parity : "None";
+    elements.devForceFC16.checked = Boolean(dev.property && dev.property.forceFC16);
+
+    const tagCount = dev.tags ? Object.keys(dev.tags).length : 0;
+    elements.deviceTagsCountText.textContent = `目前已有 ${tagCount} 個 Tag`;
+    elements.deleteDeviceBtn.hidden = (dev.id === "0");
+  }
+
+  function prepareNewDevice() {
+    state.isCreatingNewDevice = true;
+    elements.deviceFormTitle.textContent = "新增 ModbusTCP 設備";
+    elements.deviceIdBadge.textContent = "(新建立後自動產生 ID)";
+    elements.devName.value = "";
+    elements.devEnabled.checked = true;
+    elements.devAddress.value = "127.0.0.1:502";
+    elements.devSlaveId.value = "1";
+    elements.devPolling.value = 200;
+    elements.devConnOption.value = "TcpPort";
+    elements.devTimeout.value = 2000;
+    elements.devDelay.value = 10;
+    elements.devBaudrate.value = 9600;
+    elements.devDatabits.value = 8;
+    elements.devStopbits.value = 1;
+    elements.devParity.value = "None";
+    elements.devForceFC16.checked = false;
+    elements.deviceTagsCountText.textContent = "目前已有 0 個 Tag";
+    elements.deleteDeviceBtn.hidden = true;
+    renderDeviceList(elements.deviceSearch.value);
+  }
+
+  function handleSaveDevice(event) {
+    event.preventDefault();
+    const name = elements.devName.value.trim();
+    if (!name) {
+      setStatus("設備名稱不可空白。", "error");
+      return;
+    }
+
+    const params = {
+      name,
+      enabled: elements.devEnabled.checked,
+      address: elements.devAddress.value.trim(),
+      slaveid: elements.devSlaveId.value.trim(),
+      polling: Number(elements.devPolling.value) || 200,
+      connectionOption: elements.devConnOption.value.trim() || "TcpPort",
+      timeout: Number(elements.devTimeout.value) || 2000,
+      delay: Number(elements.devDelay.value) || 10,
+      baudrate: Number(elements.devBaudrate.value) || 9600,
+      databits: Number(elements.devDatabits.value) || 8,
+      stopbits: Number(elements.devStopbits.value) || 1,
+      parity: elements.devParity.value,
+      forceFC16: elements.devForceFC16.checked
+    };
+
+    rememberUndo();
+    if (state.isCreatingNewDevice) {
+      const newDev = D.createModbusTcpDevice(params, state.usedDeviceIds, window.crypto);
+      state.config.devices[newDev.id] = newDev;
+      D.syncDeviceConnectionTag(state.config, newDev.id, newDev.name, window.crypto, state.usedTagIds);
+      state.selectedDeviceId = newDev.id;
+      state.isCreatingNewDevice = false;
+      setStatus(`已成功建立 ModbusTCP 設備「${newDev.name}」(${newDev.id})。`, "success");
+    } else {
+      const dev = state.config.devices[state.selectedDeviceId];
+      if (!dev) return;
+      D.updateModbusTcpDevice(dev, params);
+      D.syncDeviceConnectionTag(state.config, dev.id, dev.name, window.crypto, state.usedTagIds);
+      setStatus(`已更新設備「${dev.name}」設定。`, "success");
+    }
+
+    state.tags = D.buildTagIndex(state.config);
+    renderAll();
+    renderDeviceList(elements.deviceSearch.value);
+    selectDevice(state.selectedDeviceId);
+    updateBatchDeviceOptions();
+  }
+
+  function handleDeleteDevice() {
+    const devId = state.selectedDeviceId;
+    const dev = state.config.devices[devId];
+    if (!dev || devId === "0") return;
+
+    const linkedViews = [];
+    for (const [viewId, model] of state.models) {
+      const view = state.config.hmi.views.find((v) => v.id === viewId);
+      const viewTitle = view ? (view.name || view.id) : viewId;
+      const count = model.components.filter((comp) => {
+        const tag = state.tags.get(comp.tagId);
+        return tag && tag.deviceId === devId;
+      }).length;
+      if (count > 0) linkedViews.push(`View「${viewTitle}」(${count} 個元件)`);
+    }
+
+    let msg = `確定要刪除設備「${dev.name || devId}」嗎？此操作將同時移除其所有 Tag。`;
+    if (linkedViews.length) {
+      msg += `\n\n警告：以下 View 正在使用此設備的 Tag，刪除後將導致元件 Tag 參照失效：\n${linkedViews.join("\n")}`;
+    }
+    if (!window.confirm(msg)) return;
+
+    rememberUndo();
+    D.removeDevice(state.config, devId);
+    state.tags = D.buildTagIndex(state.config);
+
+    const devKeys = Object.keys(state.config.devices);
+    state.selectedDeviceId = devKeys.find((id) => id !== "0") || devKeys[0] || "";
+    state.isCreatingNewDevice = false;
+
+    renderAll();
+    renderDeviceList(elements.deviceSearch.value);
+    if (state.selectedDeviceId) {
+      selectDevice(state.selectedDeviceId);
+    } else {
+      prepareNewDevice();
+    }
+    updateBatchDeviceOptions();
+    setStatus(`已刪除設備「${dev.name || devId}」。`, "info");
+  }
+
+  function updateBatchDeviceOptions() {
+    elements.batchTagDevice.replaceChildren();
+    if (!state.config || !state.config.devices) return;
+    for (const [id, dev] of Object.entries(state.config.devices)) {
+      if (id === "0") continue;
+      const count = dev.tags ? Object.keys(dev.tags).length : 0;
+      const option = makeOption(id, `${dev.name || id} (${dev.type || "Modbus"}) · ${count} tags`, id === state.selectedDeviceId);
+      elements.batchTagDevice.append(option);
+    }
+    if (state.selectedDeviceId && elements.batchTagDevice.value !== state.selectedDeviceId) {
+      elements.batchTagDevice.value = state.selectedDeviceId;
+    }
+  }
+
+  function onBatchDeviceChange() {
+    const devId = elements.batchTagDevice.value;
+    const dev = state.config ? state.config.devices[devId] : null;
+    if (dev) {
+      state.selectedDeviceId = devId;
+      const memaddr = elements.batchTagMemaddress.value;
+      const nextAddr = D.getNextAvailableAddress(dev, memaddr);
+      elements.batchTagStartAddr.value = String(nextAddr);
+    }
+    renderBatchTagPreview();
+  }
+
+  function renderBatchTagPreview() {
+    elements.batchTagPreviewBody.replaceChildren();
+    const devId = elements.batchTagDevice.value;
+    const dev = state.config ? state.config.devices[devId] : null;
+    const text = elements.batchTagInput.value;
+    const startAddr = Number(elements.batchTagStartAddr.value) || 1;
+    const step = Number(elements.batchTagStep.value) || 1;
+    const defaultMem = elements.batchTagMemaddress.value;
+    const defaultType = elements.batchTagType.value;
+
+    const specs = D.parseTagBatchInput(text, {
+      startAddress: startAddr,
+      step,
+      defaultMemAddress: defaultMem,
+      defaultType
+    });
+
+    elements.batchPreviewCount.textContent = `${specs.length} 筆 Tag`;
+    elements.batchCreateTagsConfirm.disabled = specs.length === 0 || !dev;
+
+    if (!specs.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 6;
+      td.className = "empty-cell";
+      td.textContent = "在上方文字框輸入或貼上 Tag 名稱以預覽。";
+      tr.append(td);
+      elements.batchTagPreviewBody.append(tr);
+      return;
+    }
+
+    const existingTags = dev && dev.tags ? Object.values(dev.tags) : [];
+    const existingAddrs = new Set(existingTags.map((t) => `${t.memaddress}_${t.address}`));
+    const existingNames = new Set(existingTags.map((t) => t.name));
+
+    for (let i = 0; i < specs.length; i++) {
+      const spec = specs[i];
+      const tr = document.createElement("tr");
+
+      const tdIndex = document.createElement("td");
+      tdIndex.textContent = String(i + 1);
+
+      const tdName = document.createElement("td");
+      tdName.textContent = spec.name;
+
+      const tdAddr = document.createElement("td");
+      tdAddr.textContent = String(spec.address);
+
+      const tdMem = document.createElement("td");
+      tdMem.textContent = spec.memaddress;
+
+      const tdType = document.createElement("td");
+      tdType.textContent = spec.type;
+
+      const tdStatus = document.createElement("td");
+      const badge = document.createElement("span");
+      const isAddrDup = existingAddrs.has(`${spec.memaddress}_${spec.address}`);
+      const isNameDup = existingNames.has(spec.name);
+      if (isAddrDup) {
+        badge.className = "badge badge-warn";
+        badge.textContent = "⚠ 位址重複";
+      } else if (isNameDup) {
+        badge.className = "badge badge-warn";
+        badge.textContent = "⚠ 名稱已存在";
+      } else {
+        badge.className = "badge badge-success";
+        badge.textContent = "正常";
+      }
+      tdStatus.append(badge);
+
+      tr.append(tdIndex, tdName, tdAddr, tdMem, tdType, tdStatus);
+      elements.batchTagPreviewBody.append(tr);
+    }
+  }
+
+  function handleBatchCreateTagsSubmit(event) {
+    event.preventDefault();
+    const devId = elements.batchTagDevice.value;
+    const dev = state.config ? state.config.devices[devId] : null;
+    if (!dev) {
+      setStatus("請先選取目標設備。", "error");
+      return;
+    }
+
+    const text = elements.batchTagInput.value;
+    const startAddr = Number(elements.batchTagStartAddr.value) || 1;
+    const step = Number(elements.batchTagStep.value) || 1;
+    const defaultMem = elements.batchTagMemaddress.value;
+    const defaultType = elements.batchTagType.value;
+
+    const specs = D.parseTagBatchInput(text, {
+      startAddress: startAddr,
+      step,
+      defaultMemAddress: defaultMem,
+      defaultType
+    });
+
+    if (!specs.length) {
+      setStatus("未解析出任何有效的 Tag 項目。", "warning");
+      return;
+    }
+
+    rememberUndo();
+    const created = D.batchCreateTags(dev, specs, state.usedTagIds, window.crypto);
+    state.tags = D.buildTagIndex(state.config);
+
+    let addedToViewCount = 0;
+    if (elements.batchAlsoAddView.checked && selectedModel()) {
+      const model = selectedModel();
+      for (const tag of created) {
+        const seq = model.components.reduce((max, item) => Math.max(max, item.seq), 0) + 1;
+        model.components.push({
+          key: `new-${crypto.randomUUID()}`,
+          seq,
+          tagId: tag.id,
+          label: tag.name,
+          template: "rect",
+          palette: "normal",
+          shapeId: allocateId("SHE"),
+          labelId: allocateId("svg"),
+          shapeInnerIds: [allocateId("SHE")],
+          managed: true
+        });
+        addedToViewCount += 1;
+      }
+    }
+
+    elements.batchTagInput.value = "";
+    elements.deviceMgrDialog.close();
+    renderAll();
+    renderDeviceList(elements.deviceSearch.value);
+    selectDevice(dev.id);
+
+    const viewMsg = addedToViewCount > 0 ? `，並已將 ${addedToViewCount} 筆加入當前 View` : "";
+    setStatus(`已成功為設備「${dev.name || dev.id}」批次新增 ${created.length} 個 Tag${viewMsg}。`, "success");
+  }
+
   elements.addOne.addEventListener("click", () => addComponent("", ""));
   elements.addMany.addEventListener("click", openBatchDialog);
   elements.addView.addEventListener("click", openNewViewDialog);
@@ -1140,4 +1618,30 @@
   elements.save.addEventListener("click", saveConfig);
   elements.undo.addEventListener("click", undo);
   elements.redo.addEventListener("click", redo);
+
+  // ModbusTCP & Tag Management
+  elements.deviceMgrButton.addEventListener("click", () => openDeviceMgr("device"));
+  elements.quickBatchTagsButton.addEventListener("click", () => openDeviceMgr("tags"));
+  elements.deviceMgrClose.addEventListener("click", () => elements.deviceMgrDialog.close());
+  elements.batchCancelBtn.addEventListener("click", () => elements.deviceMgrDialog.close());
+  elements.tabBtnDevice.addEventListener("click", () => switchDeviceMgrTab("device"));
+  elements.tabBtnTags.addEventListener("click", () => switchDeviceMgrTab("tags"));
+  elements.deviceSearch.addEventListener("input", () => renderDeviceList(elements.deviceSearch.value));
+  elements.newDeviceBtn.addEventListener("click", prepareNewDevice);
+  elements.deviceForm.addEventListener("submit", handleSaveDevice);
+  elements.deleteDeviceBtn.addEventListener("click", handleDeleteDevice);
+  elements.goToBatchTagsBtn.addEventListener("click", () => {
+    if (state.selectedDeviceId) {
+      elements.batchTagDevice.value = state.selectedDeviceId;
+      onBatchDeviceChange();
+    }
+    switchDeviceMgrTab("tags");
+  });
+  elements.batchTagDevice.addEventListener("change", onBatchDeviceChange);
+  elements.batchTagMemaddress.addEventListener("change", onBatchDeviceChange);
+  elements.batchTagType.addEventListener("change", renderBatchTagPreview);
+  elements.batchTagStartAddr.addEventListener("input", renderBatchTagPreview);
+  elements.batchTagStep.addEventListener("input", renderBatchTagPreview);
+  elements.batchTagInput.addEventListener("input", renderBatchTagPreview);
+  elements.batchCreateTagsForm.addEventListener("submit", handleBatchCreateTagsSubmit);
 })();

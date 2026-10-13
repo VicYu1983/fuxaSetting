@@ -94,3 +94,160 @@ test("removing a View clears navigation references and replaces its start View",
     children: [{ text: "Keep page", view: "view-other" }]
   }]);
 });
+
+test("creates and updates ModbusTCP devices", () => {
+  const usedDeviceIds = new Set();
+  const cryptoMock = {
+    getRandomValues(bytes) {
+      bytes.fill(7);
+      return bytes;
+    }
+  };
+  const dev = D.createModbusTcpDevice({
+    name: "14F",
+    address: "192.168.1.14:502",
+    slaveid: "2",
+    polling: 300,
+    enabled: true
+  }, usedDeviceIds, cryptoMock);
+
+  assert.equal(dev.id, "d_07070707-07070707");
+  assert.equal(dev.name, "14F");
+  assert.equal(dev.type, "ModbusTCP");
+  assert.equal(dev.property.address, "192.168.1.14:502");
+  assert.equal(dev.property.slaveid, "2");
+  assert.equal(dev.polling, 300);
+  assert.equal(dev.enabled, true);
+  assert.deepEqual(dev.tags, {});
+
+  D.updateModbusTcpDevice(dev, {
+    name: "14F-Renamed",
+    address: "192.168.1.15:502",
+    slaveid: "3",
+    polling: 500,
+    enabled: false
+  });
+  assert.equal(dev.name, "14F-Renamed");
+  assert.equal(dev.property.address, "192.168.1.15:502");
+  assert.equal(dev.property.slaveid, "3");
+  assert.equal(dev.polling, 500);
+  assert.equal(dev.enabled, false);
+
+  assert.throws(() => D.createModbusTcpDevice({ name: "" }, usedDeviceIds, cryptoMock), /設備名稱不可空白/);
+});
+
+test("parses tag batch input with automatic increment and custom columns", () => {
+  const input = `
+    # 註解行
+    點位一
+    點位二\t10
+    點位三, 20, Bool, 100000, 這是備註
+    點位四
+  `;
+  const specs = D.parseTagBatchInput(input, {
+    startAddress: 1,
+    step: 1,
+    defaultMemAddress: "000000",
+    defaultType: "Bool"
+  });
+
+  assert.equal(specs.length, 4);
+  assert.deepEqual(specs[0], {
+    name: "點位一",
+    address: 1,
+    type: "Bool",
+    memaddress: "000000",
+    description: null
+  });
+  assert.deepEqual(specs[1], {
+    name: "點位二",
+    address: 10,
+    type: "Bool",
+    memaddress: "000000",
+    description: null
+  });
+  assert.deepEqual(specs[2], {
+    name: "點位三",
+    address: 20,
+    type: "Bool",
+    memaddress: "100000",
+    description: "這是備註"
+  });
+  assert.deepEqual(specs[3], {
+    name: "點位四",
+    address: 21,
+    type: "Bool",
+    memaddress: "000000",
+    description: null
+  });
+});
+
+test("batch creates tags under a device and detects next available address", () => {
+  const device = {
+    id: "d_test",
+    name: "TestDev",
+    tags: {}
+  };
+  assert.equal(D.getNextAvailableAddress(device), 1);
+
+  const usedTagIds = new Set();
+  let counter = 1;
+  const cryptoMock = {
+    getRandomValues(bytes) {
+      bytes.fill(counter++);
+      return bytes;
+    }
+  };
+
+  const specs = [
+    { name: "Tag 1", address: 1, type: "Bool", memaddress: "000000" },
+    { name: "Tag 2", address: 2, type: "Bool", memaddress: "000000" }
+  ];
+  const created = D.batchCreateTags(device, specs, usedTagIds, cryptoMock);
+  assert.equal(created.length, 2);
+  assert.equal(Object.keys(device.tags).length, 2);
+  assert.equal(created[0].name, "Tag 1");
+  assert.equal(created[0].address, 1);
+  assert.equal(D.getNextAvailableAddress(device), 3);
+});
+
+test("synchronizes connection tag in FuxaServer device 0 and handles device removal", () => {
+  const config = {
+    devices: {
+      "0": {
+        id: "0",
+        name: "FUXA",
+        type: "FuxaServer",
+        tags: {}
+      },
+      "d_demo": {
+        id: "d_demo",
+        name: "DemoDev",
+        tags: {}
+      }
+    }
+  };
+  const usedTagIds = new Set();
+  const cryptoMock = {
+    getRandomValues(bytes) {
+      bytes.fill(9);
+      return bytes;
+    }
+  };
+
+  const connTag = D.syncDeviceConnectionTag(config, "d_demo", "DemoDev", cryptoMock, usedTagIds);
+  assert.ok(connTag);
+  assert.equal(connTag.name, "DemoDev Connection Status");
+  assert.equal(connTag.memaddress, "d_demo");
+
+  // Sync rename
+  D.syncDeviceConnectionTag(config, "d_demo", "DemoDev-Renamed", cryptoMock, usedTagIds);
+  assert.equal(connTag.name, "DemoDev-Renamed Connection Status");
+
+  // Removal
+  const removed = D.removeDevice(config, "d_demo");
+  assert.equal(removed, true);
+  assert.equal(config.devices["d_demo"], undefined);
+  assert.equal(Object.keys(config.devices["0"].tags).length, 0);
+});
+

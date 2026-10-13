@@ -229,10 +229,195 @@
       isRecord(view.items) && typeof view.svgcontent === "string";
   }
 
+  function createModbusTcpDevice(params, usedDeviceIds, cryptoObject) {
+    const name = params && typeof params.name === "string" ? params.name.trim() : "";
+    if (!name) throw new Error("設備名稱不可空白。");
+    const id = generateId("d", usedDeviceIds, cryptoObject);
+    const property = {
+      address: params && params.address ? String(params.address).trim() : "127.0.0.1:502",
+      port: null,
+      slot: null,
+      rack: null,
+      slaveid: params && params.slaveid !== undefined ? String(params.slaveid).trim() : "1",
+      baudrate: params && Number(params.baudrate) ? Number(params.baudrate) : 9600,
+      databits: params && Number(params.databits) ? Number(params.databits) : 8,
+      stopbits: params && Number(params.stopbits) ? Number(params.stopbits) : 1,
+      parity: params && params.parity ? String(params.parity) : "None",
+      connectionOption: params && params.connectionOption ? String(params.connectionOption) : "TcpPort",
+      delay: params && params.delay !== undefined ? Number(params.delay) : 10,
+      forceFC16: Boolean(params && params.forceFC16),
+      timeout: params && params.timeout !== undefined ? Number(params.timeout) : 2000
+    };
+    return {
+      id,
+      name,
+      enabled: params && params.enabled !== undefined ? Boolean(params.enabled) : true,
+      property,
+      type: "ModbusTCP",
+      polling: params && Number(params.polling) ? Number(params.polling) : 200,
+      tags: {}
+    };
+  }
+
+  function updateModbusTcpDevice(device, params) {
+    if (!device || !isRecord(device)) throw new Error("無效的設備資料。");
+    if (!isRecord(device.property)) device.property = {};
+    if (params && params.name !== undefined) {
+      const name = String(params.name).trim();
+      if (!name) throw new Error("設備名稱不可空白。");
+      device.name = name;
+    }
+    if (params && params.enabled !== undefined) device.enabled = Boolean(params.enabled);
+    if (params && params.polling !== undefined) device.polling = Number(params.polling) || 200;
+    if (params && params.address !== undefined) device.property.address = String(params.address).trim();
+    if (params && params.slaveid !== undefined) device.property.slaveid = String(params.slaveid).trim();
+    if (params && params.baudrate !== undefined) device.property.baudrate = Number(params.baudrate) || 9600;
+    if (params && params.databits !== undefined) device.property.databits = Number(params.databits) || 8;
+    if (params && params.stopbits !== undefined) device.property.stopbits = Number(params.stopbits) || 1;
+    if (params && params.parity !== undefined) device.property.parity = String(params.parity);
+    if (params && params.connectionOption !== undefined) device.property.connectionOption = String(params.connectionOption);
+    if (params && params.delay !== undefined) device.property.delay = Number(params.delay);
+    if (params && params.forceFC16 !== undefined) device.property.forceFC16 = Boolean(params.forceFC16);
+    if (params && params.timeout !== undefined) device.property.timeout = Number(params.timeout);
+    return device;
+  }
+
+  function getNextAvailableAddress(device, memaddress) {
+    if (!device || !isRecord(device.tags)) return 1;
+    let max = 0;
+    for (const tag of Object.values(device.tags)) {
+      if (!isRecord(tag)) continue;
+      if (memaddress !== undefined && tag.memaddress !== memaddress) continue;
+      const addr = Number(tag.address);
+      if (Number.isFinite(addr) && addr > max) max = addr;
+    }
+    return max + 1;
+  }
+
+  function parseTagBatchInput(inputText, options) {
+    const opts = options || {};
+    const defaultMemAddress = typeof opts.defaultMemAddress === "string" ? opts.defaultMemAddress : "000000";
+    const defaultType = typeof opts.defaultType === "string" ? opts.defaultType : "Bool";
+    const step = Math.max(1, Math.floor(Number(opts.step) || 1));
+    let nextAutoAddress = Math.max(0, Math.floor(Number(opts.startAddress) || 1));
+
+    const lines = String(inputText || "").split(/\r?\n/);
+    const results = [];
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#") || line.startsWith("//")) continue;
+      const delimiter = line.includes("\t") ? "\t" : ",";
+      const parts = line.split(delimiter).map((p) => p.trim());
+      const name = parts[0];
+      if (!name) continue;
+
+      let address;
+      if (parts.length > 1 && parts[1] !== "" && !Number.isNaN(Number(parts[1]))) {
+        address = Math.floor(Number(parts[1]));
+        nextAutoAddress = address + step;
+      } else {
+        address = nextAutoAddress;
+        nextAutoAddress += step;
+      }
+
+      const type = (parts.length > 2 && parts[2]) ? parts[2] : defaultType;
+      const memaddress = (parts.length > 3 && parts[3]) ? parts[3] : defaultMemAddress;
+      const description = (parts.length > 4 && parts[4]) ? parts[4] : null;
+
+      results.push({
+        name,
+        address,
+        type,
+        memaddress,
+        description
+      });
+    }
+
+    return results;
+  }
+
+  function batchCreateTags(device, tagSpecs, usedTagIds, cryptoObject) {
+    if (!device || !isRecord(device)) throw new Error("無效的設備。");
+    if (!isRecord(device.tags)) device.tags = {};
+    const created = [];
+    const timestamp = Date.now();
+    for (const spec of tagSpecs) {
+      const id = generateId("t", usedTagIds, cryptoObject);
+      const tag = {
+        id,
+        name: String(spec.name).trim(),
+        type: spec.type ? String(spec.type).trim() : "Bool",
+        memaddress: spec.memaddress ? String(spec.memaddress).trim() : "000000",
+        address: Number(spec.address),
+        divisor: spec.divisor !== undefined ? spec.divisor : null,
+        daq: {
+          enabled: Boolean(spec.daq && spec.daq.enabled),
+          interval: spec.daq && Number(spec.daq.interval) ? Number(spec.daq.interval) : 60,
+          changed: Boolean(spec.daq && spec.daq.changed),
+          restored: Boolean(spec.daq && spec.daq.restored)
+        },
+        description: spec.description !== undefined ? spec.description : null,
+        timestamp
+      };
+      device.tags[id] = tag;
+      created.push(tag);
+    }
+    return created;
+  }
+
+  function syncDeviceConnectionTag(config, deviceId, deviceName, cryptoObject, usedTagIds) {
+    if (!isRecord(config) || !isRecord(config.devices) || !isRecord(config.devices["0"])) return null;
+    const serverDev = config.devices["0"];
+    if (!isRecord(serverDev.tags)) serverDev.tags = {};
+    for (const tag of Object.values(serverDev.tags)) {
+      if (isRecord(tag) && tag.memaddress === deviceId && tag.sysType === 1) {
+        tag.name = `${deviceName} Connection Status`;
+        tag.label = `${deviceName} Connection Status`;
+        tag.timestamp = Date.now();
+        return tag;
+      }
+    }
+    const tagId = generateId("t", usedTagIds, cryptoObject);
+    const connTag = {
+      id: tagId,
+      name: `${deviceName} Connection Status`,
+      label: `${deviceName} Connection Status`,
+      type: "number",
+      memaddress: deviceId,
+      daq: {
+        enabled: false,
+        interval: 60,
+        changed: false,
+        restored: false
+      },
+      init: "",
+      sysType: 1,
+      timestamp: Date.now()
+    };
+    serverDev.tags[tagId] = connTag;
+    return connTag;
+  }
+
+  function removeDevice(config, deviceId) {
+    if (!isRecord(config) || !isRecord(config.devices) || !config.devices[deviceId]) return false;
+    delete config.devices[deviceId];
+    if (isRecord(config.devices["0"]) && isRecord(config.devices["0"].tags)) {
+      for (const [tagId, tag] of Object.entries(config.devices["0"].tags)) {
+        if (isRecord(tag) && tag.memaddress === deviceId && tag.sysType === 1) {
+          delete config.devices["0"].tags[tagId];
+        }
+      }
+    }
+    return true;
+  }
+
   return {
     DEFAULT_GRID, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
     buildTagIndex, findById, generateId, hasViewShape, isRecord,
     layoutComponents, parseSvg, readManaged, removeLayoutViewReferences,
-    serializeConfig, validateConfig
+    serializeConfig, validateConfig,
+    createModbusTcpDevice, updateModbusTcpDevice, getNextAvailableAddress,
+    parseTagBatchInput, batchCreateTags, syncDeviceConnectionTag, removeDevice
   };
 });
