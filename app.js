@@ -52,9 +52,19 @@
     previewHost: $("#preview-host"),
     previewSize: $("#preview-size"),
     previewWarning: $("#preview-warning"),
-    importIconButton: $("#import-icon-button"),
-    iconFileInput: $("#icon-file-input"),
+    iconLibraryButton: $("#icon-library-button"),
+    iconLibraryDialog: $("#icon-library-dialog"),
+    iconLibraryClose: $("#icon-library-close"),
+    iconLibraryForm: $("#icon-library-form"),
     iconLibraryList: $("#icon-library-list"),
+    iconSetName: $("#icon-set-name"),
+    iconSetType: $("#icon-set-type"),
+    singleIconFileField: $("#single-icon-file-field"),
+    singleIconFile: $("#single-icon-file"),
+    normalIconFileField: $("#normal-icon-file-field"),
+    normalIconFile: $("#normal-icon-file"),
+    alarmIconFileField: $("#alarm-icon-file-field"),
+    alarmIconFile: $("#alarm-icon-file"),
     addOne: $("#add-one-button"),
     addMany: $("#add-many-button"),
     save: $("#save-button"),
@@ -586,13 +596,26 @@
     const options = [
       ["rect", "矩形"],
       ["cylinder", "圓柱"],
-      ["icon-pair", "正常／告警圖示"],
-      ...state.iconLibrary.map((icon) => [`icon:${icon.id}`, icon.name])
+      ...state.iconLibrary
+        .filter((icon) => icon.type !== "pair")
+        .map((icon) => [`icon:${icon.id}`, icon.name]),
+      ...getIconPairChoices().map((icon) => [`pair:${icon.choiceId}`, `${icon.name}（正常／告警）`])
     ];
+    const pairChoice = component.template === "icon-pair"
+      ? getIconPairChoices().find((icon) =>
+        icon.normalIconId === component.normalIconId &&
+        icon.alarmIconId === component.alarmIconId)
+      : null;
     const selected = component.template === "icon" && component.iconId
-      ? `icon:${component.iconId}` : component.template;
+      ? `icon:${component.iconId}`
+      : component.template === "icon-pair" && pairChoice
+        ? `pair:${pairChoice.choiceId}`
+        : component.template;
     if (!options.some(([value]) => value === selected)) {
-      options.push([selected, `圖示不存在（${component.iconId || "未知"}）`]);
+      const missing = component.template === "icon-pair"
+        ? `正常／告警圖示組不存在（${component.normalIconId || "未知"}）`
+        : `圖示不存在（${component.iconId || "未知"}）`;
+      options.push([selected, missing]);
     }
     for (const [value, label] of options) {
       select.append(makeOption(value, label, value === selected));
@@ -600,19 +623,48 @@
     return select;
   }
 
-  function createIconChoice(field, value, label) {
-    const select = document.createElement("select");
-    select.className = "compact-select";
-    select.dataset.field = field;
-    select.setAttribute("aria-label", label);
-    select.append(makeOption("", `選擇${label}圖示…`, !value));
+  function getIconAsset(iconId) {
     for (const icon of state.iconLibrary) {
-      select.append(makeOption(icon.id, icon.name, icon.id === value));
+      if (icon.type === "pair") {
+        if (icon.normal.id === iconId) return icon.normal;
+        if (icon.alarm.id === iconId) return icon.alarm;
+      } else if (icon.id === iconId) {
+        return icon;
+      }
     }
-    if (value && !state.iconLibrary.some((icon) => icon.id === value)) {
-      select.append(makeOption(value, `圖示不存在（${value}）`, true));
+    return null;
+  }
+
+  function getIconPairChoices() {
+    const pairs = state.iconLibrary
+      .filter((icon) => icon.type === "pair")
+      .map((icon) => ({
+        choiceId: icon.id,
+        id: icon.id,
+        name: icon.name,
+        normalIconId: icon.normal.id,
+        alarmIconId: icon.alarm.id,
+        normal: icon.normal,
+        alarm: icon.alarm
+      }));
+    for (const model of state.models.values()) {
+      for (const component of model.components) {
+        if (component.managed === false || component.template !== "icon-pair" ||
+            pairs.some((pair) => pair.normalIconId === component.normalIconId &&
+              pair.alarmIconId === component.alarmIconId)) continue;
+        const normal = getIconAsset(component.normalIconId);
+        const alarm = getIconAsset(component.alarmIconId);
+        pairs.push({
+          choiceId: `legacy:${component.normalIconId}:${component.alarmIconId}`,
+          id: "",
+          name: `${normal ? normal.name : "缺少正常圖"} / ${alarm ? alarm.name : "缺少告警圖"}`,
+          normalIconId: component.normalIconId,
+          alarmIconId: component.alarmIconId,
+          legacy: true
+        });
+      }
     }
-    return select;
+    return pairs;
   }
 
   function renderIconLibrary() {
@@ -622,26 +674,40 @@
     if (!icons.length) {
       const empty = document.createElement("span");
       empty.className = "icon-library-empty";
-      empty.textContent = "尚未匯入圖片。";
+      empty.textContent = "圖示庫尚無項目，請先新增一般圖示或正常／告警圖示組。";
       elements.iconLibraryList.append(empty);
       return;
     }
     for (const icon of icons) {
       const item = document.createElement("div");
       item.className = "icon-library-item";
-      const image = document.createElement("img");
-      image.src = icon.dataUrl;
-      image.alt = "";
-      const name = document.createElement("span");
+      const previews = document.createElement("div");
+      previews.className = "icon-library-previews";
+      const assets = icon.type === "pair" ? [icon.normal, icon.alarm] : [icon];
+      for (const [index, asset] of assets.entries()) {
+        const image = document.createElement("img");
+        image.src = asset.dataUrl;
+        image.alt = "";
+        image.title = icon.type === "pair"
+          ? index === 0 ? "正常狀態" : "告警狀態"
+          : icon.name;
+        previews.append(image);
+      }
+      const copy = document.createElement("div");
+      copy.className = "icon-library-item-copy";
+      const name = document.createElement("strong");
       name.textContent = icon.name;
       name.title = icon.name;
+      const type = document.createElement("small");
+      type.textContent = icon.type === "pair" ? "正常／告警圖示" : "一般圖示";
+      copy.append(name, type);
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "danger";
       remove.textContent = "刪除";
       remove.setAttribute("aria-label", `刪除圖示 ${icon.name}`);
       remove.addEventListener("click", () => removeLibraryIcon(icon.id));
-      item.append(image, name, remove);
+      item.append(previews, copy, remove);
       elements.iconLibraryList.append(item);
     }
   }
@@ -655,7 +721,11 @@
       const view = state.config.hmi.views.find((item) => item.id === viewId);
       for (const component of model.components) {
         if (component.managed !== false &&
-            [component.iconId, component.normalIconId, component.alarmIconId].includes(iconId)) {
+            ([component.iconId, component.normalIconId, component.alarmIconId]
+              .includes(iconId) ||
+             (icon.type === "pair" &&
+              [component.normalIconId, component.alarmIconId].some((assetId) =>
+                [icon.normal.id, icon.alarm.id].includes(assetId))))) {
           const tag = state.tags.get(component.tagId);
           const label = component.label || (tag && tag.name) || `#${component.seq}`;
           usages.push(`「${view && (view.name || view.id) || viewId}」的 ${label}`);
@@ -706,10 +776,6 @@
     if (component.template === "icon-pair") {
       const pairControls = document.createElement("div");
       pairControls.className = "icon-pair-controls";
-      pairControls.append(
-        createIconChoice("normalIconId", component.normalIconId, "正常狀態"),
-        createIconChoice("alarmIconId", component.alarmIconId, "告警狀態")
-      );
       const invertLabel = document.createElement("label");
       invertLabel.className = "icon-invert-option";
       const invert = document.createElement("input");
@@ -719,8 +785,6 @@
       invertLabel.append(invert, document.createTextNode("反轉狀態"));
       pairControls.append(invertLabel);
       templateCell.append(pairControls);
-    } else if (component.template === "icon") {
-      templateCell.append(createIconChoice("iconId", component.iconId, "圖示"));
     }
     row.append(templateCell);
 
@@ -874,8 +938,8 @@
   }
 
   function buildIconPairNodes(doc, component, placement) {
-    const normalIcon = state.iconLibrary.find((item) => item.id === component.normalIconId);
-    const alarmIcon = state.iconLibrary.find((item) => item.id === component.alarmIconId);
+    const normalIcon = getIconAsset(component.normalIconId);
+    const alarmIcon = getIconAsset(component.alarmIconId);
     if (!normalIcon || !alarmIcon || !component.alarmShapeId) {
       throw new Error(`元件「${component.label || "未命名"}」尚未設定正常與告警圖示。`);
     }
@@ -902,7 +966,7 @@
 
   function buildShapeNode(doc, component, placement) {
     const icon = component.template === "icon"
-      ? state.iconLibrary.find((item) => item.id === component.iconId)
+      ? getIconAsset(component.iconId)
       : null;
     if (component.template === "icon" && !icon) {
       throw new Error(`元件「${component.label || "未命名"}」使用的圖示不存在。`);
@@ -1437,7 +1501,7 @@
     elements.deviceMgrButton.disabled = !state.config;
     elements.floorManagerButton.disabled = !state.config;
     elements.quickBatchTagsButton.disabled = !state.config;
-    elements.importIconButton.disabled = !state.config;
+    elements.iconLibraryButton.disabled = !state.config;
     elements.save.disabled = !state.config;
     elements.addView.disabled = !state.config;
     elements.renameView.disabled = !view;
@@ -1786,19 +1850,35 @@
   }
 
   function getTagIdValidationError() {
-    const iconIds = new Set(state.iconLibrary.map((icon) => icon.id));
+    const singleIconIds = new Set();
+    const pairAssetIds = new Set();
+    for (const icon of state.iconLibrary) {
+      if (icon.type === "pair") {
+        pairAssetIds.add(icon.normal.id);
+        pairAssetIds.add(icon.alarm.id);
+      } else {
+        singleIconIds.add(icon.id);
+      }
+    }
     for (const model of state.models.values()) {
       for (const component of model.components) {
         if (component.managed === false) continue;
         if (!component.tagId || !state.tags.has(component.tagId)) {
           return `項目「${component.label || "(未命名 Label)"}」尚未連結有效 Tag，請先修正。`;
         }
-        if (component.template === "icon" && !iconIds.has(component.iconId)) {
+        if (component.template === "icon" && !singleIconIds.has(component.iconId)) {
           return `項目「${component.label || "(未命名 Label)"}」使用的圖示不存在，請重新選擇。`;
         }
         if (component.template === "icon-pair") {
-          if (!iconIds.has(component.normalIconId) || !iconIds.has(component.alarmIconId)) {
-            return `項目「${component.label || "(未命名 Label)"}」必須選擇正常與告警兩張圖示。`;
+          const hasPair = getIconPairChoices().some((pair) =>
+            pair.normalIconId === component.normalIconId &&
+            pair.alarmIconId === component.alarmIconId);
+          if (!hasPair ||
+              (!pairAssetIds.has(component.normalIconId) &&
+               !getIconAsset(component.normalIconId)) ||
+              (!pairAssetIds.has(component.alarmIconId) &&
+               !getIconAsset(component.alarmIconId))) {
+            return `項目「${component.label || "(未命名 Label)"}」必須選擇正常／告警圖示組。`;
           }
           const tag = state.tags.get(component.tagId);
           if (!tag || !["bool", "boolean"].includes(String(tag.type || "").toLocaleLowerCase())) {
@@ -2041,43 +2121,66 @@
     return "";
   }
 
-  function uniqueIconName(fileName, icons) {
-    const baseName = fileName.replace(/\.[^.]+$/, "").trim() || "圖片";
-    const names = new Set(icons.map((icon) => icon.name.toLocaleLowerCase()));
-    if (!names.has(baseName.toLocaleLowerCase())) return baseName;
-    let index = 2;
-    while (names.has(`${baseName} (${index})`.toLocaleLowerCase())) index += 1;
-    return `${baseName} (${index})`;
+  async function readIconAsset(file, id) {
+    if (!file) throw new Error("請選擇圖片檔。");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const mimeType = identifyImageType(bytes);
+    if (!mimeType) throw new Error(`圖片「${file.name}」格式無效；請選擇 PNG、JPEG 或 GIF。`);
+    return { id, mimeType, dataUrl: `data:${mimeType};base64,${bytesToBase64(bytes)}` };
   }
 
-  elements.importIconButton.addEventListener("click", () => {
-    elements.iconFileInput.click();
-  });
+  function updateIconFormFields() {
+    const isPair = elements.iconSetType.value === "pair";
+    elements.singleIconFileField.hidden = isPair;
+    elements.normalIconFileField.hidden = !isPair;
+    elements.alarmIconFileField.hidden = !isPair;
+    elements.singleIconFile.required = !isPair;
+    elements.normalIconFile.required = isPair;
+    elements.alarmIconFile.required = isPair;
+  }
 
-  elements.iconFileInput.addEventListener("change", async (event) => {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
+  elements.iconSetType.addEventListener("change", updateIconFormFields);
+  elements.iconLibraryForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = elements.iconSetName.value.trim();
+    if (!name) {
+      setStatus("圖示名稱不可空白。", "error");
+      elements.iconSetName.focus();
+      return;
+    }
+    if (state.iconLibrary.some((icon) =>
+      icon.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setStatus(`圖示名稱「${name}」已存在，請輸入不同名稱。`, "error");
+      elements.iconSetName.focus();
+      return;
+    }
+    const type = elements.iconSetType.value;
+    const id = crypto.randomUUID();
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const mimeType = identifyImageType(bytes);
-      if (!mimeType) throw new Error("圖片格式無效；請匯入 PNG、JPEG 或 GIF 圖片。");
-      const icons = state.iconLibrary;
-      const id = `icon-${crypto.randomUUID()}`;
-      const name = uniqueIconName(file.name, icons);
-      const dataUrl = `data:${mimeType};base64,${bytesToBase64(bytes)}`;
+      let icon;
+      if (type === "pair") {
+        const [normal, alarm] = await Promise.all([
+          readIconAsset(elements.normalIconFile.files[0], `icon-${id}-normal`),
+          readIconAsset(elements.alarmIconFile.files[0], `icon-${id}-alarm`)
+        ]);
+        icon = { id: `icon-set-${id}`, name, type: "pair", normal, alarm };
+      } else {
+        icon = {
+          id: `icon-${id}`,
+          name,
+          type: "single",
+          ...await readIconAsset(elements.singleIconFile.files[0], `icon-${id}`)
+        };
+      }
       rememberUndo();
-      state.iconLibrary = [...icons, {
-        id,
-        name,
-        mimeType,
-        dataUrl
-      }];
+      state.iconLibrary = [...state.iconLibrary, icon];
+      elements.iconLibraryForm.reset();
+      updateIconFormFields();
       renderAll();
-      setStatus(`已匯入圖片「${name}」，可在元件的圖形選單中選用。`, "success");
+      setStatus(`已新增${type === "pair" ? "正常／告警圖示組" : "一般圖示"}「${name}」。`, "success");
+      elements.iconSetName.focus();
     } catch (error) {
-      setStatus(`無法匯入圖片：${error.message}`, "error");
-    } finally {
-      event.target.value = "";
+      setStatus(`無法新增圖示：${error.message}`, "error");
     }
   });
 
@@ -2085,7 +2188,7 @@
     const field = event.target.dataset.field;
     const row = event.target.closest("tr[data-key]");
     if (!field || !row) return;
-    if (["graphic", "normalIconId", "alarmIconId", "invertIconState"].includes(field)) return;
+    if (["graphic", "invertIconState"].includes(field)) return;
     const model = selectedModel();
     const component = model && model.components.find((item) => item.key === row.dataset.key);
     if (!component || component[field] === event.target.value) return;
@@ -2103,10 +2206,19 @@
       const component = model && model.components.find((item) => item.key === row.dataset.key);
       if (!component) return;
       const value = event.target.value;
-      const nextTemplate = value.startsWith("icon:") ? "icon" : value;
-      const nextIconId = nextTemplate === "icon" ? value.slice("icon:".length) : "";
+      const isSingleIcon = value.startsWith("icon:");
+      const isPairIcon = value.startsWith("pair:");
+      const nextTemplate = isSingleIcon ? "icon" : isPairIcon ? "icon-pair" : value;
+      const selectedPair = isPairIcon
+        ? getIconPairChoices().find((pair) => pair.choiceId === value.slice("pair:".length))
+        : null;
+      const nextIconId = isSingleIcon ? value.slice("icon:".length) : "";
       if (component.template === nextTemplate &&
-          (nextTemplate !== "icon" || component.iconId === nextIconId)) return;
+          (nextTemplate === "icon" && component.iconId === nextIconId ||
+           nextTemplate === "icon-pair" && selectedPair &&
+             component.normalIconId === selectedPair.normalIconId &&
+             component.alarmIconId === selectedPair.alarmIconId ||
+           !["icon", "icon-pair"].includes(nextTemplate))) return;
       rememberUndo();
       if (nextTemplate === "icon-pair" && !component.alarmShapeId) {
         component.alarmShapeId = allocateId("SHE");
@@ -2114,6 +2226,10 @@
       component.template = nextTemplate;
       if (nextTemplate === "icon") component.iconId = nextIconId;
       else delete component.iconId;
+      if (nextTemplate === "icon-pair" && selectedPair) {
+        component.normalIconId = selectedPair.normalIconId;
+        component.alarmIconId = selectedPair.alarmIconId;
+      }
       if (nextTemplate !== "icon-pair") {
         delete component.normalIconId;
         delete component.alarmIconId;
@@ -2121,10 +2237,6 @@
         delete component.alarmShapeId;
       }
       renderAll();
-      return;
-    }
-    if (["normalIconId", "alarmIconId"].includes(field)) {
-      mutateComponent(row.dataset.key, field, event.target.value);
       return;
     }
     if (field === "invertIconState") {
@@ -2690,6 +2802,14 @@
     elements.floorManagerDialog.showModal();
   }
 
+  elements.iconLibraryButton.addEventListener("click", () => {
+    if (!state.config) return;
+    renderIconLibrary();
+    updateIconFormFields();
+    elements.iconLibraryDialog.showModal();
+    elements.iconSetName.focus();
+  });
+  elements.iconLibraryClose.addEventListener("click", () => elements.iconLibraryDialog.close());
   elements.addOne.addEventListener("click", () => addComponent("", ""));
   elements.addMany.addEventListener("click", openBatchDialog);
   elements.addView.addEventListener("click", openNewViewDialog);

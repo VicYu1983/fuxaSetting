@@ -51,23 +51,12 @@
             <p id="selected-view-meta" class="muted"></p>
           </div>
           <div class="button-row">
+            <button id="icon-library-button" class="secondary" disabled>圖示庫</button>
             <button id="quick-batch-tags-button" class="secondary" disabled>批次建立 Tag</button>
             <button id="add-one-button" class="secondary" disabled>新增一筆</button>
             <button id="add-many-button" class="primary" disabled>批次選取加入 View</button>
           </div>
         </div>
-
-        <section class="icon-library" aria-label="圖示庫">
-          <div class="icon-library-heading">
-            <div>
-              <strong>圖示庫</strong>
-              <p class="muted">匯入 PNG、JPEG 或 GIF；元件圖形選單可選用，圖片資料保存在配置 extra。</p>
-            </div>
-            <button id="import-icon-button" class="secondary compact-button" type="button" disabled>匯入圖片</button>
-            <input id="icon-file-input" type="file" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" hidden>
-          </div>
-          <div id="icon-library-list" class="icon-library-list"></div>
-        </section>
 
         <div class="grid-settings">
           <label>欄數 <input id="grid-columns" type="number" min="1" max="24" value="4"></label>
@@ -156,6 +145,46 @@
         <button id="batch-confirm" class="primary" value="confirm">加入選取項目</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="icon-library-dialog" class="icon-library-dialog">
+    <div class="dialog-inner">
+      <div class="dialog-heading">
+        <div>
+          <h2>圖示庫管理</h2>
+          <p class="muted">建立一般圖示或正常／告警圖示組；Tag 設定會使用這裡的項目。</p>
+        </div>
+        <button id="icon-library-close" class="icon-button" type="button" aria-label="關閉">×</button>
+      </div>
+      <form id="icon-library-form" class="icon-library-form">
+        <div class="form-grid">
+          <label>圖示名稱 *
+            <input id="icon-set-name" type="text" maxlength="100" required placeholder="例如：消防泵">
+          </label>
+          <label>圖示類型
+            <select id="icon-set-type">
+              <option value="single">一般圖示</option>
+              <option value="pair">正常／告警圖示</option>
+            </select>
+          </label>
+          <label id="single-icon-file-field">圖片 *
+            <input id="single-icon-file" type="file" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif">
+          </label>
+          <label id="normal-icon-file-field" hidden>正常狀態圖片 *
+            <input id="normal-icon-file" type="file" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif">
+          </label>
+          <label id="alarm-icon-file-field" hidden>告警狀態圖片 *
+            <input id="alarm-icon-file" type="file" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif">
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button id="icon-library-add" class="primary" type="submit">新增圖示</button>
+        </div>
+      </form>
+      <section class="icon-library-section" aria-label="已建立的圖示">
+        <h3>已建立的圖示</h3>
+        <div id="icon-library-list" class="icon-library-list"></div>
+      </section>
+    </div>
   </dialog>
   <dialog id="new-view-dialog">
     <form method="dialog" id="new-view-form">

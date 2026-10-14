@@ -210,19 +210,36 @@
       throw new Error(`配置的 extra.${GRID_SETTINGS_KEY}.${ICON_LIBRARY_KEY} 欄位不是陣列。`);
     }
     const ids = new Set();
+    const validateAsset = (asset) =>
+      isRecord(asset) && typeof asset.id === "string" && Boolean(asset.id) &&
+      ["image/png", "image/jpeg", "image/gif"].includes(asset.mimeType) &&
+      typeof asset.dataUrl === "string" &&
+      asset.dataUrl.startsWith(`data:${asset.mimeType};base64,`) &&
+      /^[A-Za-z0-9+/]+={0,2}$/.test(asset.dataUrl.slice(asset.dataUrl.indexOf(",") + 1));
     for (const icon of icons) {
       if (!isRecord(icon) || typeof icon.id !== "string" || !icon.id ||
-          typeof icon.name !== "string" || !icon.name.trim() ||
-          !["image/png", "image/jpeg", "image/gif"].includes(icon.mimeType) ||
-          typeof icon.dataUrl !== "string" ||
-          !icon.dataUrl.startsWith(`data:${icon.mimeType};base64,`) ||
-          !/^[A-Za-z0-9+/]+={0,2}$/.test(icon.dataUrl.slice(icon.dataUrl.indexOf(",") + 1))) {
+          typeof icon.name !== "string" || !icon.name.trim()) {
         throw new Error("圖示庫包含無效項目；請確認圖片格式與 Base64 資料。");
       }
       if (ids.has(icon.id)) throw new Error(`圖示庫包含重複 ID：${icon.id}`);
       ids.add(icon.id);
+      if (icon.type === "pair") {
+        if (!validateAsset(icon.normal) || !validateAsset(icon.alarm)) {
+          throw new Error("正常／告警圖示組包含無效圖片；請確認圖片格式與 Base64 資料。");
+        }
+        for (const asset of [icon.normal, icon.alarm]) {
+          if (ids.has(asset.id)) throw new Error(`圖示庫包含重複 ID：${asset.id}`);
+          ids.add(asset.id);
+        }
+      } else if (icon.type !== undefined && icon.type !== "single") {
+        throw new Error("圖示庫項目類型無效；僅支援一般圖示或正常／告警圖示。");
+      } else if (!validateAsset(icon)) {
+        throw new Error("圖示庫包含無效項目；請確認圖片格式與 Base64 資料。");
+      }
     }
-    return icons.map((icon) => ({ ...icon }));
+    return icons.map((icon) => icon.type === "pair"
+      ? { ...icon, normal: { ...icon.normal }, alarm: { ...icon.alarm } }
+      : { ...icon });
   }
 
   function buildVisibilityActions(tagId, visibleValue) {

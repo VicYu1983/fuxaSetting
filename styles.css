@@ -63,16 +63,24 @@ main { padding: 16px 20px 24px; }
 .view-option strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
 .view-option small { display: block; color: var(--muted); margin-top: 4px; }
 .editor-heading { align-items: flex-start; }
-.icon-library { padding: 10px 14px; border-bottom: 1px solid var(--border); background: #fff; }
-.icon-library-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.icon-library-heading strong { font-size: 12px; }
-.icon-library-heading p { margin: 3px 0 0; font-size: 11px; }
-.icon-library-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
-.icon-library-empty { color: var(--muted); font-size: 11px; }
-.icon-library-item { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: #f8fafc; }
-.icon-library-item img { width: 28px; height: 28px; object-fit: contain; background: #fff; }
-.icon-library-item span { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.icon-library-item button { padding: 3px 6px; color: #b91c1c; font-size: 10px; }
+.icon-library-dialog { width: min(760px, calc(100vw - 28px)); }
+.icon-library-form { padding: 14px 0 4px; border-bottom: 1px solid var(--border); }
+.icon-library-form .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.icon-library-form label { display: grid; gap: 6px; color: #475569; font-size: 12px; }
+.icon-library-form input, .icon-library-form select { min-width: 0; width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.icon-library-form [hidden] { display: none; }
+.icon-library-section { padding-top: 14px; }
+.icon-library-section h3 { margin: 0 0 10px; font-size: 14px; }
+.icon-library-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; max-height: 42vh; overflow: auto; }
+.icon-library-empty { grid-column: 1 / -1; padding: 18px; color: var(--muted); font-size: 12px; text-align: center; }
+.icon-library-item { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: #f8fafc; }
+.icon-library-previews { display: flex; flex: 0 0 auto; gap: 4px; }
+.icon-library-item img { width: 38px; height: 38px; object-fit: contain; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; }
+.icon-library-item-copy { min-width: 0; flex: 1; }
+.icon-library-item-copy strong, .icon-library-item-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-library-item-copy strong { font-size: 12px; }
+.icon-library-item-copy small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.icon-library-item button { flex: 0 0 auto; padding: 5px 7px; color: #b91c1c; font-size: 10px; }
 .grid-settings { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: #f8fafc; }
 .grid-settings label { display: flex; align-items: center; gap: 5px; color: #475569; font-size: 11px; white-space: nowrap; }
 .grid-settings input, .grid-settings select { width: 68px; padding: 5px; border: 1px solid var(--border); border-radius: 5px; background: #fff; font-size: 12px; }

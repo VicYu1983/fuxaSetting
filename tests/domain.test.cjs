@@ -138,6 +138,36 @@ test("stores imported icon data in the tool extra namespace and preserves siblin
   assert.throws(() => D.saveIconLibrary(config, [{ ...icon, dataUrl: "https://example.com/image.png" }]), /無效項目/);
 });
 
+test("stores named normal/alarm icon sets and validates both embedded images", () => {
+  const pair = {
+    id: "icon-set-one",
+    name: "消防泵",
+    type: "pair",
+    normal: {
+      id: "icon-one-normal",
+      mimeType: "image/png",
+      dataUrl: "data:image/png;base64,iVBORw=="
+    },
+    alarm: {
+      id: "icon-one-alarm",
+      mimeType: "image/gif",
+      dataUrl: "data:image/gif;base64,R0lGODlh"
+    }
+  };
+  const config = { extra: { fuxaSetting: { note: "keep" } } };
+  D.saveIconLibrary(config, [pair]);
+  assert.deepEqual(D.getIconLibrary(config), [pair]);
+  assert.equal(config.extra.fuxaSetting.note, "keep");
+  assert.throws(() => D.saveIconLibrary(config, [{
+    ...pair,
+    alarm: { ...pair.alarm, dataUrl: "https://example.com/alarm.png" }
+  }]), /無效圖片/);
+  assert.throws(() => D.saveIconLibrary(config, [{
+    ...pair,
+    alarm: { ...pair.alarm, id: pair.normal.id }
+  }]), /重複 ID/);
+});
+
 test("builds complementary FUXA visibility actions and reverses their state mapping", () => {
   const normal = D.buildVisibilityActions("tag-bool", 0);
   const alarm = D.buildVisibilityActions("tag-bool", 1);
