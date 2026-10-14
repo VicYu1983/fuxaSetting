@@ -49,8 +49,6 @@
     previewWarning: $("#preview-warning"),
     addOne: $("#add-one-button"),
     addMany: $("#add-many-button"),
-    addFloor: $("#add-floor-button"),
-    addFloorSelect: $("#add-floor-select"),
     save: $("#save-button"),
     undo: $("#undo-button"),
     redo: $("#redo-button"),
@@ -1012,7 +1010,6 @@
   function renderAll() {
     if (!state.config) return;
     renderFloorOptions();
-    updateAddFloorOptions();
     renderViewList();
     const view = selectedView();
     const model = selectedModel();
@@ -1022,8 +1019,6 @@
       : "";
     elements.addOne.disabled = !model;
     elements.addMany.disabled = !model || state.tags.size === 0;
-    elements.addFloor.disabled = !model || state.tags.size === 0;
-    elements.addFloorSelect.disabled = !model || state.tags.size === 0;
     elements.deviceMgrButton.disabled = !state.config;
     elements.floorManagerButton.disabled = !state.config;
     elements.quickBatchTagsButton.disabled = !state.config;
@@ -1070,39 +1065,6 @@
     rememberUndo();
     model.components.push(makeComponent(tagId, label));
     renderAll();
-  }
-
-  function updateAddFloorOptions() {
-    const previous = elements.addFloorSelect.value;
-    const floors = Array.from(new Set(Array.from(state.tags.values()).map((tag) => tag.floor)));
-    floors.sort(D.compareFloors);
-    elements.addFloorSelect.replaceChildren(makeOption("", "選擇樓層…", false));
-    for (const floor of floors) {
-      const value = floor || "__unset__";
-      elements.addFloorSelect.append(makeOption(value, floor || "未設定樓層", value === previous));
-    }
-    if (Array.from(elements.addFloorSelect.options).some((option) => option.value === previous)) {
-      elements.addFloorSelect.value = previous;
-    }
-  }
-
-  function addFloorToView() {
-    const model = selectedModel();
-    const selectedFloor = elements.addFloorSelect.value;
-    if (!model || !selectedFloor) return;
-    const floor = selectedFloor === "__unset__" ? "" : selectedFloor;
-    const existing = new Set(model.components.map((component) => component.tagId));
-    const tags = Array.from(state.tags.values()).filter((tag) =>
-      tag.floor === floor && !existing.has(tag.id)
-    );
-    if (!tags.length) {
-      setStatus("此樓層沒有尚未加入此 View 的 Tag。", "info");
-      return;
-    }
-    rememberUndo();
-    for (const tag of tags) model.components.push(makeComponent(tag.id, tag.name));
-    renderAll();
-    setStatus(`已將「${floor || "未設定樓層"}」的 ${tags.length} 個 Tag 加入此 View。`, "success");
   }
 
   function openNewViewDialog() {
@@ -2110,7 +2072,6 @@
 
   elements.addOne.addEventListener("click", () => addComponent("", ""));
   elements.addMany.addEventListener("click", openBatchDialog);
-  elements.addFloor.addEventListener("click", addFloorToView);
   elements.addView.addEventListener("click", openNewViewDialog);
   elements.renameView.addEventListener("click", openRenameViewDialog);
   elements.deleteView.addEventListener("click", deleteSelectedView);
