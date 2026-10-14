@@ -373,7 +373,7 @@
         components,
         originalComponents: clone(components),
         unmanaged: existing.unsupported,
-        grid: { ...D.DEFAULT_GRID },
+        grid: D.getViewGridSettings(config, view.id),
         floorTitles: { ...(parsed.floorTitles || {}) },
         originalFloorTitles: { ...(parsed.floorTitles || {}) }
       });
@@ -1511,6 +1511,13 @@
         if (model.components.length === 0 && !JSON.parse(state.baselines.get(viewId)).components.length) continue;
         applyModelToView(view, model);
         modifiedViewIds.add(viewId);
+      }
+      if (dirty) {
+        D.saveViewGridSettings(
+          output,
+          output.hmi.views.map((view) => view.id),
+          new Map(Array.from(state.models, ([viewId, model]) => [viewId, model.grid]))
+        );
       }
       const outputText = dirty
         ? D.serializeConfig(output, state.lineEnding, state.hasTrailingNewline)

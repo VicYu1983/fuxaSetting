@@ -27,6 +27,56 @@ test("normalizes floor metadata without discarding other extra fields", () => {
   assert.equal(D.normalizeFloor("屋頂"), "屋頂");
 });
 
+test("loads and saves per-View Grid settings in the top-level tool extra namespace", () => {
+  const config = {
+    devices: {},
+    hmi: { views: [{ id: "view-a" }, { id: "view-b" }] },
+    extra: {
+      keep: { value: true },
+      fuxaSetting: {
+        note: "keep",
+        viewGrids: {
+          "view-a": {
+            columns: 6,
+            originX: 20,
+            labelPosition: "right",
+            labelFontSize: 18
+          },
+          "removed-view": { columns: 2 }
+        }
+      }
+    }
+  };
+  const gridA = D.getViewGridSettings(config, "view-a");
+  assert.deepEqual(gridA, {
+    ...D.DEFAULT_GRID,
+    columns: 6,
+    originX: 20,
+    labelPosition: "right",
+    labelFontSize: 18
+  });
+  assert.deepEqual(D.getViewGridSettings(config, "view-b"), D.DEFAULT_GRID);
+
+  D.saveViewGridSettings(config, ["view-a", "view-b"], new Map([
+    ["view-a", gridA],
+    ["view-b", { ...D.DEFAULT_GRID, columns: 3 }]
+  ]));
+  assert.deepEqual(config.extra.keep, { value: true });
+  assert.equal(config.extra.fuxaSetting.note, "keep");
+  assert.deepEqual(config.extra.fuxaSetting.viewGrids["view-a"], gridA);
+  assert.equal(config.extra.fuxaSetting.viewGrids["view-b"].columns, 3);
+  assert.equal(Object.hasOwn(config.extra.fuxaSetting.viewGrids, "removed-view"), false);
+});
+
+test("rejects malformed top-level extra data instead of overwriting it", () => {
+  const config = { extra: "preserve this" };
+  assert.throws(
+    () => D.saveViewGridSettings(config, [], new Map()),
+    /extra 欄位不是物件/
+  );
+  assert.equal(config.extra, "preserve this");
+});
+
 test("groups floors in natural order and leaves unassigned tags last", () => {
   const groups = D.groupByFloor(
     ["Roof", "first", "basement", "custom", "unset"],

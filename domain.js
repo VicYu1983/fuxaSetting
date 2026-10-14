@@ -9,6 +9,8 @@
     columns: 4, originX: 60, originY: 80, gapX: 40, gapY: 40,
     labelPosition: "above", labelOffset: 10, labelFontSize: 14
   });
+  const GRID_SETTINGS_KEY = "fuxaSetting";
+  const LABEL_POSITIONS = new Set(["above", "below", "left", "right"]);
   const RECT_SIZE = Object.freeze({ width: 40, height: 40 });
   const CYLINDER_SIZE = Object.freeze({ width: 60, height: 64 });
   const PALETTES = Object.freeze({
@@ -32,6 +34,64 @@
       throw new Error("檔案不是可辨識的 FUXA 配置（需包含 devices 與 hmi.views）。");
     }
     return config;
+  }
+
+  function normalizeGridSettings(settings) {
+    const grid = { ...DEFAULT_GRID };
+    if (!isRecord(settings)) return grid;
+    for (const key of ["columns", "originX", "originY", "gapX", "gapY", "labelOffset", "labelFontSize"]) {
+      const value = settings[key];
+      if (!Number.isFinite(value)) continue;
+      if (key === "columns") {
+        if (Number.isInteger(value) && value >= 1 && value <= 24) grid[key] = value;
+      } else if (key === "labelFontSize") {
+        if (value >= 8 && value <= 72) grid[key] = value;
+      } else if (value >= 0) {
+        grid[key] = value;
+      }
+    }
+    if (LABEL_POSITIONS.has(settings.labelPosition)) grid.labelPosition = settings.labelPosition;
+    return grid;
+  }
+
+  function getViewGridSettings(config, viewId) {
+    const settings = isRecord(config.extra) &&
+      isRecord(config.extra[GRID_SETTINGS_KEY]) &&
+      isRecord(config.extra[GRID_SETTINGS_KEY].viewGrids)
+      ? config.extra[GRID_SETTINGS_KEY].viewGrids[viewId]
+      : null;
+    return normalizeGridSettings(settings);
+  }
+
+  function saveViewGridSettings(config, viewIds, grids) {
+    if (!isRecord(config)) throw new Error("無效的配置資料。");
+    if (config.extra !== undefined && !isRecord(config.extra)) {
+      throw new Error("配置的 extra 欄位不是物件，無法安全保存 Grid 設定。");
+    }
+    if (!isRecord(config.extra)) config.extra = {};
+    const toolSettings = config.extra[GRID_SETTINGS_KEY];
+    if (toolSettings !== undefined && !isRecord(toolSettings)) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY} 欄位不是物件，無法安全保存 Grid 設定。`);
+    }
+    const storedSettings = isRecord(toolSettings) ? toolSettings : {};
+    const existingGrids = storedSettings.viewGrids;
+    if (existingGrids !== undefined && !isRecord(existingGrids)) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY}.viewGrids 欄位不是物件，無法安全保存 Grid 設定。`);
+    }
+    const viewGrids = isRecord(existingGrids) ? { ...existingGrids } : {};
+    const activeViewIds = new Set(viewIds);
+    for (const viewId of Object.keys(viewGrids)) {
+      if (!activeViewIds.has(viewId)) delete viewGrids[viewId];
+    }
+    for (const [viewId, settings] of grids) {
+      if (activeViewIds.has(viewId)) viewGrids[viewId] = normalizeGridSettings(settings);
+    }
+    config.extra[GRID_SETTINGS_KEY] = {
+      ...storedSettings,
+      version: 1,
+      viewGrids
+    };
+    return config.extra[GRID_SETTINGS_KEY];
   }
 
   function buildTagIndex(config) {
@@ -593,8 +653,9 @@
   }
 
   return {
-    DEFAULT_GRID, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
+    DEFAULT_GRID, GRID_SETTINGS_KEY, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
     buildTagIndex, findById, generateId, hasViewShape, isRecord,
+    normalizeGridSettings, getViewGridSettings, saveViewGridSettings,
     layoutComponents, layoutFloorComponents, groupByFloor, groupComponentsByFloor,
     normalizeFloor, compareFloors, getTagFloor, setTagFloor,
     parseSvg, readManaged, removeLayoutViewReferences,

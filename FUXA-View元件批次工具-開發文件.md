@@ -196,7 +196,7 @@ type ViewModel = {
 };
 ```
 
-`GridSettings` 與 `components` 順序為工具狀態。重新載入既有 JSON 時無法從配置還原，因此預設值載入後重新套用（**假設**：Grid 設定不寫入配置；若要記住，可寫入 View 以外的獨立 sidecar 檔，列為後續功能）。
+`GridSettings` 與 `components` 順序為工具狀態。Grid 設定另外保存於配置最外層的 `extra.fuxaSetting.viewGrids`，以 View ID 對應設定；缺少設定的 View 使用預設值。儲存時保留最外層 `extra` 及 `fuxaSetting` 中其他欄位，並移除已刪除 View 的舊 Grid 設定。
 
 ## 5. 模組架構
 
@@ -426,7 +426,7 @@ type Placement = {
 | 5 | CRUD 是否可改樣式 | 可 | — |
 | 6 | CSV 匯入 | 第一版不做；保留「批次新增」介面，後續可加 `csvImport.ts` 產生 `TagComponent[]`（欄位：Tag、Label、樣式） | 需另定欄位格式與 Tag 比對規則 |
 | 7 | id／名稱規則 | §4.1、§7.4 | 命名衝突處理 |
-| 8 | Grid 設定是否持久化 | 否（僅工作階段） | 若需要，加 sidecar 檔 |
+| 8 | Grid 設定是否持久化 | 是，存入頂層 `extra.fuxaSetting.viewGrids` | 已實作；尚需確認 FUXA 匯入／匯出是否保留頂層 `extra` |
 | 9 | 受管理項目被手動改位置後的處理 | 重新套用 Grid，保留 events/actions | 需 §9.5 提示 |
 | 10 | 非受管理的綁 Tag 元件 | 唯讀顯示 | 若希望也能管理，需定義「轉為受管理」的操作 |
 
