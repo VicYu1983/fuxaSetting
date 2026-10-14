@@ -138,6 +138,21 @@ test("stores imported icon data in the tool extra namespace and preserves siblin
   assert.throws(() => D.saveIconLibrary(config, [{ ...icon, dataUrl: "https://example.com/image.png" }]), /無效項目/);
 });
 
+test("builds complementary FUXA visibility actions and reverses their state mapping", () => {
+  const normal = D.buildVisibilityActions("tag-bool", 0);
+  const alarm = D.buildVisibilityActions("tag-bool", 1);
+  assert.deepEqual(normal, [
+    { variableId: "tag-bool", range: { min: 0, max: 0 }, type: "show", options: {} },
+    { variableId: "tag-bool", range: { min: 1, max: 1 }, type: "hide", options: {} }
+  ]);
+  assert.deepEqual(alarm, [
+    { variableId: "tag-bool", range: { min: 0, max: 0 }, type: "hide", options: {} },
+    { variableId: "tag-bool", range: { min: 1, max: 1 }, type: "show", options: {} }
+  ]);
+  assert.throws(() => D.buildVisibilityActions("", 0), /Boolean Tag/);
+  assert.throws(() => D.buildVisibilityActions("tag-bool", 2), /0／1/);
+});
+
 test("persists per-View floor artifact ids without discarding other tool settings", () => {
   const config = {
     extra: {

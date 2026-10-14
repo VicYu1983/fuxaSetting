@@ -225,6 +225,18 @@
     return icons.map((icon) => ({ ...icon }));
   }
 
+  function buildVisibilityActions(tagId, visibleValue) {
+    if (typeof tagId !== "string" || !tagId || ![0, 1].includes(visibleValue)) {
+      throw new Error("圖示可見條件需要有效的 Boolean Tag 與 0／1 狀態值。");
+    }
+    return [0, 1].map((value) => ({
+      variableId: tagId,
+      range: { min: value, max: value },
+      type: value === visibleValue ? "show" : "hide",
+      options: {}
+    }));
+  }
+
   function getIconLibrary(config) {
     const icons = isRecord(config) && isRecord(config.extra) &&
       isRecord(config.extra[GRID_SETTINGS_KEY])
@@ -470,10 +482,38 @@
       const labelNode = findById(doc, labelId);
       if (!shapeNode || !labelNode || labelNode.localName !== "text") continue;
 
+      const alarmItemId = Object.keys(view.items).find((id) =>
+        itemName(view.items[id]) === `tc_${seq}_alarm` &&
+        view.items[id] && view.items[id].type === "svg-ext-shapes-select"
+      );
+      const alarmNode = alarmItemId ? findById(doc, alarmItemId) : null;
+      const normalActions = shapeItem.property && Array.isArray(shapeItem.property.actions)
+        ? shapeItem.property.actions : [];
+      const alarmItem = alarmItemId && view.items[alarmItemId];
+      const alarmActions = alarmItem && alarmItem.property &&
+        Array.isArray(alarmItem.property.actions) ? alarmItem.property.actions : [];
+      const visibilityTagId = normalActions.find((action) =>
+        action && typeof action.variableId === "string"
+      )?.variableId || "";
+      const normalVisibleAtZero = normalActions.some((action) =>
+        action.variableId === visibilityTagId && action.range && action.range.min === 0 &&
+        action.range.max === 0 && action.type === "show"
+      );
+      const alarmVisibleAtZero = alarmActions.some((action) =>
+        action.variableId === visibilityTagId && action.range && action.range.min === 0 &&
+        action.range.max === 0 && action.type === "show"
+      );
+      const isIconPair = shapeItem.type === "svg-ext-shapes-select" &&
+        alarmItem && alarmItem.property && alarmNode && shapeNode.localName === "image" &&
+        alarmNode.localName === "image" && visibilityTagId &&
+        normalActions.length >= 2 && alarmActions.length >= 2 &&
+        alarmActions.every((action) => action.variableId === visibilityTagId);
       const iconNode = shapeNode.querySelector("image[data-fuxa-icon-id]");
-      const iconId = iconNode && iconNode.getAttribute("data-fuxa-icon-id");
-      const shapeType = iconId
-        ? "icon"
+      const iconId = shapeNode.getAttribute("data-fuxa-icon-id") ||
+        (iconNode && iconNode.getAttribute("data-fuxa-icon-id"));
+      const shapeType = isIconPair
+        ? "icon-pair"
+        : iconId ? "icon"
         : shapeItem.type === "svg-ext-shapes-cylinder" ? "cylinder" : "rect";
       const ranges = shapeItem.property && Array.isArray(shapeItem.property.ranges)
         ? shapeItem.property.ranges : [];
@@ -482,18 +522,29 @@
       records.push({
         key: `loaded-${seq}`,
         seq,
-        tagId: shapeItem.property && typeof shapeItem.property.variableId === "string"
-          ? shapeItem.property.variableId : "",
+        tagId: isIconPair
+          ? visibilityTagId
+          : shapeItem.property && typeof shapeItem.property.variableId === "string"
+            ? shapeItem.property.variableId : "",
         label: labelNode.textContent || "",
         template: shapeType,
-        ...(iconId ? { iconId } : {}),
+        ...(iconId && !isIconPair ? { iconId } : {}),
+        ...(isIconPair ? {
+          normalIconId: shapeNode.getAttribute("data-fuxa-icon-id") || "",
+          alarmIconId: alarmNode.getAttribute("data-fuxa-icon-id") || "",
+          alarmShapeId: alarmItemId,
+          invertIconState: !normalVisibleAtZero && alarmVisibleAtZero
+        } : {}),
         palette,
         shapeId,
         labelId,
-        shapeInnerIds: Array.from(shapeNode.querySelectorAll("[id]")).map((node) => node.getAttribute("id")),
+        shapeInnerIds: isIconPair
+          ? []
+          : Array.from(shapeNode.querySelectorAll("[id]")).map((node) => node.getAttribute("id")),
         managed: true
       });
       consumed.add(shapeId);
+      if (isIconPair) consumed.add(alarmItemId);
       consumed.add(labelId);
     }
 
@@ -962,6 +1013,7 @@
     normalizeGridSettings, getViewGridSettings, saveViewGridSettings,
     normalizeFloorGroupFrameSettings, getFloorGroupFrameSettings, saveFloorGroupFrameSettings,
     getIconLibrary, saveIconLibrary,
+    buildVisibilityActions,
     getFloorGroupArtifacts, saveFloorGroupArtifacts,
     layoutComponents, layoutFloorComponents, groupByFloor, groupComponentsByFloor,
     normalizeFloor, compareFloors, getTagFloor, setTagFloor,

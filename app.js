@@ -168,6 +168,14 @@
     return state.models.get(state.selectedViewId);
   }
 
+  function nextComponentSequence(model) {
+    const max = model.components.reduce((highest, component) =>
+      component.managed !== false && Number.isSafeInteger(component.seq)
+        ? Math.max(highest, component.seq)
+        : highest, 0);
+    return max + 1;
+  }
+
   function floorSignature(model) {
     return JSON.stringify(model.components.map((component) => {
       const tag = state.tags.get(component.tagId);
@@ -578,16 +586,31 @@
     const options = [
       ["rect", "矩形"],
       ["cylinder", "圓柱"],
+      ["icon-pair", "正常／告警圖示"],
       ...state.iconLibrary.map((icon) => [`icon:${icon.id}`, icon.name])
     ];
     const selected = component.template === "icon" && component.iconId
-      ? `icon:${component.iconId}`
-      : component.template;
+      ? `icon:${component.iconId}` : component.template;
     if (!options.some(([value]) => value === selected)) {
       options.push([selected, `圖示不存在（${component.iconId || "未知"}）`]);
     }
     for (const [value, label] of options) {
       select.append(makeOption(value, label, value === selected));
+    }
+    return select;
+  }
+
+  function createIconChoice(field, value, label) {
+    const select = document.createElement("select");
+    select.className = "compact-select";
+    select.dataset.field = field;
+    select.setAttribute("aria-label", label);
+    select.append(makeOption("", `選擇${label}圖示…`, !value));
+    for (const icon of state.iconLibrary) {
+      select.append(makeOption(icon.id, icon.name, icon.id === value));
+    }
+    if (value && !state.iconLibrary.some((icon) => icon.id === value)) {
+      select.append(makeOption(value, `圖示不存在（${value}）`, true));
     }
     return select;
   }
@@ -631,8 +654,8 @@
     for (const [viewId, model] of state.models) {
       const view = state.config.hmi.views.find((item) => item.id === viewId);
       for (const component of model.components) {
-        if (component.managed !== false && component.template === "icon" &&
-            component.iconId === iconId) {
+        if (component.managed !== false &&
+            [component.iconId, component.normalIconId, component.alarmIconId].includes(iconId)) {
           const tag = state.tags.get(component.tagId);
           const label = component.label || (tag && tag.name) || `#${component.seq}`;
           usages.push(`「${view && (view.name || view.id) || viewId}」的 ${label}`);
@@ -678,7 +701,27 @@
     row.append(tagCell);
 
     const templateCell = document.createElement("td");
-    templateCell.append(createGraphicSelect(component));
+    const graphicSelect = createGraphicSelect(component);
+    templateCell.append(graphicSelect);
+    if (component.template === "icon-pair") {
+      const pairControls = document.createElement("div");
+      pairControls.className = "icon-pair-controls";
+      pairControls.append(
+        createIconChoice("normalIconId", component.normalIconId, "正常狀態"),
+        createIconChoice("alarmIconId", component.alarmIconId, "告警狀態")
+      );
+      const invertLabel = document.createElement("label");
+      invertLabel.className = "icon-invert-option";
+      const invert = document.createElement("input");
+      invert.type = "checkbox";
+      invert.checked = Boolean(component.invertIconState);
+      invert.dataset.field = "invertIconState";
+      invertLabel.append(invert, document.createTextNode("反轉狀態"));
+      pairControls.append(invertLabel);
+      templateCell.append(pairControls);
+    } else if (component.template === "icon") {
+      templateCell.append(createIconChoice("iconId", component.iconId, "圖示"));
+    }
     row.append(templateCell);
 
     const paletteCell = document.createElement("td");
@@ -830,6 +873,33 @@
     return node;
   }
 
+  function buildIconPairNodes(doc, component, placement) {
+    const normalIcon = state.iconLibrary.find((item) => item.id === component.normalIconId);
+    const alarmIcon = state.iconLibrary.find((item) => item.id === component.alarmIconId);
+    if (!normalIcon || !alarmIcon || !component.alarmShapeId) {
+      throw new Error(`元件「${component.label || "未命名"}」尚未設定正常與告警圖示。`);
+    }
+    const x = placement.shape.x;
+    const y = placement.shape.y;
+    const createImage = (name, icon, id) => {
+      const image = createSvgNode(doc, "image", {
+        "data-name": name,
+        "data-fuxa-icon-id": icon.id,
+        id,
+        x, y,
+        width: D.RECT_SIZE.width,
+        height: D.RECT_SIZE.height,
+        preserveAspectRatio: "xMidYMid meet"
+      });
+      image.setAttributeNS(XLINK_NS, "xlink:href", icon.dataUrl);
+      return image;
+    };
+    return [
+      createImage(`tc_${component.seq}`, normalIcon, component.shapeId),
+      createImage(`tc_${component.seq}_alarm`, alarmIcon, component.alarmShapeId)
+    ];
+  }
+
   function buildShapeNode(doc, component, placement) {
     const icon = component.template === "icon"
       ? state.iconLibrary.find((item) => item.id === component.iconId)
@@ -931,6 +1001,7 @@
     for (const component of [...(model.originalComponents || []), ...model.components]) {
       if (component.managed === false) continue;
       ids.add(component.shapeId);
+      if (component.alarmShapeId) ids.add(component.alarmShapeId);
       if (component.labelId) ids.add(component.labelId);
     }
     for (const id of Object.values(model.floorTitles || {})) ids.add(id);
@@ -965,13 +1036,37 @@
     }
     for (const id of ids) {
       const node = D.findById(doc, id);
-      if (node && node.parentNode) node.parentNode.removeChild(node);
+      const pairWrapper = node && node.closest("[data-fuxa-icon-pair-wrapper]");
+      const removeNode = pairWrapper || node;
+      if (removeNode && removeNode.parentNode) removeNode.parentNode.removeChild(removeNode);
       delete view.items[id];
     }
   }
 
   function buildItemEntry(existing, component, shape) {
     const oldProperty = existing && D.isRecord(existing.property) ? existing.property : {};
+    if (component.template === "icon-pair") {
+      const normalVisibleValue = component.invertIconState ? 1 : 0;
+      const isNormalImage = shape.getAttribute("data-name") === `tc_${component.seq}`;
+      const visibleValue = isNormalImage ? normalVisibleValue : 1 - normalVisibleValue;
+      const property = {
+        ...oldProperty,
+        ranges: [],
+        events: Array.isArray(oldProperty.events) ? oldProperty.events : [],
+        actions: D.buildVisibilityActions(component.tagId, visibleValue)
+      };
+      delete property.variableId;
+      return {
+        ...(existing || {}),
+        id: shape.getAttribute("id"),
+        type: "svg-ext-shapes-select",
+        name: shape.getAttribute("data-name"),
+        property,
+        label: "Shapes",
+        hide: false,
+        lock: false
+      };
+    }
     const nextProperty = {
       ...oldProperty,
       variableId: component.tagId,
@@ -1114,7 +1209,9 @@
 
   function applyModelToView(view, model) {
     const doc = D.parseSvg(view.svgcontent, window.DOMParser);
-    if (model.components.some((component) => component.template === "icon")) {
+    if (model.components.some((component) =>
+      component.template === "icon" || component.template === "icon-pair"
+    )) {
       doc.documentElement.setAttributeNS(
         "http://www.w3.org/2000/xmlns/",
         "xmlns:xlink",
@@ -1169,10 +1266,20 @@
         }
         const previousShape = previousItems[component.shapeId];
         const previousLabel = previousItems[component.labelId];
-        const shapeNode = buildShapeNode(doc, component, placement);
+        const previousAlarmShape = component.alarmShapeId
+          ? previousItems[component.alarmShapeId] : null;
+        const shapeNodes = component.template === "icon-pair"
+          ? buildIconPairNodes(doc, component, placement)
+          : [buildShapeNode(doc, component, placement)];
         const labelNode = buildLabelNode(doc, component, placement, model.grid);
-        layer.append(shapeNode, labelNode);
-        view.items[component.shapeId] = buildItemEntry(previousShape, component, shapeNode);
+        layer.append(...shapeNodes, labelNode);
+        if (component.template === "icon-pair") {
+          const [normalNode, alarmNode] = shapeNodes;
+          view.items[component.shapeId] = buildItemEntry(previousShape, component, normalNode);
+          view.items[component.alarmShapeId] = buildItemEntry(previousAlarmShape, component, alarmNode);
+        } else {
+          view.items[component.shapeId] = buildItemEntry(previousShape, component, shapeNodes[0]);
+        }
         view.items[component.labelId] = buildLabelEntry(previousLabel, component);
       }
     }
@@ -1257,12 +1364,19 @@
         title.removeAttribute("opacity");
         for (const { component, placement } of section.entries) {
           const previewComponent = { ...component };
-          const shape = buildShapeNode(svg.ownerDocument, previewComponent, placement);
+          const shapes = previewComponent.template === "icon-pair"
+            ? buildIconPairNodes(svg.ownerDocument, previewComponent, placement)
+            : [buildShapeNode(svg.ownerDocument, previewComponent, placement)];
           const label = buildLabelNode(svg.ownerDocument, previewComponent, placement, model.grid);
-          shape.removeAttribute("opacity");
+          for (const shape of shapes) shape.removeAttribute("opacity");
           label.removeAttribute("opacity");
-          for (const child of Array.from(shape.querySelectorAll("*"))) child.removeAttribute("opacity");
-          layer.append(shape, label);
+          for (const child of shapes.flatMap((shape) => Array.from(shape.querySelectorAll("*")))) {
+            child.removeAttribute("opacity");
+          }
+          if (previewComponent.template === "icon-pair") {
+            shapes[previewComponent.invertIconState ? 0 : 1].setAttribute("display", "none");
+          }
+          layer.append(...shapes, label);
         }
       }
       elements.previewHost.append(svg);
@@ -1346,7 +1460,7 @@
 
   function makeComponent(tagId, label) {
     const model = selectedModel();
-    const seq = model.components.reduce((max, item) => Math.max(max, item.seq), 0) + 1;
+    const seq = nextComponentSequence(model);
     return {
       key: `new-${crypto.randomUUID()}`,
       seq,
@@ -1651,7 +1765,7 @@
     for (const tagId of chosen) {
       const tag = state.tags.get(tagId);
       if (!tag) continue;
-      const seq = model.components.reduce((max, item) => Math.max(max, item.seq), 0) + 1;
+      const seq = nextComponentSequence(model);
       model.components.push({
         key: `new-${crypto.randomUUID()}`,
         seq,
@@ -1681,6 +1795,15 @@
         }
         if (component.template === "icon" && !iconIds.has(component.iconId)) {
           return `項目「${component.label || "(未命名 Label)"}」使用的圖示不存在，請重新選擇。`;
+        }
+        if (component.template === "icon-pair") {
+          if (!iconIds.has(component.normalIconId) || !iconIds.has(component.alarmIconId)) {
+            return `項目「${component.label || "(未命名 Label)"}」必須選擇正常與告警兩張圖示。`;
+          }
+          const tag = state.tags.get(component.tagId);
+          if (!tag || !["bool", "boolean"].includes(String(tag.type || "").toLocaleLowerCase())) {
+            return `項目「${component.label || "(未命名 Label)"}」的雙圖示顯示條件需要 Boolean Tag。`;
+          }
         }
       }
     }
@@ -1730,13 +1853,43 @@
             }
             continue;
           }
-          if (!D.findById(doc, component.shapeId) || !D.findById(doc, component.labelId)) {
+          const alarmNode = component.alarmShapeId
+            ? D.findById(doc, component.alarmShapeId) : null;
+          const normalNode = D.findById(doc, component.shapeId);
+          if (!normalNode ||
+              (component.template === "icon-pair" && !alarmNode) ||
+              !D.findById(doc, component.labelId)) {
             throw new Error(`View「${view.name || view.id}」的元件與 Label 未同步寫入 SVG。`);
           }
-          if (!view.items[component.shapeId] || !view.items[component.labelId]) {
+          if (component.template === "icon-pair" &&
+              (normalNode.localName !== "image" || alarmNode.localName !== "image" ||
+               !normalNode.parentNode || !alarmNode.parentNode ||
+               normalNode.parentNode !== alarmNode.parentNode ||
+               normalNode.parentNode.hasAttribute("data-fuxa-icon-pair-wrapper") ||
+               ["x", "y", "width", "height"].some((attribute) =>
+                 normalNode.getAttribute(attribute) !== alarmNode.getAttribute(attribute)))) {
+            throw new Error(`元件 ${component.shapeId} 的正常／告警圖示未輸出為同層且重疊的獨立圖片。`);
+          }
+          if (!view.items[component.shapeId] ||
+              (component.template === "icon-pair" && !view.items[component.alarmShapeId]) ||
+              !view.items[component.labelId]) {
             throw new Error(`View「${view.name || view.id}」缺少元件或 Label 的 items 記錄。`);
           }
-          if (view.items[component.shapeId].property?.variableId !== component.tagId) {
+          if (component.template === "icon-pair") {
+            const normalActions = view.items[component.shapeId].property?.actions || [];
+            const alarmActions = view.items[component.alarmShapeId]?.property?.actions || [];
+            const normalVisibleValue = component.invertIconState ? 1 : 0;
+            const hasVisibilityRule = (actions, visibleValue) =>
+              [0, 1].every((value) => actions.some((action) =>
+                action.variableId === component.tagId &&
+                action.range?.min === value && action.range?.max === value &&
+                action.type === (value === visibleValue ? "show" : "hide")
+              ));
+            if (!hasVisibilityRule(normalActions, normalVisibleValue) ||
+                !hasVisibilityRule(alarmActions, 1 - normalVisibleValue)) {
+              throw new Error(`元件 ${component.shapeId} 的正常／告警圖示可見條件未正確寫入。`);
+            }
+          } else if (view.items[component.shapeId].property?.variableId !== component.tagId) {
             throw new Error(`元件 ${component.shapeId} 的 Tag 連結與清單不一致。`);
           }
           if (!component.tagId || !state.tags.has(component.tagId)) {
@@ -1778,8 +1931,9 @@
         for (const original of model.originalComponents || []) {
           if (original.managed === false) continue;
           if (currentIds.has(original.shapeId)) continue;
-          if (view.items[original.shapeId] || view.items[original.labelId] ||
-              D.findById(doc, original.shapeId) || D.findById(doc, original.labelId)) {
+          if (view.items[original.shapeId] || view.items[original.alarmShapeId] ||
+              view.items[original.labelId] || D.findById(doc, original.shapeId) ||
+              D.findById(doc, original.alarmShapeId) || D.findById(doc, original.labelId)) {
             throw new Error(`已刪除的元件 ${original.shapeId} 仍留在輸出配置中。`);
           }
         }
@@ -1931,7 +2085,7 @@
     const field = event.target.dataset.field;
     const row = event.target.closest("tr[data-key]");
     if (!field || !row) return;
-    if (field === "graphic") return;
+    if (["graphic", "normalIconId", "alarmIconId", "invertIconState"].includes(field)) return;
     const model = selectedModel();
     const component = model && model.components.find((item) => item.key === row.dataset.key);
     if (!component || component[field] === event.target.value) return;
@@ -1954,10 +2108,27 @@
       if (component.template === nextTemplate &&
           (nextTemplate !== "icon" || component.iconId === nextIconId)) return;
       rememberUndo();
+      if (nextTemplate === "icon-pair" && !component.alarmShapeId) {
+        component.alarmShapeId = allocateId("SHE");
+      }
       component.template = nextTemplate;
       if (nextTemplate === "icon") component.iconId = nextIconId;
       else delete component.iconId;
+      if (nextTemplate !== "icon-pair") {
+        delete component.normalIconId;
+        delete component.alarmIconId;
+        delete component.invertIconState;
+        delete component.alarmShapeId;
+      }
       renderAll();
+      return;
+    }
+    if (["normalIconId", "alarmIconId"].includes(field)) {
+      mutateComponent(row.dataset.key, field, event.target.value);
+      return;
+    }
+    if (field === "invertIconState") {
+      mutateComponent(row.dataset.key, field, event.target.checked);
       return;
     }
     mutateComponent(row.dataset.key, field, event.target.value);
@@ -2384,7 +2555,7 @@
     if (elements.batchAlsoAddView.checked && selectedModel()) {
       const model = selectedModel();
       for (const tag of created) {
-        const seq = model.components.reduce((max, item) => Math.max(max, item.seq), 0) + 1;
+        const seq = nextComponentSequence(model);
         model.components.push({
           key: `new-${crypto.randomUUID()}`,
           seq,

@@ -10,7 +10,7 @@
 4. 可用 View 清單上方的「新增」建立空白畫布；新 View 會自動在畫布左上方放置顯示 View 名稱的 Label。選取 View 後按「改名」可修改名稱及該 Label 文字；名稱不可空白或與其他 View 重複。按「刪除」可移除選取的 View（至少保留一個 View）。若被刪 View 是起始頁，工具會將起始頁改為剩餘 View；導覽列中指向該 View 的項目會自動移除。
 5. 可按上方「Tag 樓層分組」為既有 Tag 設定樓層；支援搜尋、多選批次設定，並可切換分組／清單檢視。
 6. 選擇左側 View；可新增一筆或批次選取 Tag 加入 View。
-7. 可按「匯入圖片」將 PNG、JPEG 或 GIF 加入圖示庫；圖片以 Base64 資料 URI 儲存在 `extra.fuxaSetting.icons`，並可從元件的圖形選單選用。輸出時會將圖示內嵌為 SVG `<image xlink:href="data:image/...;base64,...">`；GIF 動畫會保留。仍被元件使用的圖示不能刪除。Bool Tag 的運轉／警報狀態色會以圖示右下角的小矩形提示。
+7. 可按「匯入圖片」將 PNG、JPEG 或 GIF 加入圖示庫；圖片以 Base64 資料 URI 儲存在 `extra.fuxaSetting.icons`。元件可選「正常／告警圖示」，指定兩張圖並連到同一個 Boolean Tag；輸出為兩個各自對應 FUXA item 的同層重疊圖片，並使用 `property.actions` 在 Tag 值 0／1 時交替顯示。勾選「反轉狀態」可交換兩張圖的顯示條件。GIF 動畫會保留；仍被元件使用的圖示不能刪除。
 8. 工具建立的元件可編輯 Label、Tag、圖形樣式與狀態色；既有 FUXA Tag 元件會依 Tag 樓層納入分組並自動移動，原有 SVG 外觀、Tag 綁定、事件及範圍色彩均保留。設定 Grid 後確認右側預覽。
 9. 批次新增 Tag 時可指定共用預設樓層，也可在貼上資料的第 6 欄為個別 Tag 指定樓層。
 10. 按「另存新 JSON」。輸出檔名為 `<原檔名>.generated.json`。
@@ -22,7 +22,7 @@
 
 - Tag 樓層儲存在 Tag 的 `extra.floor`，作為分組依據；既有 Tag 管理僅修改樓層欄位並保留其他額外資料。Grid 設定依 View ID 儲存在配置最外層的 `extra.fuxaSetting.viewGrids`；圖示資料儲存在 `extra.fuxaSetting.icons`，所有 View 共用的樓層 Group 圓角底框樣式儲存在 `extra.fuxaSetting.floorGroupFrames`，各 View 的標題／底框 ID 索引儲存在 `extra.fuxaSetting.floorGroupArtifacts`。標題與底框是可重複整理的 SVG 輸出元件，不依賴 SVG 自訂樓層屬性來辨識；儲存時合併同樓層重複元件，每組只保留一組，並保留 `extra` 及工具設定中的其他欄位。
 - 每個樓層 Group 的底框會包住標題、Tag 圖形與 Label，範圍依內容及內距自動計算；可調整底色、透明度、邊框、圓角與內距。
-- 每個受管理項目包含一個綁定 Tag 的矩形或圓柱狀態圖形，以及一個獨立文字 Label。
+- 每個受管理項目包含矩形、圓柱、單張圖片或依 Boolean Tag 可見狀態切換的正常／告警雙圖片，以及一個獨立文字 Label。
 - Bool 狀態配色可選「運轉：綠／紅」或「警報：紅／綠」。
 - 每次儲存 Tag 元件會依樓層重新套用當前 Grid；既有 FUXA Tag 元件只移動 SVG 位置並保留原 item 設定。匯回 FUXA 後手動調整的位置不會被此工具記錄；重新載入後再次儲存可能重排。
 - 刪除 View 會一併處理 `hmi.layout` 中指向該 View 的導覽項目；若該 View 是起始頁，起始頁改指向剩下的第一個 View。工具禁止刪除最後一個 View。
