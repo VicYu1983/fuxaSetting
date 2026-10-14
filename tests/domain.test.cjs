@@ -108,6 +108,47 @@ test("loads and saves shared floor-group frame styling without discarding extra 
   });
 });
 
+test("persists per-View floor artifact ids without discarding other tool settings", () => {
+  const config = {
+    extra: {
+      fuxaSetting: {
+        note: "keep",
+        viewGrids: { "view-a": { columns: 4 } },
+        floorGroupArtifacts: { "removed-view": { "floor:1F": {} } }
+      }
+    }
+  };
+  D.saveFloorGroupArtifacts(config, ["view-a"], new Map([
+    ["view-a", {
+      "floor:": {
+        titleId: "title-empty",
+        frameId: "frame-empty",
+        frameShapeId: "frame-shape-empty"
+      },
+      "floor:B1F": {
+        titleId: "title-b1",
+        frameId: "frame-b1",
+        frameShapeId: "frame-shape-b1"
+      }
+    }]
+  ]));
+  assert.deepEqual(config.extra.fuxaSetting.viewGrids, { "view-a": { columns: 4 } });
+  assert.equal(config.extra.fuxaSetting.note, "keep");
+  assert.deepEqual(D.getFloorGroupArtifacts(config, "view-a"), {
+    "floor:": {
+      titleId: "title-empty",
+      frameId: "frame-empty",
+      frameShapeId: "frame-shape-empty"
+    },
+    "floor:B1F": {
+      titleId: "title-b1",
+      frameId: "frame-b1",
+      frameShapeId: "frame-shape-b1"
+    }
+  });
+  assert.equal(Object.hasOwn(config.extra.fuxaSetting.floorGroupArtifacts, "removed-view"), false);
+});
+
 test("rejects malformed top-level extra data instead of overwriting it", () => {
   const config = { extra: "preserve this" };
   assert.throws(
@@ -185,6 +226,91 @@ test("floor frames include the measured bounds of existing companion labels", ()
   assert.ok(frame.y <= 125 + dy);
   assert.ok(frame.x + frame.width >= 160 + dx);
   assert.ok(frame.y + frame.height >= 141 + dy);
+});
+
+test("recognizes duplicate floor titles and frames after floor SVG attributes are stripped", () => {
+  class SvgNode {
+    constructor(localName, attributes = {}, textContent = "", children = []) {
+      this.localName = localName;
+      this.namespaceURI = "http://www.w3.org/2000/svg";
+      this.attributes = attributes;
+      this.textContent = textContent;
+      this.children = children;
+    }
+    getAttribute(name) {
+      return Object.hasOwn(this.attributes, name) ? this.attributes[name] : null;
+    }
+    querySelector(selector) {
+      for (const child of this.children) {
+        if (selector === "[id]" && child.getAttribute("id")) return child;
+        if (selector === "rect" && child.localName === "rect") return child;
+        const descendant = child.querySelector(selector);
+        if (descendant) return descendant;
+      }
+      return null;
+    }
+  }
+  const nodes = [
+    new SvgNode("svg", { id: "root" }, "", [
+      new SvgNode("text", { id: "title-old", x: "10", y: "20" }, "未設定樓層"),
+      new SvgNode("text", {
+        id: "title-new", x: "10", y: "20", "data-floor-group": ""
+      }, "未設定樓層"),
+      new SvgNode("g", { id: "frame-old" }, "", [
+        new SvgNode("rect", {
+          id: "shape-old", x: "0", y: "0", width: "100", height: "100"
+        })
+      ]),
+      new SvgNode("g", { id: "frame-new", "data-floor-group": "" }, "", [
+        new SvgNode("rect", {
+          id: "shape-new", x: "0", y: "0", width: "100", height: "100"
+        })
+      ])
+    ])
+  ];
+  const document = {
+    documentElement: nodes[0],
+    getElementsByTagName(name) {
+      const all = [];
+      const visit = (node) => {
+        all.push(node);
+        for (const child of node.children) visit(child);
+      };
+      for (const node of nodes) visit(node);
+      return name === "*" ? all : all.filter((node) => node.localName === name);
+    }
+  };
+  class Parser {
+    parseFromString() {
+      return document;
+    }
+  }
+  const view = {
+    svgcontent: "<svg/>",
+    items: {
+      "title-old": { id: "title-old", name: "fuxa_floor_section_title" },
+      "title-new": { id: "title-new", name: "fuxa_floor_section_title" },
+      "frame-old": { id: "frame-old", name: "fuxa_floor_section_frame" },
+      "frame-new": { id: "frame-new", name: "fuxa_floor_section_frame" }
+    }
+  };
+  const result = D.readManaged(view, Parser);
+  assert.deepEqual(result.floorTitleIds["floor:"], ["title-old", "title-new"]);
+  assert.deepEqual(result.floorFrameIds["floor:"], ["frame-new", "frame-old"]);
+  assert.equal(result.floorTitles["floor:"], "title-old");
+  assert.equal(result.floorFrames["floor:"], "frame-new");
+  assert.equal(result.floorFrameShapeIds["floor:"], "shape-new");
+
+  const indexed = D.readManaged(view, Parser, {
+    "floor:": {
+      titleId: "title-new",
+      frameId: "frame-new",
+      frameShapeId: "shape-new"
+    }
+  });
+  assert.equal(indexed.floorTitles["floor:"], "title-new");
+  assert.equal(indexed.floorFrames["floor:"], "frame-new");
+  assert.equal(indexed.floorFrameShapeIds["floor:"], "shape-new");
 });
 
 test("rejects incomplete or non-FUXA-shaped configurations", () => {

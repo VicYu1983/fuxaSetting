@@ -296,11 +296,33 @@
   }
 
   function needsFloorLayout(model) {
-    return D.groupComponentsByFloor(model.components, state.tags).some((group) => {
+    const activeKeys = new Set(D.groupComponentsByFloor(model.components, state.tags)
+      .map((group) => floorTitleKey(group.floor)));
+    for (const key of activeKeys) {
+      if (!Object.prototype.hasOwnProperty.call(model.originalFloorTitles || {}, key) ||
+          !Object.prototype.hasOwnProperty.call(model.originalFloorFrames || {}, key) ||
+          ((model.originalFloorTitleIds || {})[key] || []).length > 1 ||
+          ((model.originalFloorFrameIds || {})[key] || []).length > 1) return true;
+    }
+    return [
+      model.originalFloorTitles, model.originalFloorTitleIds,
+      model.originalFloorFrames, model.originalFloorFrameIds
+    ]
+      .some((entries) => Object.keys(entries || {}).some((key) => !activeKeys.has(key)));
+  }
+
+  function floorGroupArtifactsForModel(model) {
+    const artifacts = {};
+    for (const group of D.groupComponentsByFloor(model.components, state.tags)) {
       const key = floorTitleKey(group.floor);
-      return !Object.prototype.hasOwnProperty.call(model.originalFloorTitles || {}, key) ||
-        !Object.prototype.hasOwnProperty.call(model.originalFloorFrames || {}, key);
-    });
+      const titleId = model.floorTitles[key];
+      const frameId = model.floorFrames[key];
+      const frameShapeId = model.floorFrameShapeIds[key];
+      if (titleId && frameId && frameShapeId) {
+        artifacts[key] = { titleId, frameId, frameShapeId };
+      }
+    }
+    return artifacts;
   }
 
   function allocateId(prefix) {
@@ -376,7 +398,9 @@
 
     for (const view of config.hmi.views) {
       if (!D.hasViewShape(view)) continue;
-      const parsed = D.readManaged(view, window.DOMParser);
+      const parsed = D.readManaged(
+        view, window.DOMParser, D.getFloorGroupArtifacts(config, view.id)
+      );
       if (parsed.error) continue;
       const existing = prepareViewTagComponents(view, parsed);
       const components = [...parsed.records, ...existing.components];
@@ -388,8 +412,12 @@
         grid: D.getViewGridSettings(config, view.id),
         floorTitles: { ...(parsed.floorTitles || {}) },
         originalFloorTitles: { ...(parsed.floorTitles || {}) },
+        floorTitleIds: clone(parsed.floorTitleIds || {}),
+        originalFloorTitleIds: clone(parsed.floorTitleIds || {}),
         floorFrames: { ...(parsed.floorFrames || {}) },
         originalFloorFrames: { ...(parsed.floorFrames || {}) },
+        floorFrameIds: clone(parsed.floorFrameIds || {}),
+        originalFloorFrameIds: clone(parsed.floorFrameIds || {}),
         floorFrameShapeIds: { ...(parsed.floorFrameShapeIds || {}) }
       });
     }
@@ -790,6 +818,18 @@
     }
     for (const id of Object.values(model.floorTitles || {})) ids.add(id);
     for (const id of Object.values(model.floorFrames || {})) ids.add(id);
+    for (const titleIds of Object.values({
+      ...(model.originalFloorTitleIds || {}),
+      ...(model.floorTitleIds || {})
+    })) {
+      for (const id of titleIds) ids.add(id);
+    }
+    for (const frameIds of Object.values({
+      ...(model.originalFloorFrameIds || {}),
+      ...(model.floorFrameIds || {})
+    })) {
+      for (const id of frameIds) ids.add(id);
+    }
     return ids;
   }
 
@@ -955,6 +995,7 @@
       const titleKey = floorTitleKey(section.floor);
       const frameId = model.floorFrames[titleKey] || allocateId("svg");
       model.floorFrames[titleKey] = frameId;
+      model.floorFrameIds[titleKey] = [frameId];
       const frameShapeId = model.floorFrameShapeIds[titleKey] ||
         (model.floorFrameShapeIds[titleKey] = allocateId("SHE"));
       const frameNode = buildFloorFrameNode(doc, section, frameId, frameShapeId);
@@ -962,6 +1003,7 @@
       view.items[frameId] = buildFloorFrameEntry(previousItems[frameId], frameId);
       const titleId = model.floorTitles[titleKey] || allocateId("svg");
       model.floorTitles[titleKey] = titleId;
+      model.floorTitleIds[titleKey] = [titleId];
       const titleNode = buildFloorTitleNode(doc, section, titleId, model.grid);
       layer.append(titleNode);
       view.items[titleId] = buildFloorTitleEntry(previousItems[titleId], titleId);
@@ -998,6 +1040,21 @@
         view.items[component.shapeId] = buildItemEntry(previousShape, component, shapeNode);
         view.items[component.labelId] = buildLabelEntry(previousLabel, component);
       }
+    }
+    const activeFloorKeys = new Set(layout.sections.map((section) => floorTitleKey(section.floor)));
+    for (const key of [
+      ...Object.keys(model.floorTitles),
+      ...Object.keys(model.floorTitleIds),
+      ...Object.keys(model.floorFrames),
+      ...Object.keys(model.floorFrameIds),
+      ...Object.keys(model.floorFrameShapeIds)
+    ]) {
+      if (activeFloorKeys.has(key)) continue;
+      delete model.floorTitles[key];
+      delete model.floorTitleIds[key];
+      delete model.floorFrames[key];
+      delete model.floorFrameIds[key];
+      delete model.floorFrameShapeIds[key];
     }
     view.svgcontent = new XMLSerializer().serializeToString(doc);
   }
@@ -1103,6 +1160,8 @@
     if (JSON.stringify(state.config.hmi.layout || null) !== JSON.stringify(state.originalLayout)) return true;
     for (const [viewId, model] of state.models) {
       if (needsFloorLayout(model)) return true;
+      if (JSON.stringify(floorGroupArtifactsForModel(model)) !==
+          JSON.stringify(D.getFloorGroupArtifacts(state.config, viewId))) return true;
       const current = JSON.stringify({
         components: model.components,
         grid: model.grid
@@ -1290,7 +1349,14 @@
       unmanaged: [],
       grid: { ...D.DEFAULT_GRID },
       floorTitles: {},
-      originalFloorTitles: {}
+      originalFloorTitles: {},
+      floorTitleIds: {},
+      originalFloorTitleIds: {},
+      floorFrames: {},
+      originalFloorFrames: {},
+      floorFrameIds: {},
+      originalFloorFrameIds: {},
+      floorFrameShapeIds: {}
     };
     state.models.set(view.id, model);
     state.baselines.set(view.id, JSON.stringify({
@@ -1494,7 +1560,9 @@
       }
       for (const model of state.models.values()) {
         if (model.viewId !== view.id) continue;
-        const floorLayout = D.layoutFloorComponents(model.components, model.grid, state.tags);
+        const floorLayout = D.layoutFloorComponents(
+          model.components, model.grid, state.tags, state.floorGroupFrame
+        );
         for (const component of model.components) {
           if (component.managed === false) {
             const node = D.findById(doc, component.shapeId);
@@ -1539,9 +1607,30 @@
           const titleItem = titleId ? view.items[titleId] : null;
           if (!titleNode || !titleItem ||
               titleItem.name !== "fuxa_floor_section_title" ||
+              titleNode.textContent !== section.title ||
               titleNode.getAttribute("data-floor-group") !== section.floor) {
             throw new Error(`View「${view.name || view.id}」的「${section.title}」樓層標題未正確寫入。`);
           }
+          const frameId = model.floorFrames[floorTitleKey(section.floor)];
+          const frameNode = frameId ? D.findById(doc, frameId) : null;
+          const frameItem = frameId ? view.items[frameId] : null;
+          if (!frameNode || !frameItem ||
+              frameItem.name !== "fuxa_floor_section_frame" ||
+              frameNode.getAttribute("data-floor-group") !== section.floor) {
+            throw new Error(`View「${view.name || view.id}」的「${section.title}」樓層底框未正確寫入。`);
+          }
+          if ((model.floorTitleIds[floorTitleKey(section.floor)] || []).length !== 1 ||
+              (model.floorFrameIds[floorTitleKey(section.floor)] || []).length !== 1) {
+            throw new Error(`View「${view.name || view.id}」的「${section.title}」樓層元件仍有重複項目。`);
+          }
+        }
+        const expectedTitles = floorLayout.sections.length;
+        const actualTitles = Object.values(view.items)
+          .filter((item) => item && item.name === "fuxa_floor_section_title").length;
+        const actualFrames = Object.values(view.items)
+          .filter((item) => item && item.name === "fuxa_floor_section_frame").length;
+        if (actualTitles !== expectedTitles || actualFrames !== expectedTitles) {
+          throw new Error(`View「${view.name || view.id}」的樓層標題或底框數量與分組不一致。`);
         }
         const currentIds = managedIds({ components: model.components, originalComponents: [] });
         for (const original of model.originalComponents || []) {
@@ -1578,7 +1667,9 @@
           JSON.stringify(state.originalFloorGroupFrame);
         if (current === state.baselines.get(viewId) && !floorsChanged &&
             !frameStyleChanged && !needsFloorLayout(model)) continue;
-        if (model.components.length === 0 && !JSON.parse(state.baselines.get(viewId)).components.length) continue;
+        if (model.components.length === 0 &&
+            !Object.keys(model.originalFloorTitles || {}).length &&
+            !Object.keys(model.originalFloorFrames || {}).length) continue;
         applyModelToView(view, model);
         modifiedViewIds.add(viewId);
       }
@@ -1589,6 +1680,12 @@
           new Map(Array.from(state.models, ([viewId, model]) => [viewId, model.grid]))
         );
         D.saveFloorGroupFrameSettings(output, state.floorGroupFrame);
+        D.saveFloorGroupArtifacts(
+          output,
+          output.hmi.views.map((view) => view.id),
+          new Map(Array.from(state.models, ([viewId, model]) =>
+            [viewId, floorGroupArtifactsForModel(model)]))
+        );
       }
       const outputText = dirty
         ? D.serializeConfig(output, state.lineEnding, state.hasTrailingNewline)

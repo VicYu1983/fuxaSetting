@@ -15,6 +15,7 @@
   });
   const GRID_SETTINGS_KEY = "fuxaSetting";
   const FLOOR_GROUP_FRAME_SETTINGS_KEY = "floorGroupFrames";
+  const FLOOR_GROUP_ARTIFACTS_KEY = "floorGroupArtifacts";
   const LABEL_POSITIONS = new Set(["above", "below", "left", "right"]);
   const RECT_SIZE = Object.freeze({ width: 40, height: 40 });
   const CYLINDER_SIZE = Object.freeze({ width: 60, height: 64 });
@@ -148,6 +149,61 @@
     return config.extra[GRID_SETTINGS_KEY][FLOOR_GROUP_FRAME_SETTINGS_KEY];
   }
 
+  function getFloorGroupArtifacts(config, viewId) {
+    const artifacts = isRecord(config.extra) &&
+      isRecord(config.extra[GRID_SETTINGS_KEY]) &&
+      isRecord(config.extra[GRID_SETTINGS_KEY][FLOOR_GROUP_ARTIFACTS_KEY])
+      ? config.extra[GRID_SETTINGS_KEY][FLOOR_GROUP_ARTIFACTS_KEY][viewId]
+      : null;
+    return isRecord(artifacts) ? artifacts : {};
+  }
+
+  function saveFloorGroupArtifacts(config, viewIds, artifactsByView) {
+    if (!isRecord(config)) throw new Error("無效的配置資料。");
+    if (config.extra !== undefined && !isRecord(config.extra)) {
+      throw new Error("配置的 extra 欄位不是物件，無法安全保存樓層群組元件索引。");
+    }
+    if (!isRecord(config.extra)) config.extra = {};
+    const toolSettings = config.extra[GRID_SETTINGS_KEY];
+    if (toolSettings !== undefined && !isRecord(toolSettings)) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY} 欄位不是物件，無法安全保存樓層群組元件索引。`);
+    }
+    const storedSettings = isRecord(toolSettings) ? toolSettings : {};
+    const existingArtifacts = storedSettings[FLOOR_GROUP_ARTIFACTS_KEY];
+    if (existingArtifacts !== undefined && !isRecord(existingArtifacts)) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY}.${FLOOR_GROUP_ARTIFACTS_KEY} 欄位不是物件，無法安全保存樓層群組元件索引。`);
+    }
+    const artifacts = isRecord(existingArtifacts) ? { ...existingArtifacts } : {};
+    const activeViewIds = new Set(viewIds);
+    for (const viewId of Object.keys(artifacts)) {
+      if (!activeViewIds.has(viewId)) delete artifacts[viewId];
+    }
+    for (const [viewId, viewArtifacts] of artifactsByView) {
+      if (!activeViewIds.has(viewId)) continue;
+      if (!isRecord(viewArtifacts)) {
+        throw new Error(`View「${viewId}」的樓層群組元件索引格式無效。`);
+      }
+      artifacts[viewId] = {};
+      for (const [floorKey, entry] of Object.entries(viewArtifacts)) {
+        if (!isRecord(entry) ||
+            !["titleId", "frameId", "frameShapeId"].every((key) =>
+              typeof entry[key] === "string" && entry[key])) {
+          throw new Error(`View「${viewId}」的樓層群組「${floorKey}」元件索引不完整。`);
+        }
+        artifacts[viewId][floorKey] = {
+          titleId: entry.titleId,
+          frameId: entry.frameId,
+          frameShapeId: entry.frameShapeId
+        };
+      }
+    }
+    config.extra[GRID_SETTINGS_KEY] = {
+      ...storedSettings,
+      [FLOOR_GROUP_ARTIFACTS_KEY]: artifacts
+    };
+    return config.extra[GRID_SETTINGS_KEY][FLOOR_GROUP_ARTIFACTS_KEY];
+  }
+
   function buildTagIndex(config) {
     const index = new Map();
     for (const [deviceId, device] of Object.entries(config.devices)) {
@@ -259,7 +315,7 @@
     return item && typeof item.name === "string" ? item.name : "";
   }
 
-  function readManaged(view, Parser) {
+  function readManaged(view, Parser, floorGroupArtifacts = {}) {
     const records = [];
     const unmanaged = [];
     const movableTags = [];
@@ -275,8 +331,48 @@
 
     const consumed = new Set();
     const floorTitles = {};
+    const floorTitleIds = {};
     const floorFrames = {};
+    const floorFrameIds = {};
     const floorFrameShapeIds = {};
+    const floorTitleNodes = {};
+    const unassignedFloorFrames = [];
+    const artifactFloorById = new Map();
+    for (const [floorKey, artifact] of Object.entries(floorGroupArtifacts)) {
+      if (!isRecord(artifact)) continue;
+      for (const id of [artifact.titleId, artifact.frameId]) {
+        if (typeof id === "string" && id) artifactFloorById.set(id, floorKey);
+      }
+    }
+    const addFloorId = (idsByFloor, floorKey, id) => {
+      if (!idsByFloor[floorKey]) idsByFloor[floorKey] = [];
+      if (!idsByFloor[floorKey].includes(id)) idsByFloor[floorKey].push(id);
+    };
+    const inferTitleFloor = (node, id) => {
+      const floor = node.getAttribute("data-floor-group");
+      if (floor !== null) return `floor:${normalizeFloor(floor)}`;
+      const text = (node.textContent || "").trim();
+      if (text) return `floor:${normalizeFloor(text === "未設定樓層" ? "" : text)}`;
+      return artifactFloorById.get(id) || "";
+    };
+    for (const [floorKey, artifact] of Object.entries(floorGroupArtifacts)) {
+      if (!isRecord(artifact)) continue;
+      if (typeof artifact.titleId === "string" && findById(doc, artifact.titleId)) {
+        floorTitles[floorKey] = artifact.titleId;
+        addFloorId(floorTitleIds, floorKey, artifact.titleId);
+        consumed.add(artifact.titleId);
+      }
+      if (typeof artifact.frameId === "string" && findById(doc, artifact.frameId)) {
+        floorFrames[floorKey] = artifact.frameId;
+        addFloorId(floorFrameIds, floorKey, artifact.frameId);
+        const shapeId = typeof artifact.frameShapeId === "string" &&
+          findById(doc, artifact.frameShapeId)
+          ? artifact.frameShapeId
+          : findById(doc, artifact.frameId).querySelector("[id]")?.getAttribute("id");
+        if (shapeId) floorFrameShapeIds[floorKey] = shapeId;
+        consumed.add(artifact.frameId);
+      }
+    }
     const idCounts = new Map();
     for (const node of Array.from(doc.getElementsByTagName("*"))) {
       const id = node.getAttribute("id");
@@ -286,20 +382,30 @@
       if (shapeItem && shapeItem.name === "fuxa_floor_section_frame") {
         const frameNode = findById(doc, shapeId);
         const floor = frameNode && frameNode.getAttribute("data-floor-group");
-        if (frameNode && floor !== null) {
-          const key = `floor:${normalizeFloor(floor)}`;
-          floorFrames[key] = shapeId;
+        const key = frameNode && (floor !== null
+          ? `floor:${normalizeFloor(floor)}`
+          : artifactFloorById.get(shapeId));
+        if (frameNode && key) {
+          if (!floorFrames[key]) floorFrames[key] = shapeId;
+          addFloorId(floorFrameIds, key, shapeId);
           const innerShape = frameNode.querySelector("[id]");
           if (innerShape) floorFrameShapeIds[key] = innerShape.getAttribute("id");
+          consumed.add(shapeId);
+          continue;
+        }
+        if (frameNode) {
+          unassignedFloorFrames.push({ id: shapeId, node: frameNode });
           consumed.add(shapeId);
           continue;
         }
       }
       if (shapeItem && shapeItem.name === "fuxa_floor_section_title") {
         const titleNode = findById(doc, shapeId);
-        const floor = titleNode && titleNode.getAttribute("data-floor-group");
-        if (titleNode && floor !== null) {
-          floorTitles[`floor:${normalizeFloor(floor)}`] = shapeId;
+        const key = titleNode && inferTitleFloor(titleNode, shapeId);
+        if (titleNode && key) {
+          if (!floorTitles[key]) floorTitles[key] = shapeId;
+          addFloorId(floorTitleIds, key, shapeId);
+          if (!floorTitleNodes[key]) floorTitleNodes[key] = titleNode;
           consumed.add(shapeId);
           continue;
         }
@@ -336,6 +442,32 @@
       });
       consumed.add(shapeId);
       consumed.add(labelId);
+    }
+
+    for (const { id, node } of unassignedFloorFrames) {
+      const shape = node.localName === "rect" ? node : node.querySelector("rect");
+      if (!shape) continue;
+      const bounds = ["x", "y", "width", "height"].map((key) =>
+        Number(shape.getAttribute(key))
+      );
+      if (!bounds.every(Number.isFinite)) continue;
+      const [x, y, width, height] = bounds;
+      const matchingFloors = Object.entries(floorTitleNodes).filter(([, title]) => {
+        const titleX = Number(title.getAttribute("x"));
+        const titleY = Number(title.getAttribute("y"));
+        return Number.isFinite(titleX) && Number.isFinite(titleY) &&
+          titleX >= x && titleX <= x + width &&
+          titleY >= y && titleY <= y + height;
+      });
+      if (matchingFloors.length !== 1) continue;
+      const [key] = matchingFloors[0];
+      const isCanonicalFrame = !floorFrames[key];
+      if (isCanonicalFrame) floorFrames[key] = id;
+      addFloorId(floorFrameIds, key, id);
+      if (isCanonicalFrame) {
+        const innerShape = node.querySelector("[id]");
+        if (innerShape) floorFrameShapeIds[key] = innerShape.getAttribute("id");
+      }
     }
 
     for (const [id, item] of Object.entries(view.items)) {
@@ -377,7 +509,10 @@
       }
     }
     records.sort((a, b) => a.seq - b.seq);
-    return { records, unmanaged, movableTags, floorTitles, floorFrames, floorFrameShapeIds, doc };
+    return {
+      records, unmanaged, movableTags, floorTitles, floorTitleIds,
+      floorFrames, floorFrameIds, floorFrameShapeIds, doc
+    };
   }
 
   function layoutComponents(components, settings) {
@@ -772,6 +907,7 @@
     buildTagIndex, findById, generateId, hasViewShape, isRecord,
     normalizeGridSettings, getViewGridSettings, saveViewGridSettings,
     normalizeFloorGroupFrameSettings, getFloorGroupFrameSettings, saveFloorGroupFrameSettings,
+    getFloorGroupArtifacts, saveFloorGroupArtifacts,
     layoutComponents, layoutFloorComponents, groupByFloor, groupComponentsByFloor,
     normalizeFloor, compareFloors, getTagFloor, setTagFloor,
     parseSvg, readManaged, removeLayoutViewReferences,

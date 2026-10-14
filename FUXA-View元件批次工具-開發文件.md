@@ -198,7 +198,7 @@ type ViewModel = {
 
 `GridSettings` 與 `components` 順序為工具狀態。Grid 設定另外保存於配置最外層的 `extra.fuxaSetting.viewGrids`，以 View ID 對應設定；缺少設定的 View 使用預設值。儲存時保留最外層 `extra` 及 `fuxaSetting` 中其他欄位，並移除已刪除 View 的舊 Grid 設定。
 
-所有 View 共用的 `FloorGroupFrameSettings` 儲存於 `extra.fuxaSetting.floorGroupFrames`，包括底色、透明度、邊框色與粗細、圓角及內距。樓層底框的座標依標題、圖形及 Label 範圍計算，並以 FUXA SVG 項目保存在各 View。
+所有 View 共用的 `FloorGroupFrameSettings` 儲存於 `extra.fuxaSetting.floorGroupFrames`，包括底色、透明度、邊框色與粗細、圓角及內距。各 View 的標題與底框穩定 ID 儲存於 `extra.fuxaSetting.floorGroupArtifacts`；SVG 元件視為可重建的呈現輸出，不作為分組資料的唯一依據。匯入時使用 `items` 中的保留名稱、ID、標題文字、幾何與額外 ID 索引辨識既有輸出並合併重複項目；Tag 樓層仍以各 Tag 的 `extra.floor` 為準。
 
 ## 5. 模組架構
 
