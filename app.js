@@ -57,6 +57,7 @@
     dialog: $("#batch-dialog"),
     tagChoices: $("#tag-choices"),
     tagSearch: $("#tag-search"),
+    tagSelectAll: $("#tag-select-all"),
     batchConfirm: $("#batch-confirm"),
     newViewDialog: $("#new-view-dialog"),
     newViewName: $("#new-view-name"),
@@ -1337,6 +1338,14 @@
       empty.textContent = "沒有符合的 Tag。";
       elements.tagChoices.append(empty);
     }
+    updateTagSelectAll(tags.map((tag) => tag.id));
+  }
+
+  function updateTagSelectAll(tagIds) {
+    const selectedCount = tagIds.filter((tagId) => batchSelection.has(tagId)).length;
+    elements.tagSelectAll.checked = tagIds.length > 0 && selectedCount === tagIds.length;
+    elements.tagSelectAll.indeterminate = selectedCount > 0 && selectedCount < tagIds.length;
+    elements.tagSelectAll.disabled = tagIds.length === 0;
   }
 
   elements.tagChoices.addEventListener("change", (event) => {
@@ -1344,6 +1353,17 @@
     if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== "checkbox") return;
     if (checkbox.checked) batchSelection.add(checkbox.value);
     else batchSelection.delete(checkbox.value);
+    const visibleTagIds = Array.from(elements.tagChoices.querySelectorAll('input[type="checkbox"]'), (item) => item.value);
+    updateTagSelectAll(visibleTagIds);
+  });
+
+  elements.tagSelectAll.addEventListener("change", () => {
+    const visibleTagIds = Array.from(elements.tagChoices.querySelectorAll('input[type="checkbox"]'), (item) => item.value);
+    for (const tagId of visibleTagIds) {
+      if (elements.tagSelectAll.checked) batchSelection.add(tagId);
+      else batchSelection.delete(tagId);
+    }
+    renderTagChoices(elements.tagSearch.value);
   });
 
   function handleBatchConfirm(event) {
