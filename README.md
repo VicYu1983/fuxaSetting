@@ -19,7 +19,8 @@
 
 ## 支援範圍
 
-- Tag 樓層儲存在 Tag 的 `extra.floor`；既有 Tag 管理僅修改樓層欄位並保留其他額外資料。Grid 設定儲存在配置最外層的 `extra.fuxaSetting.viewGrids`，依 View ID 保存；載入舊配置時使用預設值，第一次儲存變更後寫入設定，並保留 `extra` 內其他欄位。支援批次建立 Tag，不提供 CSV 匯入。
+- Tag 樓層儲存在 Tag 的 `extra.floor`；既有 Tag 管理僅修改樓層欄位並保留其他額外資料。Grid 設定依 View ID 儲存在配置最外層的 `extra.fuxaSetting.viewGrids`；所有 View 共用的樓層 Group 圓角底框樣式儲存在 `extra.fuxaSetting.floorGroupFrames`。舊配置使用預設底框樣式，儲存變更時寫入並保留 `extra` 及工具設定中的其他欄位。
+- 每個樓層 Group 的底框會包住標題、Tag 圖形與 Label，範圍依內容及內距自動計算；可調整底色、透明度、邊框、圓角與內距。
 - 每個受管理項目包含一個綁定 Tag 的矩形或圓柱狀態圖形，以及一個獨立文字 Label。
 - Bool 狀態配色可選「運轉：綠／紅」或「警報：紅／綠」。
 - 每次儲存 Tag 元件會依樓層重新套用當前 Grid；既有 FUXA Tag 元件只移動 SVG 位置並保留原 item 設定。匯回 FUXA 後手動調整的位置不會被此工具記錄；重新載入後再次儲存可能重排。

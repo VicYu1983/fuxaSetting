@@ -68,6 +68,46 @@ test("loads and saves per-View Grid settings in the top-level tool extra namespa
   assert.equal(Object.hasOwn(config.extra.fuxaSetting.viewGrids, "removed-view"), false);
 });
 
+test("loads and saves shared floor-group frame styling without discarding extra settings", () => {
+  const config = {
+    extra: {
+      keep: true,
+      fuxaSetting: {
+        note: "keep",
+        viewGrids: { "view-a": { columns: 3 } },
+        floorGroupFrames: { fill: "#123456", fillOpacity: 0.8, padding: 24 }
+      }
+    }
+  };
+  assert.deepEqual(D.getFloorGroupFrameSettings(config), {
+    ...D.DEFAULT_FLOOR_GROUP_FRAME,
+    fill: "#123456",
+    fillOpacity: 0.8,
+    padding: 24
+  });
+  assert.deepEqual(D.getFloorGroupFrameSettings({}), D.DEFAULT_FLOOR_GROUP_FRAME);
+
+  D.saveFloorGroupFrameSettings(config, {
+    fill: "#ABCDEF",
+    fillOpacity: 0.4,
+    stroke: "#010203",
+    strokeWidth: 2,
+    cornerRadius: 8,
+    padding: 12
+  });
+  assert.deepEqual(config.extra.keep, true);
+  assert.equal(config.extra.fuxaSetting.note, "keep");
+  assert.deepEqual(config.extra.fuxaSetting.viewGrids, { "view-a": { columns: 3 } });
+  assert.deepEqual(config.extra.fuxaSetting.floorGroupFrames, {
+    fill: "#abcdef",
+    fillOpacity: 0.4,
+    stroke: "#010203",
+    strokeWidth: 2,
+    cornerRadius: 8,
+    padding: 12
+  });
+});
+
 test("rejects malformed top-level extra data instead of overwriting it", () => {
   const config = { extra: "preserve this" };
   assert.throws(
@@ -112,9 +152,39 @@ test("lays out each floor as a titled section using one shared grid", () => {
   }, tags);
   assert.deepEqual(result.sections.map((section) => section.title), ["B1F", "1F"]);
   assert.equal(result.sections[0].entries[0].placement.shape.x, 10);
+  assert.ok(result.sections[0].frame.x < result.sections[0].entries[0].placement.shape.x);
+  assert.ok(result.sections[0].frame.y < result.sections[0].titleY);
+  assert.ok(result.sections[1].frame.y >=
+    result.sections[0].frame.y + result.sections[0].frame.height);
   assert.ok(result.sections[1].titleY > result.sections[0].entries[0].placement.shape.y);
   assert.equal(result.placements.length, 3);
   assert.equal(result.placements.some(({ component }) => component.tagId === "manually-removed"), false);
+});
+
+test("floor frames include the measured bounds of existing companion labels", () => {
+  const component = {
+    key: "existing-tag",
+    tagId: "tag-a",
+    template: "existing",
+    managed: false,
+    originalBounds: { x: 100, y: 150, width: 40, height: 40 },
+    layoutWidth: 40,
+    layoutHeight: 40,
+    companions: [{ bounds: { x: 80, y: 125, width: 80, height: 16 } }]
+  };
+  const result = D.layoutFloorComponents([component], {
+    ...D.DEFAULT_GRID,
+    originX: 100,
+    originY: 150
+  }, new Map([["tag-a", { floor: "1F" }]]));
+  const { frame, entries } = result.sections[0];
+  const placement = entries[0].placement;
+  const dx = placement.shape.x - component.originalBounds.x;
+  const dy = placement.shape.y - component.originalBounds.y;
+  assert.ok(frame.x <= 80 + dx);
+  assert.ok(frame.y <= 125 + dy);
+  assert.ok(frame.x + frame.width >= 160 + dx);
+  assert.ok(frame.y + frame.height >= 141 + dy);
 });
 
 test("rejects incomplete or non-FUXA-shaped configurations", () => {

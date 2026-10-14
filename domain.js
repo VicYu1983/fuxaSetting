@@ -9,7 +9,12 @@
     columns: 4, originX: 60, originY: 80, gapX: 40, gapY: 40,
     labelPosition: "above", labelOffset: 10, labelFontSize: 14
   });
+  const DEFAULT_FLOOR_GROUP_FRAME = Object.freeze({
+    fill: "#eff6ff", fillOpacity: 0.55, stroke: "#93c5fd",
+    strokeWidth: 1, cornerRadius: 12, padding: 16
+  });
   const GRID_SETTINGS_KEY = "fuxaSetting";
+  const FLOOR_GROUP_FRAME_SETTINGS_KEY = "floorGroupFrames";
   const LABEL_POSITIONS = new Set(["above", "below", "left", "right"]);
   const RECT_SIZE = Object.freeze({ width: 40, height: 40 });
   const CYLINDER_SIZE = Object.freeze({ width: 60, height: 64 });
@@ -92,6 +97,55 @@
       viewGrids
     };
     return config.extra[GRID_SETTINGS_KEY];
+  }
+
+  function normalizeFloorGroupFrameSettings(settings) {
+    const frame = { ...DEFAULT_FLOOR_GROUP_FRAME };
+    if (!isRecord(settings)) return frame;
+    for (const key of ["fill", "stroke"]) {
+      if (typeof settings[key] === "string" && /^#[\da-f]{6}$/i.test(settings[key])) {
+        frame[key] = settings[key].toLowerCase();
+      }
+    }
+    for (const key of ["fillOpacity", "strokeWidth", "cornerRadius", "padding"]) {
+      const value = settings[key];
+      if (!Number.isFinite(value)) continue;
+      if (key === "fillOpacity" && value >= 0 && value <= 1) frame[key] = value;
+      else if (key === "strokeWidth" && value >= 0 && value <= 10) frame[key] = value;
+      else if (key === "cornerRadius" && value >= 0 && value <= 100) frame[key] = value;
+      else if (key === "padding" && value >= 0 && value <= 200) frame[key] = value;
+    }
+    return frame;
+  }
+
+  function getFloorGroupFrameSettings(config) {
+    const settings = isRecord(config.extra) &&
+      isRecord(config.extra[GRID_SETTINGS_KEY])
+      ? config.extra[GRID_SETTINGS_KEY][FLOOR_GROUP_FRAME_SETTINGS_KEY]
+      : null;
+    return normalizeFloorGroupFrameSettings(settings);
+  }
+
+  function saveFloorGroupFrameSettings(config, settings) {
+    if (!isRecord(config)) throw new Error("無效的配置資料。");
+    if (config.extra !== undefined && !isRecord(config.extra)) {
+      throw new Error("配置的 extra 欄位不是物件，無法安全保存樓層底框設定。");
+    }
+    if (!isRecord(config.extra)) config.extra = {};
+    const toolSettings = config.extra[GRID_SETTINGS_KEY];
+    if (toolSettings !== undefined && !isRecord(toolSettings)) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY} 欄位不是物件，無法安全保存樓層底框設定。`);
+    }
+    const storedSettings = isRecord(toolSettings) ? toolSettings : {};
+    if (storedSettings[FLOOR_GROUP_FRAME_SETTINGS_KEY] !== undefined &&
+        !isRecord(storedSettings[FLOOR_GROUP_FRAME_SETTINGS_KEY])) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY}.${FLOOR_GROUP_FRAME_SETTINGS_KEY} 欄位不是物件，無法安全保存樓層底框設定。`);
+    }
+    config.extra[GRID_SETTINGS_KEY] = {
+      ...storedSettings,
+      [FLOOR_GROUP_FRAME_SETTINGS_KEY]: normalizeFloorGroupFrameSettings(settings)
+    };
+    return config.extra[GRID_SETTINGS_KEY][FLOOR_GROUP_FRAME_SETTINGS_KEY];
   }
 
   function buildTagIndex(config) {
@@ -221,12 +275,26 @@
 
     const consumed = new Set();
     const floorTitles = {};
+    const floorFrames = {};
+    const floorFrameShapeIds = {};
     const idCounts = new Map();
     for (const node of Array.from(doc.getElementsByTagName("*"))) {
       const id = node.getAttribute("id");
       if (id) idCounts.set(id, (idCounts.get(id) || 0) + 1);
     }
     for (const [shapeId, shapeItem] of Object.entries(view.items)) {
+      if (shapeItem && shapeItem.name === "fuxa_floor_section_frame") {
+        const frameNode = findById(doc, shapeId);
+        const floor = frameNode && frameNode.getAttribute("data-floor-group");
+        if (frameNode && floor !== null) {
+          const key = `floor:${normalizeFloor(floor)}`;
+          floorFrames[key] = shapeId;
+          const innerShape = frameNode.querySelector("[id]");
+          if (innerShape) floorFrameShapeIds[key] = innerShape.getAttribute("id");
+          consumed.add(shapeId);
+          continue;
+        }
+      }
       if (shapeItem && shapeItem.name === "fuxa_floor_section_title") {
         const titleNode = findById(doc, shapeId);
         const floor = titleNode && titleNode.getAttribute("data-floor-group");
@@ -309,7 +377,7 @@
       }
     }
     records.sort((a, b) => a.seq - b.seq);
-    return { records, unmanaged, movableTags, floorTitles, doc };
+    return { records, unmanaged, movableTags, floorTitles, floorFrames, floorFrameShapeIds, doc };
   }
 
   function layoutComponents(components, settings) {
@@ -369,9 +437,9 @@
     return placements;
   }
 
-  function layoutFloorComponents(components, settings, tags) {
+  function layoutFloorComponents(components, settings, tags, frameSettings) {
     const grid = { ...DEFAULT_GRID, ...settings };
-    const columns = Math.max(1, Math.floor(Number(grid.columns) || 1));
+    const frame = normalizeFloorGroupFrameSettings(frameSettings);
     const sectionGap = Math.max(0, Number(grid.gapY) || 0);
     const titleFontSize = Math.max(8, Number(grid.labelFontSize) || DEFAULT_GRID.labelFontSize);
     const sections = [];
@@ -389,20 +457,67 @@
         component,
         placement: sectionPlacements[index]
       }));
-      const bottom = entries.reduce((max, entry) =>
-        Math.max(max, entry.placement.shape.y + entry.placement.shape.height), sectionGrid.originY);
+      const bounds = {
+        left: Number(grid.originX) || 0,
+        top: titleY - titleFontSize * 0.8,
+        right: (Number(grid.originX) || 0) +
+          measureSvgText(group.title, titleFontSize),
+        bottom: titleY + titleFontSize * 0.2
+      };
+      for (const { component, placement } of entries) {
+        bounds.left = Math.min(bounds.left, placement.shape.x);
+        bounds.top = Math.min(bounds.top, placement.shape.y);
+        bounds.right = Math.max(bounds.right, placement.shape.x + placement.shape.width);
+        bounds.bottom = Math.max(bounds.bottom, placement.shape.y + placement.shape.height);
+        if (component.managed === false && component.originalBounds) {
+          const dx = placement.shape.x - component.originalBounds.x;
+          const dy = placement.shape.y - component.originalBounds.y;
+          for (const companion of component.companions || []) {
+            if (!companion.bounds) continue;
+            bounds.left = Math.min(bounds.left, companion.bounds.x + dx);
+            bounds.top = Math.min(bounds.top, companion.bounds.y + dy);
+            bounds.right = Math.max(bounds.right, companion.bounds.x + dx + companion.bounds.width);
+            bounds.bottom = Math.max(bounds.bottom, companion.bounds.y + dy + companion.bounds.height);
+          }
+        }
+        const labelBounds = getSvgTextBounds(
+          component.label, placement.label.x, placement.label.y,
+          placement.label.anchor, titleFontSize
+        );
+        bounds.left = Math.min(bounds.left, labelBounds.left);
+        bounds.top = Math.min(bounds.top, labelBounds.top);
+        bounds.right = Math.max(bounds.right, labelBounds.right);
+        bounds.bottom = Math.max(bounds.bottom, labelBounds.bottom);
+      }
+      const sectionFrame = {
+        x: bounds.left - frame.padding,
+        y: bounds.top - frame.padding,
+        width: bounds.right - bounds.left + frame.padding * 2,
+        height: bounds.bottom - bounds.top + frame.padding * 2
+      };
       sections.push({
         floor: group.floor,
         title: group.title,
         titleY,
         x: Number(grid.originX) || 0,
+        frame: sectionFrame,
         entries
       });
       placements.push(...entries);
-      const rows = Math.ceil(group.items.length / columns);
-      nextTitleY = rows ? bottom + sectionGap : titleY + titleFontSize + sectionGap;
+      nextTitleY = sectionFrame.y + sectionFrame.height + sectionGap + frame.padding;
     }
     return { sections, placements };
+  }
+
+  function measureSvgText(text, fontSize) {
+    return Array.from(String(text || "")).reduce((width, character) =>
+      width + fontSize * (character.codePointAt(0) > 0x2e80 ? 1 : 0.6), 0);
+  }
+
+  function getSvgTextBounds(text, x, y, anchor, fontSize) {
+    const width = measureSvgText(text, fontSize);
+    const left = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
+    return { left, right: left + width, top: y - fontSize * 0.8, bottom: y + fontSize * 0.2 };
   }
 
   function serializeConfig(config, lineEnding, hasTrailingNewline) {
@@ -653,9 +768,10 @@
   }
 
   return {
-    DEFAULT_GRID, GRID_SETTINGS_KEY, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
+    DEFAULT_GRID, DEFAULT_FLOOR_GROUP_FRAME, GRID_SETTINGS_KEY, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
     buildTagIndex, findById, generateId, hasViewShape, isRecord,
     normalizeGridSettings, getViewGridSettings, saveViewGridSettings,
+    normalizeFloorGroupFrameSettings, getFloorGroupFrameSettings, saveFloorGroupFrameSettings,
     layoutComponents, layoutFloorComponents, groupByFloor, groupComponentsByFloor,
     normalizeFloor, compareFloors, getTagFloor, setTagFloor,
     parseSvg, readManaged, removeLayoutViewReferences,

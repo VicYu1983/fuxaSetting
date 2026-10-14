@@ -9,6 +9,8 @@
     config: null,
     originalText: "",
     originalDevices: "",
+    floorGroupFrame: { ...D.DEFAULT_FLOOR_GROUP_FRAME },
+    originalFloorGroupFrame: { ...D.DEFAULT_FLOOR_GROUP_FRAME },
     lineEnding: "\n",
     hasTrailingNewline: false,
     fileName: "",
@@ -133,6 +135,14 @@
     labelPosition: $("#grid-label-position"),
     labelOffset: $("#grid-label-offset"),
     labelFontSize: $("#grid-font-size")
+  };
+  const frameInputs = {
+    fill: $("#floor-frame-fill"),
+    fillOpacity: $("#floor-frame-opacity"),
+    stroke: $("#floor-frame-stroke"),
+    strokeWidth: $("#floor-frame-stroke-width"),
+    cornerRadius: $("#floor-frame-radius"),
+    padding: $("#floor-frame-padding")
   };
 
   function setStatus(message, kind) {
@@ -286,9 +296,11 @@
   }
 
   function needsFloorLayout(model) {
-    return D.groupComponentsByFloor(model.components, state.tags).some((group) =>
-      !Object.prototype.hasOwnProperty.call(model.originalFloorTitles || {}, floorTitleKey(group.floor))
-    );
+    return D.groupComponentsByFloor(model.components, state.tags).some((group) => {
+      const key = floorTitleKey(group.floor);
+      return !Object.prototype.hasOwnProperty.call(model.originalFloorTitles || {}, key) ||
+        !Object.prototype.hasOwnProperty.call(model.originalFloorFrames || {}, key);
+    });
   }
 
   function allocateId(prefix) {
@@ -333,6 +345,8 @@
     state.lineEnding = text.includes("\r\n") ? "\r\n" : "\n";
     state.hasTrailingNewline = /(?:\r\n|\n)$/.test(text);
     state.fileName = fileName || "fuxa-config.json";
+    state.floorGroupFrame = D.getFloorGroupFrameSettings(config);
+    state.originalFloorGroupFrame = { ...state.floorGroupFrame };
     state.tags = D.buildTagIndex(config);
     state.models = new Map();
     state.baselines = new Map();
@@ -373,7 +387,10 @@
         unmanaged: existing.unsupported,
         grid: D.getViewGridSettings(config, view.id),
         floorTitles: { ...(parsed.floorTitles || {}) },
-        originalFloorTitles: { ...(parsed.floorTitles || {}) }
+        originalFloorTitles: { ...(parsed.floorTitles || {}) },
+        floorFrames: { ...(parsed.floorFrames || {}) },
+        originalFloorFrames: { ...(parsed.floorFrames || {}) },
+        floorFrameShapeIds: { ...(parsed.floorFrameShapeIds || {}) }
       });
     }
     for (const [viewId, model] of state.models) {
@@ -400,7 +417,8 @@
       floorBaselines: Array.from(state.floorBaselines.entries()),
       viewTitleIds: Array.from(state.viewTitleIds.entries()),
       selectedViewId: state.selectedViewId,
-      selectedDeviceId: state.selectedDeviceId
+      selectedDeviceId: state.selectedDeviceId,
+      floorGroupFrame: state.floorGroupFrame
     });
   }
 
@@ -431,6 +449,7 @@
     state.floorBaselines = new Map(saved.floorBaselines || []);
     state.viewTitleIds = new Map(saved.viewTitleIds || []);
     state.selectedViewId = saved.selectedViewId;
+    state.floorGroupFrame = D.normalizeFloorGroupFrameSettings(saved.floorGroupFrame);
     if (saved.selectedDeviceId) state.selectedDeviceId = saved.selectedDeviceId;
     renderAll();
     if (elements.deviceMgrDialog.open) {
@@ -676,6 +695,14 @@
       input.disabled = disabled;
       if (model) input.value = String(model.grid[key]);
     }
+    for (const [key, input] of Object.entries(frameInputs)) {
+      input.disabled = !state.config;
+      if (!state.config) continue;
+      const value = key === "fillOpacity"
+        ? Math.round(state.floorGroupFrame[key] * 100)
+        : state.floorGroupFrame[key];
+      input.value = String(value);
+    }
   }
 
   function createSvgNode(doc, name, attributes) {
@@ -762,6 +789,7 @@
       if (component.labelId) ids.add(component.labelId);
     }
     for (const id of Object.values(model.floorTitles || {})) ids.add(id);
+    for (const id of Object.values(model.floorFrames || {})) ids.add(id);
     return ids;
   }
 
@@ -848,6 +876,65 @@
     };
   }
 
+  function buildFloorFrameNode(doc, section, id, innerId) {
+    const frame = state.floorGroupFrame;
+    const group = createSvgNode(doc, "g", {
+      "data-name": "fuxa_floor_section_frame",
+      "data-floor-group": section.floor,
+      id,
+      type: "svg-ext-shapes-rectangle",
+      fill: frame.fill,
+      stroke: frame.stroke,
+      "stroke-width": frame.strokeWidth
+    });
+    const attributes = {
+      x: section.frame.x,
+      y: section.frame.y,
+      width: section.frame.width,
+      height: section.frame.height,
+      rx: frame.cornerRadius,
+      ry: frame.cornerRadius,
+      fill: frame.fill,
+      "fill-opacity": frame.fillOpacity,
+      stroke: frame.stroke,
+      "stroke-width": frame.strokeWidth
+    };
+    if (innerId) attributes.id = innerId;
+    group.append(createSvgNode(doc, "rect", attributes));
+    return group;
+  }
+
+  function buildFloorFrameEntry(existing, id) {
+    return {
+      ...(existing || {}),
+      id,
+      type: "svg-ext-shapes-rectangle",
+      name: "fuxa_floor_section_frame",
+      property: null,
+      label: "Shapes",
+      hide: false,
+      lock: false
+    };
+  }
+
+  function insertFloorFrameNode(layer, frameNode, section, doc) {
+    const managedNodes = new Set();
+    for (const { component } of section.entries) {
+      if (component.managed !== false) continue;
+      const shape = D.findById(doc, component.shapeId);
+      if (shape) managedNodes.add(shape);
+      for (const companion of component.companions || []) {
+        const label = D.findById(doc, companion.id);
+        if (label) managedNodes.add(label);
+      }
+    }
+    const firstManagedChild = Array.from(layer.children).find((child) =>
+      Array.from(managedNodes).some((node) => child === node || child.contains(node))
+    );
+    if (firstManagedChild) layer.insertBefore(frameNode, firstManagedChild);
+    else layer.append(frameNode);
+  }
+
   function existingTagTransform(component, placement) {
     const dx = placement.shape.x - component.originalBounds.x;
     const dy = placement.shape.y - component.originalBounds.y;
@@ -863,9 +950,16 @@
     if (!layer) throw new Error(`View「${view.name || view.id}」找不到可安全插入元件的 SVG 圖層。`);
     const previousItems = { ...view.items };
     removeManagedFromView(view, model, doc);
-    const layout = D.layoutFloorComponents(model.components, model.grid, state.tags);
+    const layout = D.layoutFloorComponents(model.components, model.grid, state.tags, state.floorGroupFrame);
     for (const section of layout.sections) {
       const titleKey = floorTitleKey(section.floor);
+      const frameId = model.floorFrames[titleKey] || allocateId("svg");
+      model.floorFrames[titleKey] = frameId;
+      const frameShapeId = model.floorFrameShapeIds[titleKey] ||
+        (model.floorFrameShapeIds[titleKey] = allocateId("SHE"));
+      const frameNode = buildFloorFrameNode(doc, section, frameId, frameShapeId);
+      insertFloorFrameNode(layer, frameNode, section, doc);
+      view.items[frameId] = buildFloorFrameEntry(previousItems[frameId], frameId);
       const titleId = model.floorTitles[titleKey] || allocateId("svg");
       model.floorTitles[titleKey] = titleId;
       const titleNode = buildFloorTitleNode(doc, section, titleId, model.grid);
@@ -952,9 +1046,16 @@
       }
       const layer = getLayer(svg);
       if (!layer) throw new Error("無法建立預覽圖層。");
-      const layout = D.layoutFloorComponents(model.components, model.grid, state.tags);
+      const layout = D.layoutFloorComponents(model.components, model.grid, state.tags, state.floorGroupFrame);
       for (const section of layout.sections) {
         const titleKey = floorTitleKey(section.floor);
+        const frameId = model.floorFrames[titleKey] ||
+          (model.floorFrames[titleKey] = allocateId("svg"));
+        const frameNode = D.findById(svg, frameId);
+        if (frameNode) {
+          frameNode.removeAttribute("opacity");
+          for (const child of Array.from(frameNode.querySelectorAll("*"))) child.removeAttribute("opacity");
+        }
         const titleId = model.floorTitles[titleKey] ||
           (model.floorTitles[titleKey] = allocateId("svg"));
         const previousTitle = D.findById(svg, titleId);
@@ -978,7 +1079,10 @@
         const { shape } = placement;
         return shape.x < 0 || shape.y < 0 || shape.x + shape.width > width || shape.y + shape.height > height;
       }) || layout.sections.some((section) =>
-        section.titleY < 0 || section.titleY > height || section.x > width
+        section.titleY < 0 || section.titleY > height || section.x > width ||
+        section.frame.x < 0 || section.frame.y < 0 ||
+        section.frame.x + section.frame.width > width ||
+        section.frame.y + section.frame.height > height
       );
       elements.previewWarning.hidden = !outside;
     } catch (error) {
@@ -991,6 +1095,7 @@
 
   function isDirty() {
     if (JSON.stringify(state.config.devices) !== state.originalDevices) return true;
+    if (JSON.stringify(state.floorGroupFrame) !== JSON.stringify(state.originalFloorGroupFrame)) return true;
     const currentViewIds = state.config.hmi.views.map((view) => view.id);
     if (JSON.stringify(currentViewIds) !== JSON.stringify(state.originalViewIds)) return true;
     const currentViewNames = state.config.hmi.views.map((view) => [view.id, view.name || ""]);
@@ -1469,7 +1574,10 @@
         if (!view) continue;
         const current = JSON.stringify({ components: model.components, grid: model.grid });
         const floorsChanged = floorSignature(model) !== state.floorBaselines.get(viewId);
-        if (current === state.baselines.get(viewId) && !floorsChanged && !needsFloorLayout(model)) continue;
+        const frameStyleChanged = JSON.stringify(state.floorGroupFrame) !==
+          JSON.stringify(state.originalFloorGroupFrame);
+        if (current === state.baselines.get(viewId) && !floorsChanged &&
+            !frameStyleChanged && !needsFloorLayout(model)) continue;
         if (model.components.length === 0 && !JSON.parse(state.baselines.get(viewId)).components.length) continue;
         applyModelToView(view, model);
         modifiedViewIds.add(viewId);
@@ -1480,6 +1588,7 @@
           output.hmi.views.map((view) => view.id),
           new Map(Array.from(state.models, ([viewId, model]) => [viewId, model.grid]))
         );
+        D.saveFloorGroupFrameSettings(output, state.floorGroupFrame);
       }
       const outputText = dirty
         ? D.serializeConfig(output, state.lineEnding, state.hasTrailingNewline)
@@ -1563,6 +1672,26 @@
       rememberUndo();
       model.grid = nextGrid;
       renderPreview();
+    });
+  }
+
+  for (const [key, input] of Object.entries(frameInputs)) {
+    input.addEventListener("change", () => {
+      if (!state.config) return;
+      const nextFrame = { ...state.floorGroupFrame };
+      nextFrame[key] = key === "fillOpacity"
+        ? Number(input.value) / 100
+        : input.type === "number" ? Number(input.value) : input.value;
+      const normalized = D.normalizeFloorGroupFrameSettings(nextFrame);
+      if (JSON.stringify(normalized) === JSON.stringify(state.floorGroupFrame)) {
+        input.value = String(key === "fillOpacity"
+          ? Math.round(state.floorGroupFrame[key] * 100)
+          : state.floorGroupFrame[key]);
+        return;
+      }
+      rememberUndo();
+      state.floorGroupFrame = normalized;
+      renderAll();
     });
   }
 

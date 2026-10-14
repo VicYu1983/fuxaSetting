@@ -198,6 +198,8 @@ type ViewModel = {
 
 `GridSettings` 與 `components` 順序為工具狀態。Grid 設定另外保存於配置最外層的 `extra.fuxaSetting.viewGrids`，以 View ID 對應設定；缺少設定的 View 使用預設值。儲存時保留最外層 `extra` 及 `fuxaSetting` 中其他欄位，並移除已刪除 View 的舊 Grid 設定。
 
+所有 View 共用的 `FloorGroupFrameSettings` 儲存於 `extra.fuxaSetting.floorGroupFrames`，包括底色、透明度、邊框色與粗細、圓角及內距。樓層底框的座標依標題、圖形及 Label 範圍計算，並以 FUXA SVG 項目保存在各 View。
+
 ## 5. 模組架構
 
 ```
@@ -323,13 +325,13 @@ type Placement = {
 
 預設（**假設**，皆可調整）：`columns=4`、`originX=60`、`originY=80`（避開頂部標題，範例標題 y≈32）、`gapX=40`、`gapY=40`、`labelPosition='above'`（與範例發電機頁一致：文字在圖形上方）、`labelOffset=10`、`labelFontSize=14`。
 
-目前預覽會在圖形本身超出畫布時顯示警告，不自動縮放；元件重疊與 Label 長度尚無自動警告。
+每個樓層區塊另繪製圓角底框，範圍涵蓋標題、Tag 圖形及 Label，所有 View 共用樣式並可調整底色、透明度、邊框、圓角與內距。預覽在圖形或底框超出畫布時顯示警告，不自動縮放；元件重疊與 Label 長度尚無自動警告。
 
 ## 9. UI 設計
 
 ### 9.1 版面
 
-三欄：左 **Views 列表** ／ 中 **元件清單與 Grid 設定** ／ 右 **預覽**。頂部：開啟檔案、另存、Undo/Redo、變更摘要。
+三欄：左 **Views 列表** ／ 中 **元件清單、Grid 與共用樓層底框設定** ／ 右 **預覽**。頂部：開啟檔案、另存、Undo/Redo、變更摘要。
 
 ### 9.2 Views 列表
 
