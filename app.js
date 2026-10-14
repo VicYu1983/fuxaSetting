@@ -868,7 +868,7 @@
     } else if (icon) {
       const width = D.RECT_SIZE.width;
       const height = D.RECT_SIZE.height;
-      while (component.shapeInnerIds.length < 5) component.shapeInnerIds.push(allocateId("SHE"));
+      while (component.shapeInnerIds.length < 2) component.shapeInnerIds.push(allocateId("SHE"));
       const image = createSvgNode(doc, "image", {
         "data-fuxa-icon-id": icon.id,
         id: component.shapeInnerIds[0],
@@ -877,19 +877,16 @@
       });
       image.setAttributeNS(XLINK_NS, "xlink:href", icon.dataUrl);
       group.append(image);
-      const edge = 3;
-      for (const [index, bounds] of [
-        { x, y, width, height: edge },
-        { x, y: y + height - edge, width, height: edge },
-        { x, y: y + edge, width: edge, height: height - edge * 2 },
-        { x: x + width - edge, y: y + edge, width: edge, height: height - edge * 2 }
-      ].entries()) {
-        group.append(createSvgNode(doc, "rect", {
-          id: component.shapeInnerIds[index + 1],
-          ...bounds,
-          stroke: "none"
-        }));
-      }
+      const markerSize = 8;
+      group.append(createSvgNode(doc, "rect", {
+        "data-fuxa-state-marker": "true",
+        id: component.shapeInnerIds[1],
+        x: x + width - markerSize,
+        y: y + height - markerSize,
+        width: markerSize,
+        height: markerSize,
+        stroke: "none"
+      }));
     } else {
       while (component.shapeInnerIds.length < 1) component.shapeInnerIds.push(allocateId("SHE"));
       group.append(createSvgNode(doc, "rect", {
