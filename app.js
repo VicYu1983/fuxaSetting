@@ -3,18 +3,21 @@
 
   const D = window.FuxaToolDomain;
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const XLINK_NS = "http://www.w3.org/1999/xlink";
   const FLOOR_LAYOUT_MARKER = "floor-layout-v1";
   const $ = (selector) => document.querySelector(selector);
   const state = {
     config: null,
     originalText: "",
     originalDevices: "",
+    originalIcons: "[]",
     floorGroupFrame: { ...D.DEFAULT_FLOOR_GROUP_FRAME },
     originalFloorGroupFrame: { ...D.DEFAULT_FLOOR_GROUP_FRAME },
     lineEnding: "\n",
     hasTrailingNewline: false,
     fileName: "",
     tags: new Map(),
+    iconLibrary: [],
     models: new Map(),
     baselines: new Map(),
     floorBaselines: new Map(),
@@ -49,6 +52,9 @@
     previewHost: $("#preview-host"),
     previewSize: $("#preview-size"),
     previewWarning: $("#preview-warning"),
+    importIconButton: $("#import-icon-button"),
+    iconFileInput: $("#icon-file-input"),
+    iconLibraryList: $("#icon-library-list"),
     addOne: $("#add-one-button"),
     addMany: $("#add-many-button"),
     save: $("#save-button"),
@@ -361,9 +367,12 @@
       throw new Error(error instanceof SyntaxError
         ? `JSON 格式錯誤：${error.message}` : error.message);
     }
+    const iconLibrary = D.getIconLibrary(config);
     state.config = config;
+    state.iconLibrary = iconLibrary;
     state.originalText = text;
     state.originalDevices = JSON.stringify(config.devices);
+    state.originalIcons = JSON.stringify(iconLibrary);
     state.lineEnding = text.includes("\r\n") ? "\r\n" : "\n";
     state.hasTrailingNewline = /(?:\r\n|\n)$/.test(text);
     state.fileName = fileName || "fuxa-config.json";
@@ -436,18 +445,21 @@
   }
 
   function modelSnapshot() {
-    return JSON.stringify({
-      views: state.config.hmi.views,
-      layout: state.config.hmi.layout,
-      devices: state.config.devices,
-      models: Array.from(state.models.entries()),
-      baselines: Array.from(state.baselines.entries()),
-      floorBaselines: Array.from(state.floorBaselines.entries()),
-      viewTitleIds: Array.from(state.viewTitleIds.entries()),
-      selectedViewId: state.selectedViewId,
-      selectedDeviceId: state.selectedDeviceId,
-      floorGroupFrame: state.floorGroupFrame
-    });
+    return {
+      data: JSON.stringify({
+        views: state.config.hmi.views,
+        layout: state.config.hmi.layout,
+        devices: state.config.devices,
+        models: Array.from(state.models.entries()),
+        baselines: Array.from(state.baselines.entries()),
+        floorBaselines: Array.from(state.floorBaselines.entries()),
+        viewTitleIds: Array.from(state.viewTitleIds.entries()),
+        selectedViewId: state.selectedViewId,
+        selectedDeviceId: state.selectedDeviceId,
+        floorGroupFrame: state.floorGroupFrame
+      }),
+      iconLibrary: state.iconLibrary
+    };
   }
 
   function rememberUndo() {
@@ -458,9 +470,10 @@
   }
 
   function restoreSnapshot(snapshot) {
-    const saved = JSON.parse(snapshot);
+    const saved = JSON.parse(snapshot.data);
     state.config.hmi.views = saved.views;
     state.config.hmi.layout = saved.layout;
+    state.iconLibrary = snapshot.iconLibrary;
     if (saved.devices) {
       state.config.devices = saved.devices;
       state.tags = D.buildTagIndex(state.config);
@@ -557,6 +570,85 @@
     return button;
   }
 
+  function createGraphicSelect(component) {
+    const select = document.createElement("select");
+    select.className = "compact-select";
+    select.setAttribute("aria-label", "圖形");
+    select.dataset.field = "graphic";
+    const options = [
+      ["rect", "矩形"],
+      ["cylinder", "圓柱"],
+      ...state.iconLibrary.map((icon) => [`icon:${icon.id}`, icon.name])
+    ];
+    const selected = component.template === "icon" && component.iconId
+      ? `icon:${component.iconId}`
+      : component.template;
+    if (!options.some(([value]) => value === selected)) {
+      options.push([selected, `圖示不存在（${component.iconId || "未知"}）`]);
+    }
+    for (const [value, label] of options) {
+      select.append(makeOption(value, label, value === selected));
+    }
+    return select;
+  }
+
+  function renderIconLibrary() {
+    elements.iconLibraryList.replaceChildren();
+    if (!state.config) return;
+    const icons = state.iconLibrary;
+    if (!icons.length) {
+      const empty = document.createElement("span");
+      empty.className = "icon-library-empty";
+      empty.textContent = "尚未匯入圖片。";
+      elements.iconLibraryList.append(empty);
+      return;
+    }
+    for (const icon of icons) {
+      const item = document.createElement("div");
+      item.className = "icon-library-item";
+      const image = document.createElement("img");
+      image.src = icon.dataUrl;
+      image.alt = "";
+      const name = document.createElement("span");
+      name.textContent = icon.name;
+      name.title = icon.name;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "danger";
+      remove.textContent = "刪除";
+      remove.setAttribute("aria-label", `刪除圖示 ${icon.name}`);
+      remove.addEventListener("click", () => removeLibraryIcon(icon.id));
+      item.append(image, name, remove);
+      elements.iconLibraryList.append(item);
+    }
+  }
+
+  function removeLibraryIcon(iconId) {
+    const icons = state.iconLibrary;
+    const icon = icons.find((item) => item.id === iconId);
+    if (!icon) return;
+    const usages = [];
+    for (const [viewId, model] of state.models) {
+      const view = state.config.hmi.views.find((item) => item.id === viewId);
+      for (const component of model.components) {
+        if (component.managed !== false && component.template === "icon" &&
+            component.iconId === iconId) {
+          const tag = state.tags.get(component.tagId);
+          const label = component.label || (tag && tag.name) || `#${component.seq}`;
+          usages.push(`「${view && (view.name || view.id) || viewId}」的 ${label}`);
+        }
+      }
+    }
+    if (usages.length) {
+      setStatus(`無法刪除圖示「${icon.name}」；以下元件仍在使用：${usages.join("、")}。`, "warning");
+      return;
+    }
+    rememberUndo();
+    state.iconLibrary = icons.filter((item) => item.id !== iconId);
+    renderAll();
+    setStatus(`已從圖示庫刪除「${icon.name}」。`, "success");
+  }
+
   function createManagedRow(component, index, total) {
     const row = document.createElement("tr");
     row.dataset.key = component.key;
@@ -586,10 +678,7 @@
     row.append(tagCell);
 
     const templateCell = document.createElement("td");
-    templateCell.append(makeSelect([
-      ["rect", "矩形"], ["cylinder", "圓柱"]
-    ], component.template, "compact-select"));
-    templateCell.firstElementChild.dataset.field = "template";
+    templateCell.append(createGraphicSelect(component));
     row.append(templateCell);
 
     const paletteCell = document.createElement("td");
@@ -742,13 +831,19 @@
   }
 
   function buildShapeNode(doc, component, placement) {
+    const icon = component.template === "icon"
+      ? state.iconLibrary.find((item) => item.id === component.iconId)
+      : null;
+    if (component.template === "icon" && !icon) {
+      throw new Error(`元件「${component.label || "未命名"}」使用的圖示不存在。`);
+    }
     const type = component.template === "cylinder"
       ? "svg-ext-shapes-cylinder" : "svg-ext-shapes-rectangle";
     const group = createSvgNode(doc, "g", {
       "data-name": `tc_${component.seq}`,
       id: component.shapeId,
       type,
-      fill: "#FFFFFF",
+      fill: icon ? D.PALETTES[component.palette][0] : "#FFFFFF",
       stroke: "#000000",
       "font-size": "14",
       "font-family": "sans-serif",
@@ -770,6 +865,31 @@
         createSvgNode(doc, "path", { id: component.shapeInnerIds[0], d: first }),
         createSvgNode(doc, "path", { id: component.shapeInnerIds[1], d: second })
       );
+    } else if (icon) {
+      const width = D.RECT_SIZE.width;
+      const height = D.RECT_SIZE.height;
+      while (component.shapeInnerIds.length < 5) component.shapeInnerIds.push(allocateId("SHE"));
+      const image = createSvgNode(doc, "image", {
+        "data-fuxa-icon-id": icon.id,
+        id: component.shapeInnerIds[0],
+        x, y, width, height,
+        preserveAspectRatio: "xMidYMid meet"
+      });
+      image.setAttributeNS(XLINK_NS, "xlink:href", icon.dataUrl);
+      group.append(image);
+      const edge = 3;
+      for (const [index, bounds] of [
+        { x, y, width, height: edge },
+        { x, y: y + height - edge, width, height: edge },
+        { x, y: y + edge, width: edge, height: height - edge * 2 },
+        { x: x + width - edge, y: y + edge, width: edge, height: height - edge * 2 }
+      ].entries()) {
+        group.append(createSvgNode(doc, "rect", {
+          id: component.shapeInnerIds[index + 1],
+          ...bounds,
+          stroke: "none"
+        }));
+      }
     } else {
       while (component.shapeInnerIds.length < 1) component.shapeInnerIds.push(allocateId("SHE"));
       group.append(createSvgNode(doc, "rect", {
@@ -835,6 +955,17 @@
 
   function removeManagedFromView(view, model, doc) {
     const ids = managedIds(model);
+    const floorArtifactNames = new Set([
+      "fuxa_floor_section_title",
+      "fuxa_floor_section_frame"
+    ]);
+    for (const [id, item] of Object.entries(view.items)) {
+      if (item && floorArtifactNames.has(item.name)) ids.add(id);
+    }
+    for (const node of Array.from(doc.getElementsByTagName("*"))) {
+      if (!floorArtifactNames.has(node.getAttribute("data-name"))) continue;
+      if (node.parentNode) node.parentNode.removeChild(node);
+    }
     for (const id of ids) {
       const node = D.findById(doc, id);
       if (node && node.parentNode) node.parentNode.removeChild(node);
@@ -986,6 +1117,13 @@
 
   function applyModelToView(view, model) {
     const doc = D.parseSvg(view.svgcontent, window.DOMParser);
+    if (model.components.some((component) => component.template === "icon")) {
+      doc.documentElement.setAttributeNS(
+        "http://www.w3.org/2000/xmlns/",
+        "xmlns:xlink",
+        XLINK_NS
+      );
+    }
     const layer = getLayer(doc);
     if (!layer) throw new Error(`View「${view.name || view.id}」找不到可安全插入元件的 SVG 圖層。`);
     const previousItems = { ...view.items };
@@ -1152,6 +1290,7 @@
 
   function isDirty() {
     if (JSON.stringify(state.config.devices) !== state.originalDevices) return true;
+    if (JSON.stringify(state.iconLibrary) !== state.originalIcons) return true;
     if (JSON.stringify(state.floorGroupFrame) !== JSON.stringify(state.originalFloorGroupFrame)) return true;
     const currentViewIds = state.config.hmi.views.map((view) => view.id);
     if (JSON.stringify(currentViewIds) !== JSON.stringify(state.originalViewIds)) return true;
@@ -1173,6 +1312,7 @@
 
   function renderAll() {
     if (!state.config) return;
+    renderIconLibrary();
     renderFloorOptions();
     renderViewList();
     const view = selectedView();
@@ -1186,6 +1326,7 @@
     elements.deviceMgrButton.disabled = !state.config;
     elements.floorManagerButton.disabled = !state.config;
     elements.quickBatchTagsButton.disabled = !state.config;
+    elements.importIconButton.disabled = !state.config;
     elements.save.disabled = !state.config;
     elements.addView.disabled = !state.config;
     elements.renameView.disabled = !view;
@@ -1534,11 +1675,15 @@
   }
 
   function getTagIdValidationError() {
+    const iconIds = new Set(state.iconLibrary.map((icon) => icon.id));
     for (const model of state.models.values()) {
       for (const component of model.components) {
         if (component.managed === false) continue;
         if (!component.tagId || !state.tags.has(component.tagId)) {
           return `項目「${component.label || "(未命名 Label)"}」尚未連結有效 Tag，請先修正。`;
+        }
+        if (component.template === "icon" && !iconIds.has(component.iconId)) {
+          return `項目「${component.label || "(未命名 Label)"}」使用的圖示不存在，請重新選擇。`;
         }
       }
     }
@@ -1674,6 +1819,9 @@
         modifiedViewIds.add(viewId);
       }
       if (dirty) {
+        if (JSON.stringify(state.iconLibrary) !== state.originalIcons) {
+          D.saveIconLibrary(output, state.iconLibrary);
+        }
         D.saveViewGridSettings(
           output,
           output.hmi.views.map((view) => view.id),
@@ -1721,10 +1869,72 @@
     }
   });
 
+  function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return window.btoa(binary);
+  }
+
+  function identifyImageType(bytes) {
+    if (bytes.length >= 8 &&
+        [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+          .every((byte, index) => bytes[index] === byte)) return "image/png";
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+      return "image/jpeg";
+    }
+    if (bytes.length >= 6 &&
+        String.fromCharCode(...bytes.subarray(0, 6)).match(/^GIF8[79]a$/)) return "image/gif";
+    return "";
+  }
+
+  function uniqueIconName(fileName, icons) {
+    const baseName = fileName.replace(/\.[^.]+$/, "").trim() || "圖片";
+    const names = new Set(icons.map((icon) => icon.name.toLocaleLowerCase()));
+    if (!names.has(baseName.toLocaleLowerCase())) return baseName;
+    let index = 2;
+    while (names.has(`${baseName} (${index})`.toLocaleLowerCase())) index += 1;
+    return `${baseName} (${index})`;
+  }
+
+  elements.importIconButton.addEventListener("click", () => {
+    elements.iconFileInput.click();
+  });
+
+  elements.iconFileInput.addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const mimeType = identifyImageType(bytes);
+      if (!mimeType) throw new Error("圖片格式無效；請匯入 PNG、JPEG 或 GIF 圖片。");
+      const icons = state.iconLibrary;
+      const id = `icon-${crypto.randomUUID()}`;
+      const name = uniqueIconName(file.name, icons);
+      const dataUrl = `data:${mimeType};base64,${bytesToBase64(bytes)}`;
+      rememberUndo();
+      state.iconLibrary = [...icons, {
+        id,
+        name,
+        mimeType,
+        dataUrl
+      }];
+      renderAll();
+      setStatus(`已匯入圖片「${name}」，可在元件的圖形選單中選用。`, "success");
+    } catch (error) {
+      setStatus(`無法匯入圖片：${error.message}`, "error");
+    } finally {
+      event.target.value = "";
+    }
+  });
+
   elements.rows.addEventListener("input", (event) => {
     const field = event.target.dataset.field;
     const row = event.target.closest("tr[data-key]");
     if (!field || !row) return;
+    if (field === "graphic") return;
     const model = selectedModel();
     const component = model && model.components.find((item) => item.key === row.dataset.key);
     if (!component || component[field] === event.target.value) return;
@@ -1737,6 +1947,22 @@
     const field = event.target.dataset.field;
     const row = event.target.closest("tr[data-key]");
     if (!field || !row) return;
+    if (field === "graphic") {
+      const model = selectedModel();
+      const component = model && model.components.find((item) => item.key === row.dataset.key);
+      if (!component) return;
+      const value = event.target.value;
+      const nextTemplate = value.startsWith("icon:") ? "icon" : value;
+      const nextIconId = nextTemplate === "icon" ? value.slice("icon:".length) : "";
+      if (component.template === nextTemplate &&
+          (nextTemplate !== "icon" || component.iconId === nextIconId)) return;
+      rememberUndo();
+      component.template = nextTemplate;
+      if (nextTemplate === "icon") component.iconId = nextIconId;
+      else delete component.iconId;
+      renderAll();
+      return;
+    }
     mutateComponent(row.dataset.key, field, event.target.value);
   });
 

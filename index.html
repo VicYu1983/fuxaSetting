@@ -57,6 +57,18 @@
           </div>
         </div>
 
+        <section class="icon-library" aria-label="圖示庫">
+          <div class="icon-library-heading">
+            <div>
+              <strong>圖示庫</strong>
+              <p class="muted">匯入 PNG、JPEG 或 GIF；元件圖形選單可選用，圖片資料保存在配置 extra。</p>
+            </div>
+            <button id="import-icon-button" class="secondary compact-button" type="button" disabled>匯入圖片</button>
+            <input id="icon-file-input" type="file" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" hidden>
+          </div>
+          <div id="icon-library-list" class="icon-library-list"></div>
+        </section>
+
         <div class="grid-settings">
           <label>欄數 <input id="grid-columns" type="number" min="1" max="24" value="4"></label>
           <label>起點 X <input id="grid-x" type="number" min="0" value="60"></label>

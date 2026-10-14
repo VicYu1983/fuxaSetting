@@ -108,6 +108,36 @@ test("loads and saves shared floor-group frame styling without discarding extra 
   });
 });
 
+test("stores imported icon data in the tool extra namespace and preserves sibling settings", () => {
+  const config = {
+    extra: {
+      keep: true,
+      fuxaSetting: {
+        note: "keep",
+        viewGrids: { "view-a": { columns: 3 } }
+      }
+    }
+  };
+  assert.deepEqual(D.getIconLibrary(config), []);
+
+  const icon = {
+    id: "icon-one",
+    name: "pump",
+    mimeType: "image/png",
+    dataUrl: "data:image/png;base64,iVBORw=="
+  };
+  D.saveIconLibrary(config, [icon]);
+  assert.deepEqual(D.getIconLibrary(config), [icon]);
+  assert.deepEqual(config.extra.keep, true);
+  assert.equal(config.extra.fuxaSetting.note, "keep");
+  assert.deepEqual(config.extra.fuxaSetting.viewGrids, { "view-a": { columns: 3 } });
+  assert.deepEqual(config.extra.fuxaSetting.icons, [icon]);
+
+  assert.throws(() => D.saveIconLibrary(config, [{ ...icon, mimeType: "image/svg+xml" }]), /無效項目/);
+  assert.throws(() => D.saveIconLibrary(config, [icon, icon]), /重複 ID/);
+  assert.throws(() => D.saveIconLibrary(config, [{ ...icon, dataUrl: "https://example.com/image.png" }]), /無效項目/);
+});
+
 test("persists per-View floor artifact ids without discarding other tool settings", () => {
   const config = {
     extra: {

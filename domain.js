@@ -14,6 +14,7 @@
     strokeWidth: 1, cornerRadius: 12, padding: 16
   });
   const GRID_SETTINGS_KEY = "fuxaSetting";
+  const ICON_LIBRARY_KEY = "icons";
   const FLOOR_GROUP_FRAME_SETTINGS_KEY = "floorGroupFrames";
   const FLOOR_GROUP_ARTIFACTS_KEY = "floorGroupArtifacts";
   const LABEL_POSITIONS = new Set(["above", "below", "left", "right"]);
@@ -202,6 +203,53 @@
       [FLOOR_GROUP_ARTIFACTS_KEY]: artifacts
     };
     return config.extra[GRID_SETTINGS_KEY][FLOOR_GROUP_ARTIFACTS_KEY];
+  }
+
+  function validateIconLibrary(icons) {
+    if (!Array.isArray(icons)) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY}.${ICON_LIBRARY_KEY} 欄位不是陣列。`);
+    }
+    const ids = new Set();
+    for (const icon of icons) {
+      if (!isRecord(icon) || typeof icon.id !== "string" || !icon.id ||
+          typeof icon.name !== "string" || !icon.name.trim() ||
+          !["image/png", "image/jpeg", "image/gif"].includes(icon.mimeType) ||
+          typeof icon.dataUrl !== "string" ||
+          !icon.dataUrl.startsWith(`data:${icon.mimeType};base64,`) ||
+          !/^[A-Za-z0-9+/]+={0,2}$/.test(icon.dataUrl.slice(icon.dataUrl.indexOf(",") + 1))) {
+        throw new Error("圖示庫包含無效項目；請確認圖片格式與 Base64 資料。");
+      }
+      if (ids.has(icon.id)) throw new Error(`圖示庫包含重複 ID：${icon.id}`);
+      ids.add(icon.id);
+    }
+    return icons.map((icon) => ({ ...icon }));
+  }
+
+  function getIconLibrary(config) {
+    const icons = isRecord(config) && isRecord(config.extra) &&
+      isRecord(config.extra[GRID_SETTINGS_KEY])
+      ? config.extra[GRID_SETTINGS_KEY][ICON_LIBRARY_KEY]
+      : undefined;
+    return icons === undefined ? [] : validateIconLibrary(icons);
+  }
+
+  function saveIconLibrary(config, icons) {
+    if (!isRecord(config)) throw new Error("無效的配置資料。");
+    if (config.extra !== undefined && !isRecord(config.extra)) {
+      throw new Error("配置的 extra 欄位不是物件，無法安全保存圖示庫。");
+    }
+    if (!isRecord(config.extra)) config.extra = {};
+    const toolSettings = config.extra[GRID_SETTINGS_KEY];
+    if (toolSettings !== undefined && !isRecord(toolSettings)) {
+      throw new Error(`配置的 extra.${GRID_SETTINGS_KEY} 欄位不是物件，無法安全保存圖示庫。`);
+    }
+    const storedSettings = isRecord(toolSettings) ? toolSettings : {};
+    const validatedIcons = validateIconLibrary(icons);
+    config.extra[GRID_SETTINGS_KEY] = {
+      ...storedSettings,
+      [ICON_LIBRARY_KEY]: validatedIcons
+    };
+    return config.extra[GRID_SETTINGS_KEY][ICON_LIBRARY_KEY];
   }
 
   function buildTagIndex(config) {
@@ -422,7 +470,11 @@
       const labelNode = findById(doc, labelId);
       if (!shapeNode || !labelNode || labelNode.localName !== "text") continue;
 
-      const shapeType = shapeItem.type === "svg-ext-shapes-cylinder" ? "cylinder" : "rect";
+      const iconNode = shapeNode.querySelector("image[data-fuxa-icon-id]");
+      const iconId = iconNode && iconNode.getAttribute("data-fuxa-icon-id");
+      const shapeType = iconId
+        ? "icon"
+        : shapeItem.type === "svg-ext-shapes-cylinder" ? "cylinder" : "rect";
       const ranges = shapeItem.property && Array.isArray(shapeItem.property.ranges)
         ? shapeItem.property.ranges : [];
       const colors = ranges.map((range) => range.color);
@@ -434,6 +486,7 @@
           ? shapeItem.property.variableId : "",
         label: labelNode.textContent || "",
         template: shapeType,
+        ...(iconId ? { iconId } : {}),
         palette,
         shapeId,
         labelId,
@@ -903,10 +956,12 @@
   }
 
   return {
-    DEFAULT_GRID, DEFAULT_FLOOR_GROUP_FRAME, GRID_SETTINGS_KEY, MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
+    DEFAULT_GRID, DEFAULT_FLOOR_GROUP_FRAME, GRID_SETTINGS_KEY, ICON_LIBRARY_KEY,
+    MANAGED_NAME, PALETTES, RECT_SIZE, CYLINDER_SIZE,
     buildTagIndex, findById, generateId, hasViewShape, isRecord,
     normalizeGridSettings, getViewGridSettings, saveViewGridSettings,
     normalizeFloorGroupFrameSettings, getFloorGroupFrameSettings, saveFloorGroupFrameSettings,
+    getIconLibrary, saveIconLibrary,
     getFloorGroupArtifacts, saveFloorGroupArtifacts,
     layoutComponents, layoutFloorComponents, groupByFloor, groupComponentsByFloor,
     normalizeFloor, compareFloors, getTagFloor, setTagFloor,
