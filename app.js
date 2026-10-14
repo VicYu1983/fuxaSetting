@@ -113,6 +113,8 @@
     devAddress: $("#dev-address"),
     devSlaveId: $("#dev-slaveid"),
     devPolling: $("#dev-polling"),
+    devAddressCount: $("#dev-address-count"),
+    devAddressCountField: $("#dev-address-count").closest("label"),
     devConnOption: $("#dev-conn-option"),
     devTimeout: $("#dev-timeout"),
     devDelay: $("#dev-delay"),
@@ -2391,6 +2393,7 @@
   function selectDevice(deviceId) {
     const dev = state.config.devices[deviceId];
     if (!dev) return;
+    const isModbusTcp = dev.type === "ModbusTCP";
     state.selectedDeviceId = deviceId;
     state.isCreatingNewDevice = false;
     elements.deviceFormTitle.textContent = `編輯設備：${dev.name || dev.id}`;
@@ -2400,6 +2403,11 @@
     elements.devAddress.value = (dev.property && dev.property.address) ? dev.property.address : "";
     elements.devSlaveId.value = (dev.property && dev.property.slaveid !== undefined && dev.property.slaveid !== null) ? String(dev.property.slaveid) : "1";
     elements.devPolling.value = dev.polling || 200;
+    elements.devAddressCount.value = String(
+      dev.property && Number.isSafeInteger(Number(dev.property.addressCount))
+        ? Number(dev.property.addressCount) : 0
+    );
+    elements.devAddressCountField.hidden = !isModbusTcp;
     elements.devConnOption.value = (dev.property && dev.property.connectionOption) ? dev.property.connectionOption : "TcpPort";
     elements.devTimeout.value = (dev.property && dev.property.timeout !== undefined && dev.property.timeout !== null) ? dev.property.timeout : 2000;
     elements.devDelay.value = (dev.property && dev.property.delay !== undefined && dev.property.delay !== null) ? dev.property.delay : 10;
@@ -2423,6 +2431,8 @@
     elements.devAddress.value = "127.0.0.1:502";
     elements.devSlaveId.value = "1";
     elements.devPolling.value = 200;
+    elements.devAddressCount.value = 0;
+    elements.devAddressCountField.hidden = false;
     elements.devConnOption.value = "TcpPort";
     elements.devTimeout.value = 2000;
     elements.devDelay.value = 10;
@@ -2459,28 +2469,64 @@
       parity: elements.devParity.value,
       forceFC16: elements.devForceFC16.checked
     };
-
-    rememberUndo();
-    if (state.isCreatingNewDevice) {
-      const newDev = D.createModbusTcpDevice(params, state.usedDeviceIds, window.crypto);
-      state.config.devices[newDev.id] = newDev;
-      D.syncDeviceConnectionTag(state.config, newDev.id, newDev.name, window.crypto, state.usedTagIds);
-      state.selectedDeviceId = newDev.id;
-      state.isCreatingNewDevice = false;
-      setStatus(`已成功建立 ModbusTCP 設備「${newDev.name}」(${newDev.id})。`, "success");
-    } else {
-      const dev = state.config.devices[state.selectedDeviceId];
-      if (!dev) return;
-      D.updateModbusTcpDevice(dev, params);
-      D.syncDeviceConnectionTag(state.config, dev.id, dev.name, window.crypto, state.usedTagIds);
-      setStatus(`已更新設備「${dev.name}」設定。`, "success");
+    const currentDevice = state.isCreatingNewDevice
+      ? null : state.config.devices[state.selectedDeviceId];
+    if (state.isCreatingNewDevice || currentDevice && currentDevice.type === "ModbusTCP") {
+      params.addressCount = Number(elements.devAddressCount.value);
     }
 
+    if (params.addressCount !== undefined &&
+        (!Number.isSafeInteger(params.addressCount) ||
+         params.addressCount < 0 || params.addressCount > 65536)) {
+      setStatus("地址數量必須是 0 到 65536 之間的整數。", "error");
+      elements.devAddressCount.focus();
+      return;
+    }
+    const existingDevice = currentDevice && currentDevice.type === "ModbusTCP"
+      ? currentDevice : null;
+    if (existingDevice) {
+      try {
+        D.getModbusTcpAddressFillPlan({
+          ...existingDevice,
+          property: { ...existingDevice.property, addressCount: params.addressCount }
+        });
+      } catch (error) {
+        setStatus(error.message, "error");
+        elements.devAddressCount.focus();
+        return;
+      }
+    }
+
+    rememberUndo();
+    let device;
+    if (state.isCreatingNewDevice) {
+      device = D.createModbusTcpDevice(params, state.usedDeviceIds, window.crypto);
+      state.config.devices[device.id] = device;
+      D.syncDeviceConnectionTag(state.config, device.id, device.name, window.crypto, state.usedTagIds);
+      state.selectedDeviceId = device.id;
+      state.isCreatingNewDevice = false;
+      setStatus(`已成功建立 ModbusTCP 設備「${device.name}」(${device.id})。`, "success");
+    } else {
+      device = state.config.devices[state.selectedDeviceId];
+      if (!device) return;
+      D.updateModbusTcpDevice(device, params);
+      D.syncDeviceConnectionTag(state.config, device.id, device.name, window.crypto, state.usedTagIds);
+      setStatus(`已更新設備「${device.name}」設定。`, "success");
+    }
+
+    const fillResult = device.type === "ModbusTCP"
+      ? D.fillModbusTcpAddressGaps(device, state.usedTagIds, window.crypto)
+      : { created: [], count: 0, hasAnchor: false };
     state.tags = D.buildTagIndex(state.config);
     renderAll();
     renderDeviceList(elements.deviceSearch.value);
     selectDevice(state.selectedDeviceId);
     updateBatchDeviceOptions();
+    if (fillResult.created.length) {
+      setStatus(`已更新設備「${device.name}」設定，並自動建立 ${fillResult.created.length} 個補位 Tag（${fillResult.startAddress}–${fillResult.endAddress}）。`, "success");
+    } else if (fillResult.count && !fillResult.hasAnchor) {
+      setStatus(`已更新設備「${device.name}」設定；目前沒有可作為起點的 Tag，新增第一個 Tag 後會自動補齊地址。`, "warning");
+    }
   }
 
   function handleDeleteDevice() {
@@ -2659,8 +2705,27 @@
       return;
     }
 
+    if (dev.type === "ModbusTCP" && Number(dev.property && dev.property.addressCount) > 0) {
+      const candidateTags = { ...(D.isRecord(dev.tags) ? dev.tags : {}) };
+      specs.forEach((spec, index) => {
+        candidateTags[`pending-${index}`] = {
+          address: spec.address,
+          memaddress: spec.memaddress
+        };
+      });
+      try {
+        D.getModbusTcpAddressFillPlan({ ...dev, tags: candidateTags });
+      } catch (error) {
+        setStatus(error.message, "error");
+        return;
+      }
+    }
+
     rememberUndo();
     const created = D.batchCreateTags(dev, specs, state.usedTagIds, window.crypto);
+    const fillResult = dev.type === "ModbusTCP"
+      ? D.fillModbusTcpAddressGaps(dev, state.usedTagIds, window.crypto)
+      : { created: [], count: 0, hasAnchor: false };
     state.tags = D.buildTagIndex(state.config);
 
     let addedToViewCount = 0;
@@ -2689,9 +2754,13 @@
     renderAll();
     renderDeviceList(elements.deviceSearch.value);
     selectDevice(dev.id);
+    updateBatchDeviceOptions();
 
     const viewMsg = addedToViewCount > 0 ? `，並已將 ${addedToViewCount} 筆加入當前 View` : "";
-    setStatus(`已成功為設備「${dev.name || dev.id}」批次新增 ${created.length} 個 Tag${viewMsg}。`, "success");
+    const fillerMsg = fillResult.created.length
+      ? `，另自動補齊 ${fillResult.created.length} 個地址`
+      : "";
+    setStatus(`已成功為設備「${dev.name || dev.id}」批次新增 ${created.length} 個 Tag${fillerMsg}${viewMsg}。`, "success");
   }
 
   function renderFloorOptions() {

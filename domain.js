@@ -838,6 +838,7 @@
   function createModbusTcpDevice(params, usedDeviceIds, cryptoObject) {
     const name = params && typeof params.name === "string" ? params.name.trim() : "";
     if (!name) throw new Error("設備名稱不可空白。");
+    const addressCount = normalizeModbusTcpAddressCount(params && params.addressCount);
     const id = generateId("d", usedDeviceIds, cryptoObject);
     const property = {
       address: params && params.address ? String(params.address).trim() : "127.0.0.1:502",
@@ -852,7 +853,8 @@
       connectionOption: params && params.connectionOption ? String(params.connectionOption) : "TcpPort",
       delay: params && params.delay !== undefined ? Number(params.delay) : 10,
       forceFC16: Boolean(params && params.forceFC16),
-      timeout: params && params.timeout !== undefined ? Number(params.timeout) : 2000
+      timeout: params && params.timeout !== undefined ? Number(params.timeout) : 2000,
+      addressCount
     };
     return {
       id,
@@ -868,6 +870,9 @@
   function updateModbusTcpDevice(device, params) {
     if (!device || !isRecord(device)) throw new Error("無效的設備資料。");
     if (!isRecord(device.property)) device.property = {};
+    if (params && params.addressCount !== undefined) {
+      device.property.addressCount = normalizeModbusTcpAddressCount(params.addressCount);
+    }
     if (params && params.name !== undefined) {
       const name = String(params.name).trim();
       if (!name) throw new Error("設備名稱不可空白。");
@@ -886,6 +891,84 @@
     if (params && params.forceFC16 !== undefined) device.property.forceFC16 = Boolean(params.forceFC16);
     if (params && params.timeout !== undefined) device.property.timeout = Number(params.timeout);
     return device;
+  }
+
+  function normalizeModbusTcpAddressCount(value) {
+    const count = value === undefined || value === null || value === "" ? 0 : Number(value);
+    if (!Number.isSafeInteger(count) || count < 0 || count > 65536) {
+      throw new Error("地址數量必須是 0 到 65536 之間的整數。");
+    }
+    return count;
+  }
+
+  function getModbusTcpAddressFillPlan(device) {
+    if (!device || !isRecord(device)) throw new Error("無效的設備。");
+    const count = normalizeModbusTcpAddressCount(
+      isRecord(device.property) ? device.property.addressCount : 0
+    );
+    if (count === 0) return { count, missing: [], hasAnchor: false };
+
+    const tags = isRecord(device.tags) ? Object.values(device.tags) : [];
+    const addressedTags = tags.filter((tag) =>
+      isRecord(tag) && Number.isSafeInteger(Number(tag.address)) &&
+      tag.address !== undefined && tag.address !== null && tag.address !== "" &&
+      Number(tag.address) >= 0 && typeof tag.memaddress === "string"
+    );
+    if (!addressedTags.length) {
+      return { count, missing: [], hasAnchor: false };
+    }
+    const template = addressedTags.reduce((first, tag) =>
+      Number(tag.address) < Number(first.address) ? tag : first);
+    const startAddress = Number(template.address);
+    const endAddress = startAddress + count - 1;
+    if (endAddress > 65535) {
+      throw new Error(`地址數量 ${count} 超出 Modbus 位址範圍；起始位址 ${startAddress} 的最大可用數量為 ${65536 - startAddress}。`);
+    }
+    const occupied = new Set(addressedTags
+      .filter((tag) => tag.memaddress === template.memaddress)
+      .map((tag) => Number(tag.address)));
+    const missing = [];
+    for (let address = startAddress; address <= endAddress; address += 1) {
+      if (!occupied.has(address)) missing.push(address);
+    }
+    return {
+      count,
+      hasAnchor: true,
+      startAddress,
+      endAddress,
+      memaddress: template.memaddress,
+      template,
+      missing
+    };
+  }
+
+  function fillModbusTcpAddressGaps(device, usedTagIds, cryptoObject) {
+    const plan = getModbusTcpAddressFillPlan(device);
+    if (!plan.hasAnchor || !plan.missing.length) return { ...plan, created: [] };
+    if (!isRecord(device.tags)) device.tags = {};
+    const existingNames = new Set(Object.values(device.tags)
+      .filter(isRecord)
+      .map((tag) => String(tag.name || "").toLocaleLowerCase()));
+    const created = [];
+    for (const address of plan.missing) {
+      let name = `補位_${address}`;
+      let suffix = 2;
+      while (existingNames.has(name.toLocaleLowerCase())) {
+        name = `補位_${address} (${suffix})`;
+        suffix += 1;
+      }
+      existingNames.add(name.toLocaleLowerCase());
+      const id = generateId("t", usedTagIds, cryptoObject);
+      const tag = JSON.parse(JSON.stringify(plan.template));
+      tag.id = id;
+      tag.name = name;
+      tag.address = address;
+      tag.description = "自動補位點位";
+      tag.timestamp = Date.now();
+      device.tags[id] = tag;
+      created.push(tag);
+    }
+    return { ...plan, created };
   }
 
   function getNextAvailableAddress(device, memaddress) {
@@ -1037,6 +1120,7 @@
     parseSvg, readManaged, removeLayoutViewReferences,
     serializeConfig, validateConfig,
     createModbusTcpDevice, updateModbusTcpDevice, getNextAvailableAddress,
+    getModbusTcpAddressFillPlan, fillModbusTcpAddressGaps,
     parseTagBatchInput, batchCreateTags, syncDeviceConnectionTag, removeDevice
   };
 });

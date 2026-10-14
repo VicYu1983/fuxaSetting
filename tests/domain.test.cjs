@@ -503,6 +503,7 @@ test("creates and updates ModbusTCP devices", () => {
   assert.equal(dev.name, "14F");
   assert.equal(dev.type, "ModbusTCP");
   assert.equal(dev.property.address, "192.168.1.14:502");
+  assert.equal(dev.property.addressCount, 0);
   assert.equal(dev.property.slaveid, "2");
   assert.equal(dev.polling, 300);
   assert.equal(dev.enabled, true);
@@ -522,6 +523,90 @@ test("creates and updates ModbusTCP devices", () => {
   assert.equal(dev.enabled, false);
 
   assert.throws(() => D.createModbusTcpDevice({ name: "" }, usedDeviceIds, cryptoMock), /設備名稱不可空白/);
+  assert.throws(() => D.createModbusTcpDevice({
+    name: "bad-count",
+    addressCount: 1.5
+  }, usedDeviceIds, cryptoMock), /地址數量/);
+});
+
+test("fills missing ModbusTCP addresses from the first tag without replacing existing tags", () => {
+  const device = {
+    property: { addressCount: 4 },
+    tags: {
+      "tag-12": {
+        id: "tag-12",
+        name: "Point 12",
+        type: "number",
+        memaddress: "400000",
+        address: 12,
+        divisor: 10,
+        daq: { enabled: true, interval: 15, changed: true, restored: false },
+        description: null,
+        timestamp: 1
+      },
+      "tag-10": {
+        id: "tag-10",
+        name: "Point 10",
+        type: "number",
+        memaddress: "400000",
+        address: 10,
+        divisor: 10,
+        daq: { enabled: true, interval: 15, changed: true, restored: false },
+        description: null,
+        timestamp: 1
+      },
+      "tag-other-area": {
+        id: "tag-other-area",
+        name: "Other area 11",
+        type: "Bool",
+        memaddress: "000000",
+        address: 11
+      }
+    }
+  };
+  let generated = 0;
+  const usedTagIds = new Set(Object.keys(device.tags));
+  const cryptoMock = {
+    getRandomValues(bytes) {
+      bytes.fill(++generated);
+      return bytes;
+    }
+  };
+
+  const result = D.fillModbusTcpAddressGaps(device, usedTagIds, cryptoMock);
+  assert.deepEqual(result.missing, [11, 13]);
+  assert.deepEqual(result.created.map((tag) => [tag.name, tag.address]), [
+    ["補位_11", 11],
+    ["補位_13", 13]
+  ]);
+  assert.equal(result.created[0].type, "number");
+  assert.equal(result.created[0].memaddress, "400000");
+  assert.equal(result.created[0].divisor, 10);
+  assert.deepEqual(result.created[0].daq, {
+    enabled: true, interval: 15, changed: true, restored: false
+  });
+  assert.equal(device.tags["tag-12"].name, "Point 12");
+  assert.equal(device.tags["tag-other-area"].name, "Other area 11");
+  assert.deepEqual(
+    D.fillModbusTcpAddressGaps(device, usedTagIds, cryptoMock).created,
+    []
+  );
+});
+
+test("validates ModbusTCP address fill bounds and waits until a tag establishes the start", () => {
+  const cryptoMock = { getRandomValues(bytes) { bytes.fill(2); return bytes; } };
+  const noTags = { property: { addressCount: 32 }, tags: {} };
+  assert.deepEqual(
+    D.fillModbusTcpAddressGaps(noTags, new Set(), cryptoMock),
+    { count: 32, missing: [], hasAnchor: false, created: [] }
+  );
+  assert.throws(() => D.getModbusTcpAddressFillPlan({
+    property: { addressCount: 2 },
+    tags: { high: { address: 65535, memaddress: "000000" } }
+  }), /超出 Modbus 位址範圍/);
+  assert.throws(() => D.updateModbusTcpDevice(
+    { property: {} }, { addressCount: -1 }
+  ), /地址數量/);
 });
 
 test("parses tag batch input with automatic increment and custom columns", () => {
