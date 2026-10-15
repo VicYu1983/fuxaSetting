@@ -32,6 +32,7 @@ import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { buildTagIndex } from './domain/tags/index'
+import { prepareViewPreview } from './features/preview/prepareViewPreview'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
 import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
@@ -45,6 +46,14 @@ import './App.css'
 
 const { Header, Sider, Content } = Layout
 const { Text, Title } = Typography
+
+interface PreviewState {
+  width: number
+  height: number
+  outsideCanvas?: boolean
+  svgMarkup?: string
+  error?: string
+}
 
 function countTags(devices: Record<string, unknown>): number {
   return Object.values(devices).reduce<number>((count, device) => {
@@ -131,6 +140,23 @@ function App() {
     [config],
   )
   const tagCount = config ? countTags(config.devices) : 0
+  const preview = useMemo((): PreviewState | null => {
+    if (!config || !selectedView) return null
+
+    try {
+      return prepareViewPreview(config.rawConfig, selectedView.id, [...models.values()], {
+        Parser: DOMParser,
+        serialize: (doc) => new XMLSerializer().serializeToString(doc),
+        crypto: window.crypto,
+      })
+    } catch (error) {
+      return {
+        width: selectedView.width || 1024,
+        height: selectedView.height || 768,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    }
+  }, [config, models, selectedView])
 
   async function loadFile(file: File) {
     setIsLoading(true)
@@ -290,6 +316,37 @@ function App() {
     return options
   }
 
+  const previewPanel = (
+    <Card
+      title="SVG 預覽"
+      extra={preview && !preview.error ? (
+        <Space size="small">
+          <Text type="secondary">{preview.width} × {preview.height}</Text>
+          {preview.outsideCanvas && <Tag color="warning">排列超出畫布</Tag>}
+        </Space>
+      ) : undefined}
+      className="view-details preview-card"
+    >
+      {preview?.error ? (
+        <Alert
+          type="warning"
+          showIcon
+          title="無法顯示預覽"
+          description={preview.error}
+        />
+      ) : preview?.svgMarkup ? (
+        <div
+          className="svg-preview"
+          role="img"
+          aria-label={`${selectedView?.name ?? 'View'} 唯讀 SVG 預覽`}
+          dangerouslySetInnerHTML={{ __html: preview.svgMarkup }}
+        />
+      ) : (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚無可預覽的 View。" />
+      )}
+    </Card>
+  )
+
   return (
     <ConfigProvider
       locale={zhTW}
@@ -436,14 +493,19 @@ function App() {
                       </Descriptions>
                     </Card>
                     {modelErrors.has(selectedView.id) ? (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        message="此 View 無法編輯"
-                        description={modelErrors.get(selectedView.id)}
-                      />
+                      <div className="editor-columns">
+                        <Alert
+                          type="warning"
+                          showIcon
+                          title="此 View 無法編輯"
+                          description={modelErrors.get(selectedView.id)}
+                        />
+                        {previewPanel}
+                      </div>
                     ) : (
                       <>
+                        <div className="editor-columns">
+                          <div className="editor-controls">
                         {selectedModel && (
                           <Card title="Grid 排版設定" className="view-details">
                             <div className="grid-settings">
@@ -641,19 +703,22 @@ function App() {
                           />
                         )}
                       </Card>
-                      </>
-                    )}
                     {(unsupported.get(selectedView.id)?.length ?? 0) > 0 && (
                       <Alert
                         type="info"
                         showIcon
-                        message="部分既有 SVG 元件不會自動移動"
+                        title="部分既有 SVG 元件不會自動移動"
                         description={unsupported.get(selectedView.id)?.join('；')}
                       />
                     )}
+                        </div>
+                        {previewPanel}
+                        </div>
+                      </>
+                    )}
                   </Space>
                 ) : (
-                  <Alert type="info" showIcon message="此配置沒有可選取的 View。" />
+                  <Alert type="info" showIcon title="此配置沒有可選取的 View。" />
                 )}
 
                 <Card className="next-step-card">
