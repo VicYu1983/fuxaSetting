@@ -36,6 +36,13 @@ import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigEx
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
 import { buildTagIndex } from './domain/tags/index'
+import {
+  deleteManagedDevice,
+  fillModbusDeviceAddressGaps,
+  previewModbusAddressFill,
+  saveModbusDevice,
+  shiftModbusDeviceTags,
+} from './features/devices/manageModbusDevice'
 import { DEFAULT_GRID } from './domain/layout/gridSettings'
 import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
 import { findSvgElementById, parseSvg } from './domain/svg/parseSvg'
@@ -62,6 +69,15 @@ interface PreviewState {
   outsideCanvas?: boolean
   svgMarkup?: string
   error?: string
+}
+
+interface ModbusDeviceFormValues {
+  [key: string]: unknown
+  name: string
+  address: string
+  addressCount: number
+  enabled: boolean
+  polling: number
 }
 
 function countTags(devices: Record<string, unknown>): number {
@@ -127,6 +143,7 @@ function measureSvgBounds(doc: XMLDocument, id: string): Bounds {
 function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [viewNameForm] = Form.useForm<{ name: string }>()
+  const [deviceManagerForm] = Form.useForm<ModbusDeviceFormValues>()
   const [messageApi, contextHolder] = message.useMessage()
   const [fileName, setFileName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
@@ -135,6 +152,9 @@ function App() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
   const [batchSearch, setBatchSearch] = useState('')
   const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set())
+  const [deviceManagerOpen, setDeviceManagerOpen] = useState(false)
+  const [deviceManagerMode, setDeviceManagerMode] = useState<'create' | 'edit'>('edit')
+  const [managedDeviceId, setManagedDeviceId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [editor, dispatchEditor] = useReducer(
     editorHistoryReducer<ExportViewModel, ParsedFuxaConfig>,
@@ -167,6 +187,33 @@ function App() {
     () => config ? [...buildTagIndex(config.rawConfig).values()] : [],
     [config],
   )
+  const modbusDevices = useMemo(() => (
+    config
+      ? Object.entries(config.rawConfig.devices)
+        .filter((entry): entry is [string, Record<string, unknown>] => (
+          isRecord(entry[1]) && entry[1].type === 'ModbusTCP'
+        ))
+        .map(([id, record]) => ({ id, record }))
+      : []
+  ), [config])
+  const managedDevice = modbusDevices.find((device) => device.id === managedDeviceId)
+  const managedDeviceTags = managedDevice && isRecord(managedDevice.record.tags)
+    ? Object.values(managedDevice.record.tags).filter(isRecord)
+    : []
+  const addressFillState = useMemo(() => {
+    if (!config || !managedDevice || deviceManagerMode !== 'edit') return null
+    try {
+      return { plan: previewModbusAddressFill(config.rawConfig, managedDeviceId) }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
+    }
+  }, [config, deviceManagerMode, managedDevice, managedDeviceId])
+  const addressFillPlan = addressFillState && 'plan' in addressFillState
+    ? addressFillState.plan
+    : null
+  const addressFillError = addressFillState && 'error' in addressFillState
+    ? addressFillState.error
+    : null
   const filteredBatchTags = useMemo(() => {
     const query = batchSearch.trim().toLocaleLowerCase()
     return tags.filter((tag) => (
@@ -549,6 +596,185 @@ function App() {
     }
   }
 
+  function openDeviceManager() {
+    const firstDevice = modbusDevices[0]
+    if (firstDevice) {
+      setDeviceManagerMode('edit')
+      setManagedDeviceId(firstDevice.id)
+      deviceManagerForm.setFieldsValue({
+        name: typeof firstDevice.record.name === 'string' ? firstDevice.record.name : '',
+        address: isRecord(firstDevice.record.property)
+          && typeof firstDevice.record.property.address === 'string'
+          ? firstDevice.record.property.address
+          : '127.0.0.1:502',
+        addressCount: isRecord(firstDevice.record.property)
+          ? Number(firstDevice.record.property.addressCount) || 0
+          : 0,
+        enabled: Boolean(firstDevice.record.enabled),
+        polling: Number(firstDevice.record.polling) || 200,
+      })
+    } else {
+      setDeviceManagerMode('create')
+      setManagedDeviceId('')
+      deviceManagerForm.setFieldsValue({
+        name: '',
+        address: '127.0.0.1:502',
+        addressCount: 0,
+        enabled: true,
+        polling: 200,
+      })
+    }
+    setDeviceManagerOpen(true)
+  }
+
+  function selectManagedDevice(deviceId: string) {
+    const device = modbusDevices.find((candidate) => candidate.id === deviceId)
+    if (!device) return
+    setDeviceManagerMode('edit')
+    setManagedDeviceId(device.id)
+    deviceManagerForm.setFieldsValue({
+      name: typeof device.record.name === 'string' ? device.record.name : '',
+      address: isRecord(device.record.property)
+        && typeof device.record.property.address === 'string'
+        ? device.record.property.address
+        : '127.0.0.1:502',
+      addressCount: isRecord(device.record.property)
+        ? Number(device.record.property.addressCount) || 0
+        : 0,
+      enabled: Boolean(device.record.enabled),
+      polling: Number(device.record.polling) || 200,
+    })
+  }
+
+  function handleModbusDeviceSave(values: ModbusDeviceFormValues) {
+    if (!config) return
+    try {
+      const result = saveModbusDevice(
+        config.rawConfig,
+        deviceManagerMode === 'create' ? '' : managedDeviceId,
+        values,
+        window.crypto,
+      )
+      const document = parseUpdatedConfig(result.config, config)
+      dispatchEditor({
+        type: 'document-edit',
+        document,
+        models,
+      })
+      setManagedDeviceId(result.deviceId)
+      setDeviceManagerMode('edit')
+      deviceManagerForm.setFieldsValue(values)
+      messageApi.success(result.created
+        ? `已建立設備「${values.name.trim()}」。`
+        : `已更新設備「${values.name.trim()}」。`)
+      if (result.fill.created.length) {
+        messageApi.success(
+          `已自動建立 ${result.fill.created.length} 個補位 Tag（${result.fill.startAddress}–${result.fill.endAddress}）。`,
+        )
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`設備儲存失敗：${detail}`)
+    }
+  }
+
+  function handleShiftDeviceAddresses(delta: 1 | -1) {
+    if (!config || !managedDevice) return
+    try {
+      const shifted = shiftModbusDeviceTags(config.rawConfig, managedDeviceId, delta)
+      if (!shifted.count) {
+        messageApi.info(shifted.skippedInvalid
+          ? `沒有可調整的有效數字 address；另有 ${shifted.skippedInvalid} 個無效 address 保持不變。`
+          : '此設備沒有可調整的數字 address。')
+        return
+      }
+      if (!window.confirm(
+        `確定將設備「${managedDevice.record.name || managedDeviceId}」的 ${shifted.count} 個 Tag address 全部 ${delta > 0 ? '+1' : '-1'}？\n此操作跨所有 memaddress 區段；沒有 address 的 Tag 不變。`,
+      )) return
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(shifted.config, config),
+        models,
+      })
+      messageApi.success(
+        `已調整 ${shifted.count} 個 Tag address。`
+        + (shifted.skippedInvalid ? ` ${shifted.skippedInvalid} 個無效 address 未變更。` : ''),
+      )
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`位址調整已取消：${detail}`)
+    }
+  }
+
+  function handleFillDeviceAddresses() {
+    if (!config || !managedDevice) return
+    try {
+      const plan = previewModbusAddressFill(config.rawConfig, managedDeviceId)
+      if (!plan.hasAnchor) {
+        messageApi.warning('目前沒有可作為起點的 Tag；新增第一個 Tag 後才能自動補位。')
+        return
+      }
+      if (!plan.missing.length) {
+        messageApi.info('指定範圍內沒有缺漏位址。')
+        return
+      }
+      if (!window.confirm(
+        `將在 ${plan.memaddress} 位址區段建立 ${plan.missing.length} 個補位 Tag（${plan.startAddress}–${plan.endAddress}），確定繼續？`,
+      )) return
+      const result = fillModbusDeviceAddressGaps(config.rawConfig, managedDeviceId, window.crypto)
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(result.config, config),
+        models,
+      })
+      messageApi.success(`已建立 ${result.fill.created.length} 個補位 Tag。`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`Modbus 位址補位失敗：${detail}`)
+    }
+  }
+
+  function handleDeleteManagedDevice() {
+    if (!config || !managedDevice || managedDeviceId === '0') return
+    const linkedViews: string[] = []
+    for (const [viewId, model] of models) {
+      const view = config.views.find((candidate) => candidate.id === viewId)
+      const count = model.components.filter((component) => {
+        const tag = tags.find((candidate) => candidate.id === component.tagId)
+        return tag?.deviceId === managedDeviceId
+      }).length
+      if (count) linkedViews.push(`View「${view?.name || viewId}」(${count} 個元件)`)
+    }
+    const warning = linkedViews.length
+      ? `\n\n以下 View 使用此設備的 Tag，刪除後會留下無效 Tag 參照：\n${linkedViews.join('\n')}`
+      : ''
+    if (!window.confirm(
+      `確定刪除設備「${managedDevice.record.name || managedDeviceId}」及其所有 Tag 嗎？${warning}`,
+    )) return
+    try {
+      const nextConfig = deleteManagedDevice(config.rawConfig, managedDeviceId)
+      const document = parseUpdatedConfig(nextConfig, config)
+      dispatchEditor({ type: 'document-edit', document, models })
+      const fallback = modbusDevices.find((candidate) => candidate.id !== managedDeviceId)
+      if (fallback) selectManagedDevice(fallback.id)
+      else {
+        setDeviceManagerMode('create')
+        setManagedDeviceId('')
+        deviceManagerForm.setFieldsValue({
+          name: '',
+          address: '127.0.0.1:502',
+          addressCount: 0,
+          enabled: true,
+          polling: 200,
+        })
+      }
+      messageApi.success('已刪除設備及其系統連線 Tag。')
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`設備刪除失敗：${detail}`)
+    }
+  }
+
   function tagLabel(tag: IndexedTag): string {
     return `${tag.deviceName} / ${tag.name} (${tag.type || '未設定型別'})`
   }
@@ -658,6 +884,114 @@ function App() {
         </Form>
       </Modal>
       <Modal
+        open={deviceManagerOpen}
+        title="設備與 Tag 管理"
+        okText={deviceManagerMode === 'create' ? '建立設備' : '儲存設備'}
+        cancelText="關閉"
+        onCancel={() => setDeviceManagerOpen(false)}
+        onOk={() => deviceManagerForm.submit()}
+        width={720}
+        destroyOnHidden
+      >
+        <div className="device-manager-toolbar">
+          <Select
+            aria-label="選擇 ModbusTCP 設備"
+            value={deviceManagerMode === 'create' ? undefined : managedDeviceId}
+            placeholder="選擇 ModbusTCP 設備"
+            options={modbusDevices.map(({ id, record }) => ({
+              value: id,
+              label: `${String(record.name || id)} (${id})`,
+            }))}
+            onChange={selectManagedDevice}
+          />
+          <Button
+            onClick={() => {
+              setDeviceManagerMode('create')
+              setManagedDeviceId('')
+              deviceManagerForm.setFieldsValue({
+                name: '',
+                address: '127.0.0.1:502',
+                addressCount: 0,
+                enabled: true,
+                polling: 200,
+              })
+            }}
+          >
+            新增 ModbusTCP 設備
+          </Button>
+        </div>
+        {deviceManagerMode === 'edit' && managedDevice && (
+          <div className="device-manager-summary">
+            <Text type="secondary">
+              {managedDeviceTags.length} 個 Tag
+              {addressFillPlan?.hasAnchor
+                ? ` · 位址 ${addressFillPlan.startAddress}–${addressFillPlan.endAddress}，缺漏 ${addressFillPlan.missing.length} 個`
+                : addressFillError
+                  ? ` · ${addressFillError}`
+                  : ' · 尚無可補位的起始 Tag'}
+            </Text>
+            <Space wrap>
+              <Button onClick={() => handleShiftDeviceAddresses(1)}>Tag address 全部 +1</Button>
+              <Button onClick={() => handleShiftDeviceAddresses(-1)}>Tag address 全部 -1</Button>
+              <Button
+                onClick={handleFillDeviceAddresses}
+                disabled={!addressFillPlan?.hasAnchor || addressFillPlan.missing.length === 0}
+              >
+                補齊缺漏位址
+              </Button>
+              {managedDeviceId !== '0' && (
+                <Button danger onClick={handleDeleteManagedDevice}>刪除此設備</Button>
+              )}
+            </Space>
+          </div>
+        )}
+        <Form
+          form={deviceManagerForm}
+          layout="vertical"
+          onFinish={handleModbusDeviceSave}
+          className="device-manager-form"
+        >
+          <Form.Item
+            name="name"
+            label="設備名稱"
+            rules={[
+              { required: true, whitespace: true, message: '設備名稱不可空白。' },
+              { max: 120, message: '設備名稱不可超過 120 個字元。' },
+            ]}
+          >
+            <Input maxLength={120} />
+          </Form.Item>
+          <Form.Item name="address" label="連線位址 (IP:Port)">
+            <Input placeholder="127.0.0.1:502" />
+          </Form.Item>
+          <Form.Item
+            name="addressCount"
+            label="地址數量（0 表示不自動補位）"
+            rules={[
+              { required: true, message: '請輸入地址數量。' },
+              {
+                validator: async (_, value: unknown) => {
+                  if (!Number.isSafeInteger(Number(value)) || Number(value) < 0 || Number(value) > 65536) {
+                    throw new Error('地址數量必須是 0 到 65536 之間的整數。')
+                  }
+                },
+              },
+            ]}
+          >
+            <InputNumber min={0} max={65536} precision={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="polling" label="輪詢週期 (ms)">
+            <InputNumber min={10} step={10} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="enabled" valuePropName="checked">
+            <Checkbox>啟用設備</Checkbox>
+          </Form.Item>
+        </Form>
+        <Text type="secondary">
+          儲存 addressCount 時會以目前最小有效位址為起點，複製其 Tag 範本補齊相同 memaddress 區段的缺漏；位址 +1/-1 會先檢查整台設備的所有 Tag，超出 0–65535 時整批取消。
+        </Text>
+      </Modal>
+      <Modal
         open={batchDialogOpen}
         title="批次加入 Tag"
         okText={`加入 ${batchSelection.size} 筆`}
@@ -760,6 +1094,9 @@ function App() {
             </Button>
             <Button disabled={!config} onClick={handleSave}>
               {isDirty ? '匯出修改' : '另存新 JSON'}
+            </Button>
+            <Button disabled={!config} onClick={openDeviceManager}>
+              設備與 Tag
             </Button>
           </Space>
         </Header>
