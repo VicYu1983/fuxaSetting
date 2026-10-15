@@ -304,9 +304,10 @@ interface AppState {
   3. `icons`、`devices`（modbus）、`tags/batch`
   4. `svg`（`parseSvg`、`readManaged`）
 - **已完成切片**：`config/validate`、來源文字格式偵測／序列化工具、`tags/floor`（樓層正規化、Tag metadata、排序分組）、`layout/gridSettings`（View Grid 的讀取、正規化與保存）。
-- **已完成切片**：`layout/gridLayout` 的元件尺寸、行列定位、四種 Label 位置，以及 SVG 文字近似量測／Bounds 計算；樓層區段與底框整體排版仍待遷移。
-- 新版目前以 Vitest 覆蓋上述已遷移函式；`tests/domain.test.cjs` 舊版測試仍保留作為參考，尚未整批搬遷。
-- 把 `tests/domain.test.cjs` 的 27 個測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
+- **已完成切片**：`layout/gridLayout` 的元件尺寸、行列定位、四種 Label 位置，以及 SVG 文字近似量測／Bounds 計算。
+- **已完成切片**：`layout/floorGroupFrame` 的底框設定正規化、讀取與保存；`layout/floorLayout` 的樓層排序分組、區段排版、底框 bounds 與既有 Tag companion bounds。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 20 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
 ### 階段 3：從 `app.js` 抽出 SVG/驗證邏輯

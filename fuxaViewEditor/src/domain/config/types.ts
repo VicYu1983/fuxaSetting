@@ -27,6 +27,15 @@ export interface GridSettings {
   labelFontSize: number
 }
 
+export interface FloorGroupFrameSettings {
+  fill: string
+  fillOpacity: number
+  stroke: string
+  strokeWidth: number
+  cornerRadius: number
+  padding: number
+}
+
 export interface FuxaConfig {
   devices: Record<string, unknown>
   hmi: Record<string, unknown> & { views: unknown[] }
