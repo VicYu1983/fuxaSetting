@@ -306,13 +306,14 @@ interface AppState {
 - **已完成切片**：`config/validate`、來源文字格式偵測／序列化工具、`tags/floor`（樓層正規化、Tag metadata、排序分組）、`layout/gridSettings`（View Grid 的讀取、正規化與保存）。
 - **已完成切片**：`layout/gridLayout` 的元件尺寸、行列定位、四種 Label 位置，以及 SVG 文字近似量測／Bounds 計算。
 - **已完成切片**：`layout/floorGroupFrame` 的底框設定正規化、讀取與保存；`layout/floorLayout` 的樓層排序分組、區段排版、底框 bounds 與既有 Tag companion bounds。
+- **已完成切片**：`layout/floorGroupArtifacts` 的樓層標題／底框 SVG ID 索引讀取、保存、完整性驗證及已刪除 View 的資料清理。
 - **已完成切片**：`ids` 的唯一 ID 產生與碰撞重試；`devices/modbusTcp` 的設備建立／更新、位址補位規劃與執行、位址位移及範圍檢查；`tags/batch` 的批次輸入解析、樓層正規化、Tag 建立與下一位址計算。
 - **已完成切片**：`devices/deviceManagement` 的 FuxaServer 連線狀態 Tag 建立／改名同步，以及移除設備時清理其連線狀態 Tag。
 - **已完成切片**：`tags/index` 的全域 Tag 索引（含設備與樓層資訊）；`views/view` 的 View 結構驗證，以及刪除 View 時遞迴清理導覽參照並替換起始 View。
 - **已完成切片**：`views/viewManagement` 的 View 名稱去空白／不分大小寫重複檢查、改名，以及刪除 View 時選取後續或前一個 View 作為 fallback、保護最後一個 View並清理導覽引用。
 - **已完成切片**：`icons/iconLibrary` 的圖示庫讀取、保存、Base64/MIME 與唯一 ID 驗證、一般及正常／告警圖示組，以及 Boolean 可見條件動作產生。
 - **已完成切片**：`svg/parseSvg` 的 SVG MIME 解析與根節點／解析錯誤檢查，以及依 ID 查找 SVG 節點；`readManaged` 與 SVG 節點生成尚未遷移。
-- 新版以 Vitest 覆蓋已遷移函式；目前新版 46 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 49 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
 - 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
