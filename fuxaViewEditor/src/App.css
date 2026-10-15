@@ -288,6 +288,31 @@
   justify-content: space-between;
 }
 
+.icon-library-manager {
+  width: 100%;
+}
+
+.icon-library-manager > .ant-space-item:first-child {
+  display: flex;
+  gap: 12px;
+}
+
+.icon-library-manager > .ant-space-item:first-child .ant-input {
+  max-width: 240px;
+}
+
+.icon-file-field {
+  display: grid;
+  gap: 6px;
+}
+
+.icon-library-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  width: 100%;
+}
+
 .device-manager-toolbar {
   margin: 12px 0 20px;
 }

@@ -15,6 +15,7 @@ import {
   Descriptions,
   Empty,
   Form,
+  Image,
   Input,
   InputNumber,
   Layout,
@@ -38,6 +39,7 @@ import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
 import { buildTagIndex } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
+import { getIconLibrary } from './domain/icons/iconLibrary'
 import {
   deleteManagedDevice,
   fillModbusDeviceAddressGaps,
@@ -52,6 +54,12 @@ import { prepareViewPreview } from './features/preview/prepareViewPreview'
 import { applyTagFloors } from './features/floors/applyTagFloors'
 import { createViewComponents } from './features/tags/createViewComponents'
 import { createBlankView } from './features/views/createBlankView'
+import {
+  addIconLibraryEntry,
+  findIconLibraryUsages,
+  findIconLibrarySvgUsages,
+  removeIconLibraryEntry,
+} from './features/icons/iconLibraryManagement'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
 import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
@@ -160,6 +168,12 @@ function App() {
   const [floorDisplayMode, setFloorDisplayMode] = useState<'group' | 'list'>('group')
   const [floorSelection, setFloorSelection] = useState<Set<string>>(new Set())
   const [bulkFloor, setBulkFloor] = useState('')
+  const [iconLibraryOpen, setIconLibraryOpen] = useState(false)
+  const [iconName, setIconName] = useState('')
+  const [iconType, setIconType] = useState<'single' | 'pair'>('single')
+  const [singleIconFile, setSingleIconFile] = useState<File | null>(null)
+  const [normalIconFile, setNormalIconFile] = useState<File | null>(null)
+  const [alarmIconFile, setAlarmIconFile] = useState<File | null>(null)
   const [deviceManagerOpen, setDeviceManagerOpen] = useState(false)
   const [deviceManagerMode, setDeviceManagerMode] = useState<'create' | 'edit'>('edit')
   const [managedDeviceId, setManagedDeviceId] = useState('')
@@ -193,6 +207,10 @@ function App() {
   const selectedModel = selectedView ? models.get(selectedView.id) : undefined
   const tags = useMemo(
     () => config ? [...buildTagIndex(config.rawConfig).values()] : [],
+    [config],
+  )
+  const iconLibrary = useMemo(
+    () => config ? getIconLibrary(config.rawConfig) : [],
     [config],
   )
   const modbusDevices = useMemo(() => (
@@ -272,6 +290,7 @@ function App() {
     try {
       const text = await file.text()
       const parsed = parseFuxaConfig(text)
+      getIconLibrary(parsed.rawConfig)
       const editorModels = buildViewEditorModels(parsed.rawConfig, DOMParser, measureSvgBounds)
       dispatchEditor({
         type: 'reset',
@@ -847,6 +866,63 @@ function App() {
     setBulkFloor('')
   }
 
+  async function handleAddIcon() {
+    if (!config) return
+    try {
+      const files = iconType === 'single'
+        ? singleIconFile ? [singleIconFile] : []
+        : [normalIconFile, alarmIconFile].filter((file): file is File => file !== null)
+      const images = await Promise.all(files.map(async (file) => (
+        new Uint8Array(await file.arrayBuffer())
+      )))
+      const nextConfig = addIconLibraryEntry(
+        config.rawConfig,
+        iconName,
+        iconType,
+        images,
+        window.crypto,
+      )
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(nextConfig, config),
+        models,
+      })
+      setIconName('')
+      setSingleIconFile(null)
+      setNormalIconFile(null)
+      setAlarmIconFile(null)
+      messageApi.success('已新增圖示。')
+    } catch (error) {
+      messageApi.error(`新增圖示失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  function handleRemoveIcon(iconId: string) {
+    if (!config) return
+    try {
+      const viewNames = new Map(config.views.map((view) => [view.id, view.name]))
+      const tagNames = new Map(tags.map((tag) => [tag.id, tag.name]))
+      const usages = [
+        ...findIconLibraryUsages(iconLibrary, models, viewNames, tagNames, iconId),
+        ...findIconLibrarySvgUsages(iconLibrary, config.rawConfig, iconId, DOMParser),
+      ]
+      if (usages.length) {
+        messageApi.error(`此圖示仍被使用，無法刪除：${usages.join('、')}`)
+        return
+      }
+      if (!window.confirm('確定刪除此圖示？此操作可使用「復原」還原。')) return
+      const nextConfig = removeIconLibraryEntry(config.rawConfig, iconId, usages)
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(nextConfig, config),
+        models,
+      })
+      messageApi.success('已刪除圖示。')
+    } catch (error) {
+      messageApi.error(`刪除圖示失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   function tagLabel(tag: IndexedTag): string {
     return `${tag.deviceName} / ${tag.name} (${tag.type || '未設定型別'})`
   }
@@ -954,6 +1030,102 @@ function App() {
             <Input autoFocus maxLength={120} />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        open={iconLibraryOpen}
+        title="圖示庫管理"
+        footer={null}
+        onCancel={() => setIconLibraryOpen(false)}
+        width={760}
+        destroyOnHidden
+      >
+        <Space orientation="vertical" size="middle" className="icon-library-manager">
+          <Space wrap>
+            <Input
+              aria-label="圖示名稱"
+              placeholder="圖示名稱"
+              maxLength={120}
+              value={iconName}
+              onChange={(event) => setIconName(event.target.value)}
+            />
+            <Radio.Group
+              aria-label="圖示類型"
+              value={iconType}
+              onChange={(event) => setIconType(event.target.value)}
+              options={[
+                { label: '一般圖示', value: 'single' },
+                { label: '正常／告警圖示組', value: 'pair' },
+              ]}
+            />
+          </Space>
+          {iconType === 'single' ? (
+            <label className="icon-file-field">
+              一般圖示圖片
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif"
+                onChange={(event) => setSingleIconFile(event.target.files?.[0] ?? null)}
+              />
+            </label>
+          ) : (
+            <Space wrap>
+              <label className="icon-file-field">
+                正常狀態圖片
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  onChange={(event) => setNormalIconFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+              <label className="icon-file-field">
+                告警狀態圖片
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  onChange={(event) => setAlarmIconFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+            </Space>
+          )}
+          <Button
+            type="primary"
+            disabled={!config || !iconName.trim()
+              || (iconType === 'single' ? !singleIconFile : !normalIconFile || !alarmIconFile)}
+            onClick={() => void handleAddIcon()}
+          >
+            新增至圖示庫
+          </Button>
+          {iconLibrary.length ? (
+            <div className="icon-library-list">
+              {iconLibrary.map((icon) => {
+                const assets = icon.type === 'pair'
+                  ? [icon.normal, icon.alarm]
+                  : [icon]
+                return (
+                  <Card
+                    key={icon.id}
+                    size="small"
+                    title={icon.name}
+                    extra={<Button danger size="small" onClick={() => handleRemoveIcon(icon.id)}>刪除</Button>}
+                  >
+                    <Space wrap>
+                      {assets.map((asset, index) => (
+                        <Space key={asset.id} orientation="vertical" align="center" size="small">
+                          <Image src={asset.dataUrl} alt={`${icon.name} ${index + 1}`} width={64} height={64} />
+                          <Text type="secondary">
+                            {icon.type === 'pair' ? (index === 0 ? '正常' : '告警') : '預覽'}
+                          </Text>
+                        </Space>
+                      ))}
+                    </Space>
+                  </Card>
+                )
+              })}
+            </div>
+          ) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="圖示庫目前沒有項目。" />
+          )}
+        </Space>
       </Modal>
       <Modal
         open={deviceManagerOpen}
@@ -1280,6 +1452,9 @@ function App() {
             </Button>
             <Button disabled={!config} onClick={openFloorManager}>
               樓層管理
+            </Button>
+            <Button disabled={!config} onClick={() => setIconLibraryOpen(true)}>
+              圖示庫
             </Button>
           </Space>
         </Header>
