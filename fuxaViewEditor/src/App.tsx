@@ -7,6 +7,7 @@ import {
   Descriptions,
   Empty,
   Input,
+  InputNumber,
   Layout,
   Select,
   Space,
@@ -27,6 +28,7 @@ import { buildTagIndex } from './domain/tags/index'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
 import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
+import type { GridSettings } from './domain/config/types'
 import type { IndexedTag } from './domain/tags/index'
 import './App.css'
 
@@ -223,6 +225,21 @@ function App() {
     setModifiedViewIds((current) => new Set(current).add(viewId))
   }
 
+  function handleUpdateGrid(
+    viewId: string,
+    update: Partial<GridSettings>,
+  ) {
+    const model = models.get(viewId)
+    if (!model) return
+    const nextModels = new Map(models)
+    nextModels.set(viewId, {
+      ...model,
+      grid: { ...model.grid, ...update },
+    })
+    setModels(nextModels)
+    setModifiedViewIds((current) => new Set(current).add(viewId))
+  }
+
   function tagLabel(tag: IndexedTag): string {
     return `${tag.deviceName} / ${tag.name} (${tag.type || '未設定型別'})`
   }
@@ -385,6 +402,123 @@ function App() {
                         description={modelErrors.get(selectedView.id)}
                       />
                     ) : (
+                      <>
+                        {selectedModel && (
+                          <Card title="Grid 排版設定" className="view-details">
+                            <div className="grid-settings">
+                              <label>
+                                <Text>每列元件數</Text>
+                                <InputNumber
+                                  aria-label="每列元件數"
+                                  min={1}
+                                  max={24}
+                                  step={1}
+                                  value={selectedModel.grid.columns}
+                                  onChange={(columns) => {
+                                    if (columns !== null) {
+                                      handleUpdateGrid(selectedView.id, { columns })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                <Text>起點 X</Text>
+                                <InputNumber
+                                  aria-label="起點 X"
+                                  min={0}
+                                  value={selectedModel.grid.originX}
+                                  onChange={(originX) => {
+                                    if (originX !== null) {
+                                      handleUpdateGrid(selectedView.id, { originX })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                <Text>起點 Y</Text>
+                                <InputNumber
+                                  aria-label="起點 Y"
+                                  min={0}
+                                  value={selectedModel.grid.originY}
+                                  onChange={(originY) => {
+                                    if (originY !== null) {
+                                      handleUpdateGrid(selectedView.id, { originY })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                <Text>水平間距</Text>
+                                <InputNumber
+                                  aria-label="水平間距"
+                                  min={0}
+                                  value={selectedModel.grid.gapX}
+                                  onChange={(gapX) => {
+                                    if (gapX !== null) {
+                                      handleUpdateGrid(selectedView.id, { gapX })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                <Text>垂直間距</Text>
+                                <InputNumber
+                                  aria-label="垂直間距"
+                                  min={0}
+                                  value={selectedModel.grid.gapY}
+                                  onChange={(gapY) => {
+                                    if (gapY !== null) {
+                                      handleUpdateGrid(selectedView.id, { gapY })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                <Text>標籤位置</Text>
+                                <Select
+                                  aria-label="標籤位置"
+                                  value={selectedModel.grid.labelPosition}
+                                  options={[
+                                    { value: 'above', label: '上方' },
+                                    { value: 'below', label: '下方' },
+                                    { value: 'left', label: '左側' },
+                                    { value: 'right', label: '右側' },
+                                  ]}
+                                  onChange={(labelPosition: GridSettings['labelPosition']) => (
+                                    handleUpdateGrid(selectedView.id, { labelPosition })
+                                  )}
+                                />
+                              </label>
+                              <label>
+                                <Text>標籤位移</Text>
+                                <InputNumber
+                                  aria-label="標籤位移"
+                                  min={0}
+                                  value={selectedModel.grid.labelOffset}
+                                  onChange={(labelOffset) => {
+                                    if (labelOffset !== null) {
+                                      handleUpdateGrid(selectedView.id, { labelOffset })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                <Text>標籤字級</Text>
+                                <InputNumber
+                                  aria-label="標籤字級"
+                                  min={8}
+                                  max={72}
+                                  value={selectedModel.grid.labelFontSize}
+                                  onChange={(labelFontSize) => {
+                                    if (labelFontSize !== null) {
+                                      handleUpdateGrid(selectedView.id, { labelFontSize })
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </Card>
+                        )}
                       <Card
                         title="已管理元件"
                         extra={(
@@ -466,6 +600,7 @@ function App() {
                           />
                         )}
                       </Card>
+                      </>
                     )}
                     {(unsupported.get(selectedView.id)?.length ?? 0) > 0 && (
                       <Alert
@@ -483,7 +618,7 @@ function App() {
                 <Card className="next-step-card">
                   <Text strong>目前進度</Text>
                   <Text type="secondary">
-                    可刪除已管理元件並匯出修改後配置；編輯僅在本機進行。
+                    可調整 View 的 Grid 排版、編輯或刪除已管理元件，並匯出修改後配置；編輯僅在本機進行。
                   </Text>
                 </Card>
               </div>
