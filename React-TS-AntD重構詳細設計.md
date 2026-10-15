@@ -310,7 +310,8 @@ interface AppState {
 - **已完成切片**：`devices/deviceManagement` 的 FuxaServer 連線狀態 Tag 建立／改名同步，以及移除設備時清理其連線狀態 Tag。
 - **已完成切片**：`tags/index` 的全域 Tag 索引（含設備與樓層資訊）；`views/view` 的 View 結構驗證，以及刪除 View 時遞迴清理導覽參照並替換起始 View。
 - **已完成切片**：`icons/iconLibrary` 的圖示庫讀取、保存、Base64/MIME 與唯一 ID 驗證、一般及正常／告警圖示組，以及 Boolean 可見條件動作產生。
-- 新版以 Vitest 覆蓋已遷移函式；目前新版 39 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- **已完成切片**：`svg/parseSvg` 的 SVG MIME 解析與根節點／解析錯誤檢查，以及依 ID 查找 SVG 節點；`readManaged` 與 SVG 節點生成尚未遷移。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 41 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
 - 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
