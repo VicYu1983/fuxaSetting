@@ -317,7 +317,8 @@ interface AppState {
 - **已完成切片**：新增 `app/store/editorHistory`，以純 reducer 保存最多 50 筆 immutable 編輯快照，Undo/Redo 同步恢復模型與 `modifiedViewIds`，新編輯會清除 redo 分支；載入配置或成功匯出後重設歷程。工作台加入復原／重做按鈕，未匯出修改時攔截頁面離開。新增 reducer 測試涵蓋 dirty 還原、redo 分支、歷程上限及重設。
 - **已完成切片**：工作台加入唯讀 SVG 預覽，對選取 View 的副本套用目前模型後顯示；無法編輯的 View 仍可預覽原始 SVG。`svg/sanitizePreview` 延續舊版規則並阻擋 script／foreignObject／樣式／SMIL 動畫、事件屬性、外部連結及外部 `url()` 資源，只保留區域 fragment 與支援的 PNG/JPEG/GIF Base64 資源；預覽採隔離樣式區塊呈現，不加入拖曳。排版超出畫布時顯示提示；新增 sanitizer 與預覽邊界測試涵蓋危險內容移除、安全引用保留及畫布範圍判定。
 - **已完成切片**：圖示庫管理支援新增一般圖示與正常／告警圖示組，依 PNG/JPEG/GIF 簽章驗證並以原始 bytes 保存 Base64（保留 GIF 動畫資料）；列表提供預覽及刪除，刪除會掃描 managed 元件模型和全部 View SVG 的 icon ID，仍被引用或 SVG 無法安全掃描時拒絕操作。圖示新增／刪除納入配置 dirty 狀態與 Undo/Redo，匯出沿用既有圖示庫保存及解析流程。
-- 新版以 Vitest 覆蓋已遷移函式；目前新版 137 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- **已完成切片**：新版工作台加入所有 View 共用的 Floor Group 底框設定，可編輯底色、透明度、邊框色／粗細、圓角及內距；套用時正規化並保存於既有 `extra.fuxaSetting.floorGroupFrames`，保留同命名空間其他 metadata，預覽立即使用新設定，並支援 dirty、Undo/Redo 與匯出。多個元件位於同一樓層時仍合併於單一樓層區塊與底框。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 139 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
 - 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
@@ -339,7 +340,7 @@ interface AppState {
 | **已完成切片**：ModbusTCP 設備管理 | 階段 4 | 新增／修改／刪除設備與系統連線 Tag；設定 addressCount 自動補位或手動補位；跨 memaddress 全設備位址 ±1，越過 0–65535 前先整批驗證並取消；變更納入 Undo/Redo |
 | **已完成**：樓層管理 | 階段 4 | 搜尋、多選／全選可見項目、分組／平面清單切換、單筆或批次設定樓層；僅更新 `extra.floor` 並保留其他 Tag／配置 metadata；支援 Undo/Redo |
 | **已完成**：圖示庫 | 階段 4 | 一般／正常告警圖示、PNG/JPEG/GIF 原始資料保留、預覽、刪除前掃描所有 View 引用、支援 Undo/Redo 與匯出 |
-| Floor Group 框樣式 | 階段 4 | 同樓層重複元件合併 |
+| **已完成**：Floor Group 框樣式 | 階段 4 | 共用底框色彩／透明度／邊框／圓角／內距設定；同樓層元件合併於單一底框；支援預覽、Undo/Redo 與匯出 |
 
 ### 階段 6：收尾與切換
 - 補齊 E2E（開檔→編輯→匯出）、無障礙與鍵盤操作檢查。

@@ -90,6 +90,7 @@ describe('Floor layout', () => {
     }, tags)
 
     expect(result.sections.map((section) => section.title)).toEqual(['B1F', '1F'])
+    expect(result.sections[1]?.entries.map(({ component }) => component.tagId)).toEqual(['a', 'b'])
     expect(result.sections[0]?.entries[0]?.placement.shape.x).toBe(10)
     expect(result.sections[0]?.frame.x)
       .toBeLessThan(result.sections[0]?.entries[0]?.placement.shape.x ?? 0)

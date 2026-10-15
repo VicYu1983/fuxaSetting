@@ -49,9 +49,11 @@ import {
 } from './features/devices/manageModbusDevice'
 import { DEFAULT_GRID } from './domain/layout/gridSettings'
 import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
+import type { FloorGroupFrameSettings } from './domain/config/types'
 import { findSvgElementById, parseSvg } from './domain/svg/parseSvg'
 import { prepareViewPreview } from './features/preview/prepareViewPreview'
 import { applyTagFloors } from './features/floors/applyTagFloors'
+import { updateFloorGroupFrame } from './features/floors/updateFloorGroupFrame'
 import { createViewComponents } from './features/tags/createViewComponents'
 import { createBlankView } from './features/views/createBlankView'
 import {
@@ -89,6 +91,10 @@ interface ModbusDeviceFormValues {
   addressCount: number
   enabled: boolean
   polling: number
+}
+
+interface FloorGroupFrameFormValues extends Omit<FloorGroupFrameSettings, 'fillOpacity'> {
+  fillOpacityPercent: number
 }
 
 function countTags(devices: Record<string, unknown>): number {
@@ -155,6 +161,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [viewNameForm] = Form.useForm<{ name: string }>()
   const [deviceManagerForm] = Form.useForm<ModbusDeviceFormValues>()
+  const [floorFrameForm] = Form.useForm<FloorGroupFrameFormValues>()
   const [messageApi, contextHolder] = message.useMessage()
   const [fileName, setFileName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
@@ -175,6 +182,7 @@ function App() {
   const [normalIconFile, setNormalIconFile] = useState<File | null>(null)
   const [alarmIconFile, setAlarmIconFile] = useState<File | null>(null)
   const [deviceManagerOpen, setDeviceManagerOpen] = useState(false)
+  const [floorFrameDialogOpen, setFloorFrameDialogOpen] = useState(false)
   const [deviceManagerMode, setDeviceManagerMode] = useState<'create' | 'edit'>('edit')
   const [managedDeviceId, setManagedDeviceId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -866,6 +874,47 @@ function App() {
     setBulkFloor('')
   }
 
+  function openFloorFrameDialog() {
+    if (!config) return
+    const settings = getFloorGroupFrameSettings(config.rawConfig)
+    floorFrameForm.setFieldsValue({
+      ...settings,
+      fillOpacityPercent: Math.round(settings.fillOpacity * 100),
+    })
+    setFloorFrameDialogOpen(true)
+  }
+
+  function handleFloorFrameSubmit(values: FloorGroupFrameFormValues) {
+    if (!config) return
+    try {
+      const result = updateFloorGroupFrame(config.rawConfig, {
+        ...values,
+        fillOpacity: values.fillOpacityPercent / 100,
+      })
+      if (!result.changed) {
+        setFloorFrameDialogOpen(false)
+        messageApi.info('樓層底框設定沒有變更。')
+        return
+      }
+      const updatedFrame = getFloorGroupFrameSettings(result.config)
+      const nextModels = new Map(
+        [...models].map(([viewId, model]) => [
+          viewId,
+          { ...model, floorGroupFrame: updatedFrame },
+        ]),
+      )
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(result.config, config),
+        models: nextModels,
+      })
+      setFloorFrameDialogOpen(false)
+      messageApi.success('已更新所有 View 的樓層底框設定。')
+    } catch (error) {
+      messageApi.error(`更新樓層底框設定失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   async function handleAddIcon() {
     if (!config) return
     try {
@@ -1028,6 +1077,67 @@ function App() {
             ]}
           >
             <Input autoFocus maxLength={120} />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        open={floorFrameDialogOpen}
+        title="樓層 Group 底框設定"
+        okText="套用所有 View"
+        cancelText="取消"
+        onCancel={() => setFloorFrameDialogOpen(false)}
+        onOk={() => floorFrameForm.submit()}
+        destroyOnHidden
+      >
+        <Text type="secondary">設定會套用至所有 View 的樓層 Group 底框，並可使用 Undo/Redo 還原。</Text>
+        <Form
+          form={floorFrameForm}
+          layout="vertical"
+          onFinish={handleFloorFrameSubmit}
+          className="floor-frame-form"
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item label="底色" name="fill" rules={[{ required: true }]}>
+            <Input type="color" aria-label="樓層底框底色" />
+          </Form.Item>
+          <Form.Item
+            label="透明度 (%)"
+            name="fillOpacityPercent"
+            rules={[
+              { required: true, type: 'number', min: 0, max: 100, message: '請輸入 0–100。' },
+            ]}
+          >
+            <InputNumber min={0} max={100} step={1} />
+          </Form.Item>
+          <Form.Item label="邊框色" name="stroke" rules={[{ required: true }]}>
+            <Input type="color" aria-label="樓層底框邊框色" />
+          </Form.Item>
+          <Form.Item
+            label="邊框粗細"
+            name="strokeWidth"
+            rules={[
+              { required: true, type: 'number', min: 0, max: 10, message: '請輸入 0–10。' },
+            ]}
+          >
+            <InputNumber min={0} max={10} step={0.5} />
+          </Form.Item>
+          <Form.Item
+            label="圓角"
+            name="cornerRadius"
+            rules={[
+              { required: true, type: 'number', min: 0, max: 100, message: '請輸入 0–100。' },
+            ]}
+          >
+            <InputNumber min={0} max={100} step={1} />
+          </Form.Item>
+          <Form.Item
+            label="內距"
+            name="padding"
+            rules={[
+              { required: true, type: 'number', min: 0, max: 200, message: '請輸入 0–200。' },
+            ]}
+          >
+            <InputNumber min={0} max={200} step={1} />
           </Form.Item>
         </Form>
       </Modal>
@@ -1455,6 +1565,9 @@ function App() {
             </Button>
             <Button disabled={!config} onClick={() => setIconLibraryOpen(true)}>
               圖示庫
+            </Button>
+            <Button disabled={!config} onClick={openFloorFrameDialog}>
+              樓層框樣式
             </Button>
           </Space>
         </Header>

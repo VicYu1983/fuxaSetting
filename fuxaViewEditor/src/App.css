@@ -292,6 +292,21 @@
   width: 100%;
 }
 
+.floor-frame-form {
+  display: grid;
+  gap: 0 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.floor-frame-form .ant-input[type="color"] {
+  max-width: 100%;
+  min-height: 32px;
+}
+
+.floor-frame-form .ant-input-number {
+  width: 100%;
+}
+
 .icon-library-manager > .ant-space-item:first-child {
   display: flex;
   gap: 12px;
@@ -390,6 +405,10 @@
 }
 
 @media (max-width: 640px) {
+  .floor-frame-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .device-manager-form {
     grid-template-columns: minmax(0, 1fr);
   }
