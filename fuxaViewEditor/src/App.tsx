@@ -18,6 +18,7 @@ import {
   parseFuxaConfig,
 } from './domain/config/parseFuxaConfig'
 import { generatedFileName } from './domain/config/serialization'
+import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import './App.css'
 
@@ -81,7 +82,13 @@ function App() {
     if (!config) return
 
     try {
-      const blob = new Blob([config.originalText], { type: 'application/json;charset=utf-8' })
+      const prepared = prepareFuxaConfigExport({
+        config: config.rawConfig,
+        originalText: config.originalText,
+        sourceFormat: config.sourceFormat,
+        dirty: false,
+      })
+      const blob = new Blob([prepared.text], { type: 'application/json;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
