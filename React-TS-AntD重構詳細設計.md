@@ -312,8 +312,8 @@ interface AppState {
 - **已完成切片**：`tags/index` 的全域 Tag 索引（含設備與樓層資訊）；`views/view` 的 View 結構驗證，以及刪除 View 時遞迴清理導覽參照並替換起始 View。
 - **已完成切片**：`views/viewManagement` 的 View 名稱去空白／不分大小寫重複檢查、改名，以及刪除 View 時選取後續或前一個 View 作為 fallback、保護最後一個 View並清理導覽引用。
 - **已完成切片**：`icons/iconLibrary` 的圖示庫讀取、保存、Base64/MIME 與唯一 ID 驗證、一般及正常／告警圖示組，以及 Boolean 可見條件動作產生。
-- **已完成切片**：`svg/parseSvg` 的 SVG MIME 解析與根節點／解析錯誤檢查，以及依 ID 查找 SVG 節點；`svg/readFloorArtifacts` 已遷移 Floor Group 標題／底框節點索引、重複 artifact 收集、已保存 ID 優先及未標記底框的座標推斷；`svg/readMovableTags` 已遷移既有 SVG Tag 的可移動性檢查（ID 重複、支援元素、節點／上層 transform）；`svg/readManagedComponents` 已遷移一般元件／圖示／正常告警圖示組與 Label 配對、Palette、內層 SVG ID 及 visibility state 解析；`svg/readManaged` 已整合上述讀取流程，維持 View/SVG 錯誤回傳形狀並合併樓層 artifacts、managed records 與既有可移動 Tag。SVG 節點生成尚未遷移。
-- 新版以 Vitest 覆蓋已遷移函式；目前新版 60 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- **已完成切片**：`svg/parseSvg` 的 SVG MIME 解析與根節點／解析錯誤檢查，以及依 ID 查找 SVG 節點；`svg/readFloorArtifacts` 已遷移 Floor Group 標題／底框節點索引、重複 artifact 收集、已保存 ID 優先及未標記底框的座標推斷；`svg/readMovableTags` 已遷移既有 SVG Tag 的可移動性檢查（ID 重複、支援元素、節點／上層 transform）；`svg/readManagedComponents` 已遷移一般元件／圖示／正常告警圖示組與 Label 配對、Palette、內層 SVG ID 及 visibility state 解析；`svg/readManaged` 已整合上述讀取流程，維持 View/SVG 錯誤回傳形狀並合併樓層 artifacts、managed records 與既有可移動 Tag；`svg/buildComponentNodes` 已遷移一般矩形／圓柱、圖示與正常／告警圖示組及標籤節點生成，保留 ID 配置、SVG attributes、圖示引用與缺少圖示錯誤。Floor Group SVG 節點生成及整體 `applyModelToView` 尚未遷移。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 64 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
 - 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
