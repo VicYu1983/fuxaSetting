@@ -10,6 +10,7 @@ import {
   Alert,
   Button,
   Card,
+  Checkbox,
   ConfigProvider,
   Descriptions,
   Empty,
@@ -39,6 +40,7 @@ import { DEFAULT_GRID } from './domain/layout/gridSettings'
 import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
 import { findSvgElementById, parseSvg } from './domain/svg/parseSvg'
 import { prepareViewPreview } from './features/preview/prepareViewPreview'
+import { createViewComponents } from './features/tags/createViewComponents'
 import { createBlankView } from './features/views/createBlankView'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
@@ -130,6 +132,9 @@ function App() {
   const [selectedViewId, setSelectedViewId] = useState('')
   const [viewDialogMode, setViewDialogMode] = useState<'create' | 'rename' | null>(null)
   const [viewDialogTargetId, setViewDialogTargetId] = useState('')
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false)
+  const [batchSearch, setBatchSearch] = useState('')
+  const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [editor, dispatchEditor] = useReducer(
     editorHistoryReducer<ExportViewModel, ParsedFuxaConfig>,
@@ -162,6 +167,16 @@ function App() {
     () => config ? [...buildTagIndex(config.rawConfig).values()] : [],
     [config],
   )
+  const filteredBatchTags = useMemo(() => {
+    const query = batchSearch.trim().toLocaleLowerCase()
+    return tags.filter((tag) => (
+      `${tag.deviceName} ${tag.name} ${tag.type} ${tag.id} ${tag.floor}`
+        .toLocaleLowerCase()
+        .includes(query)
+    ))
+  }, [batchSearch, tags])
+  const selectedBatchCount = filteredBatchTags.filter((tag) => batchSelection.has(tag.id)).length
+  const usedTagIds = new Set(selectedModel?.components.map((component) => component.tagId) ?? [])
   const tagCount = config ? countTags(config.devices) : 0
   const preview = useMemo((): PreviewState | null => {
     if (!config || !selectedView) return null
@@ -195,6 +210,9 @@ function App() {
       setModelErrors(editorModels.errors)
       setUnsupported(editorModels.unsupported)
       setFileName(file.name)
+      setBatchDialogOpen(false)
+      setBatchSearch('')
+      setBatchSelection(new Set())
       const firstView = parsed.views[0]
       setSelectedViewId(firstView ? firstView.id || firstView.key : '')
       messageApi.success(`已載入 ${file.name}`)
@@ -484,6 +502,53 @@ function App() {
     })
   }
 
+  function openBatchDialog() {
+    setBatchSelection(new Set())
+    setBatchSearch('')
+    setBatchDialogOpen(true)
+  }
+
+  function handleBatchSelectAll(checked: boolean) {
+    setBatchSelection((current) => {
+      const next = new Set(current)
+      for (const tag of filteredBatchTags) {
+        if (checked) next.add(tag.id)
+        else next.delete(tag.id)
+      }
+      return next
+    })
+  }
+
+  function handleBatchAdd() {
+    if (!config || !selectedView || !selectedModel) return
+    const selectedTags = tags.filter((tag) => batchSelection.has(tag.id))
+    if (!selectedTags.length) {
+      messageApi.warning('請至少選取一個 Tag。')
+      return
+    }
+
+    try {
+      const nextModels = createViewComponents(
+        config.rawConfig,
+        selectedModel,
+        models,
+        selectedTags,
+        { Parser: DOMParser, crypto: window.crypto },
+      )
+      dispatchEditor({
+        type: 'edit',
+        viewId: selectedView.id,
+        model: nextModels,
+      })
+      setBatchDialogOpen(false)
+      setBatchSelection(new Set())
+      messageApi.success(`已加入 ${selectedTags.length} 筆 Tag 元件。`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`批次加入 Tag 失敗：${detail}`)
+    }
+  }
+
   function tagLabel(tag: IndexedTag): string {
     return `${tag.deviceName} / ${tag.name} (${tag.type || '未設定型別'})`
   }
@@ -591,6 +656,68 @@ function App() {
             <Input autoFocus maxLength={120} />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        open={batchDialogOpen}
+        title="批次加入 Tag"
+        okText={`加入 ${batchSelection.size} 筆`}
+        cancelText="取消"
+        okButtonProps={{ disabled: batchSelection.size === 0 }}
+        onCancel={() => setBatchDialogOpen(false)}
+        onOk={handleBatchAdd}
+        width={720}
+        destroyOnHidden
+      >
+        <Text type="secondary">
+          Tag 會沿用配置中的樓層；未設定樓層的 Tag 會歸入「未設定樓層」。
+        </Text>
+        <Input
+          aria-label="搜尋 Tag"
+          allowClear
+          placeholder="搜尋設備、Tag 名稱、型別或 ID"
+          value={batchSearch}
+          onChange={(event) => setBatchSearch(event.target.value)}
+          style={{ margin: '16px 0 12px' }}
+        />
+        <div className="batch-tag-toolbar">
+          <Checkbox
+            checked={filteredBatchTags.length > 0 && selectedBatchCount === filteredBatchTags.length}
+            indeterminate={selectedBatchCount > 0 && selectedBatchCount < filteredBatchTags.length}
+            disabled={filteredBatchTags.length === 0}
+            onChange={(event) => handleBatchSelectAll(event.target.checked)}
+          >
+            全選目前搜尋結果
+          </Checkbox>
+          <Text type="secondary">
+            已選 {batchSelection.size} 筆 / {tags.length} 筆
+          </Text>
+        </div>
+        <div className="batch-tag-list" role="group" aria-label="可加入的 Tag">
+          {filteredBatchTags.length ? filteredBatchTags.map((tag) => (
+            <Checkbox
+              key={tag.id}
+              checked={batchSelection.has(tag.id)}
+              onChange={(event) => {
+                setBatchSelection((current) => {
+                  const next = new Set(current)
+                  if (event.target.checked) next.add(tag.id)
+                  else next.delete(tag.id)
+                  return next
+                })
+              }}
+            >
+              <span className="batch-tag-option">
+                <span>{tag.deviceName} / {tag.name} ({tag.type || '未設定型別'})</span>
+                <Text type="secondary">
+                  {tag.floor || '未設定樓層'} · {tag.id}
+                  {usedTagIds.has(tag.id) ? ' · 此 View 已使用' : ''}
+                </Text>
+              </span>
+            </Checkbox>
+          )) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="沒有符合的 Tag。" />
+          )}
+        </div>
       </Modal>
       <Layout className="editor-shell">
         <Header className="editor-header">
@@ -887,11 +1014,20 @@ function App() {
                       <Card
                         title="已管理元件"
                         extra={(
-                          <Tag>
-                            {selectedModel?.components.filter(
-                              (component) => component.managed !== false,
-                            ).length ?? 0}
-                          </Tag>
+                          <Space>
+                            <Tag>
+                              {selectedModel?.components.filter(
+                                (component) => component.managed !== false,
+                              ).length ?? 0}
+                            </Tag>
+                            <Button
+                              size="small"
+                              disabled={!selectedModel || tags.length === 0}
+                              onClick={openBatchDialog}
+                            >
+                              批次加入 Tag
+                            </Button>
+                          </Space>
                         )}
                         className="view-details"
                       >

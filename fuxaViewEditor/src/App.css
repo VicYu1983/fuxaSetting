@@ -256,6 +256,29 @@
   flex-direction: column;
 }
 
+.batch-tag-toolbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.batch-tag-list {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(48vh, 440px);
+  overflow: auto;
+  padding: 12px;
+}
+
+.batch-tag-option {
+  display: flex;
+  flex-direction: column;
+}
+
 .component-row {
   display: flex;
   align-items: center;
