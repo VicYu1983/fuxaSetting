@@ -40,6 +40,7 @@ import { deleteView, renameView, validateViewName } from './domain/views/viewMan
 import { buildTagIndex } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
 import { getIconLibrary } from './domain/icons/iconLibrary'
+import { generateId } from './domain/ids'
 import {
   deleteManagedDevice,
   fillModbusDeviceAddressGaps,
@@ -62,8 +63,14 @@ import {
   findIconLibrarySvgUsages,
   removeIconLibraryEntry,
 } from './features/icons/iconLibraryManagement'
+import {
+  getComponentGraphicChoices,
+  selectedComponentGraphic,
+  updateComponentGraphic,
+} from './features/icons/componentGraphics'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
+import type { GeneratedComponent } from './domain/svg/validateGeneratedView'
 import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
 import type { GridSettings } from './domain/config/types'
 import type { IndexedTag } from './domain/tags/index'
@@ -565,7 +572,11 @@ function App() {
   function handleUpdateComponent(
     viewId: string,
     key: string,
-    update: Partial<Pick<FloorLayoutComponent, 'label' | 'tagId' | 'palette'>>,
+    update: Partial<Pick<
+      GeneratedComponent,
+      | 'label' | 'tagId' | 'palette' | 'template' | 'iconId'
+      | 'normalIconId' | 'alarmIconId' | 'alarmShapeId' | 'invertIconState'
+    >>,
   ) {
     const model = models.get(viewId)
     if (!model) return
@@ -582,6 +593,46 @@ function App() {
         )),
       },
     })
+  }
+
+  function handleUpdateGraphic(viewId: string, component: GeneratedComponent, value: string) {
+    const model = models.get(viewId)
+    if (!model) return
+    try {
+      if (value.startsWith('pair:')
+          && !['bool', 'boolean'].includes(
+            tags.find((tag) => tag.id === component.tagId)?.type.toLocaleLowerCase() ?? '',
+          )) {
+        messageApi.warning('正常／告警圖示組需要綁定 Boolean Tag，請先變更 Tag 型別。')
+        return
+      }
+      const usedIds = new Set<string>()
+      for (const view of config?.rawConfig.hmi.views ?? []) {
+        if (!isRecord(view) || !isRecord(view.items)) continue
+        Object.keys(view.items).forEach((id) => usedIds.add(id))
+      }
+      for (const currentModel of models.values()) {
+        for (const item of currentModel.components) {
+          if (item.shapeId) usedIds.add(item.shapeId)
+          if (item.labelId) usedIds.add(item.labelId)
+          if (item.alarmShapeId) usedIds.add(item.alarmShapeId)
+        }
+      }
+      const updated = updateComponentGraphic(
+        component,
+        value,
+        iconLibrary,
+        () => generateId('SHE', usedIds, window.crypto),
+      )
+      if (updated === component
+          || (updated.template === component.template
+            && updated.iconId === component.iconId
+            && updated.normalIconId === component.normalIconId
+            && updated.alarmIconId === component.alarmIconId)) return
+      handleUpdateComponent(viewId, component.key, updated)
+    } catch (error) {
+      messageApi.error(`更新元件圖形失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   function handleUpdateGrid(
@@ -1845,7 +1896,7 @@ function App() {
                           <div className="component-list">
                             {selectedModel.components
                               .filter((component) => component.managed !== false)
-                              .map((component: FloorLayoutComponent) => (
+                              .map((component: GeneratedComponent) => (
                                 <div className="component-row" key={component.key}>
                                   <div className="component-meta">
                                     <Input
@@ -1872,6 +1923,35 @@ function App() {
                                         { tagId },
                                       )}
                                     />
+                                    <Select
+                                      aria-label="圖形"
+                                      value={selectedComponentGraphic(component, iconLibrary)}
+                                      options={getComponentGraphicChoices(
+                                        iconLibrary,
+                                        component,
+                                        ['bool', 'boolean'].includes(
+                                          tags.find((tag) => tag.id === component.tagId)
+                                            ?.type.toLocaleLowerCase() ?? '',
+                                        ),
+                                      )}
+                                      onChange={(value: string) => handleUpdateGraphic(
+                                        selectedView.id,
+                                        component,
+                                        value,
+                                      )}
+                                    />
+                                    {component.template === 'icon-pair' && (
+                                      <Checkbox
+                                        checked={Boolean(component.invertIconState)}
+                                        onChange={(event) => handleUpdateComponent(
+                                          selectedView.id,
+                                          component.key,
+                                          { invertIconState: event.target.checked },
+                                        )}
+                                      >
+                                        反轉狀態
+                                      </Checkbox>
+                                    )}
                                     {component.template !== 'icon-pair' && (
                                       <Select
                                         aria-label="顏色狀態"
