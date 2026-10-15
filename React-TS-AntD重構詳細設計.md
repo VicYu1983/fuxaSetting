@@ -75,11 +75,11 @@
 
 | 項目 | 選擇 | 備註 |
 |------|------|------|
-| 建置 | Vite | 輸出靜態檔；`base: "./"` 以支援相對路徑與子資料夾部署 |
+| 建置 | Vite 8（已建立） | 輸出靜態檔；`base: "./"` 以支援相對路徑與子資料夾部署 |
 | 語言 | TypeScript（`strict: true`、`noUncheckedIndexedAccess: true`） | FUXA 未知欄位使用 `unknown` + 型別守衛，避免 `any` |
-| UI | React 18 + Ant Design 5 | 搭配 `@ant-design/icons`，全部本機打包 |
+| UI | React 19 + Ant Design 6（專案既有版本） | 搭配 `@ant-design/icons`，全部本機打包；遷移依專案實際版本，不回退 React 18／Ant Design 5 |
 | 狀態 | **待決策**：`useReducer` + Context，或 Zustand | 建議先 `useReducer`；若 selector 效能不足再換（見 §5.4） |
-| 測試 | Vitest（domain/store）＋ React Testing Library（元件）＋ Playwright（E2E，選用） | Vitest 可直接重用現有測試案例 |
+| 測試 | Vitest 5（已加入）＋ React Testing Library（元件）＋ Playwright（E2E，選用） | Vitest 用於新版 TS 測試；舊版 `node:test` 暫時保留 |
 | XML 解析 | 瀏覽器 `DOMParser`；測試環境用 `happy-dom` 或 `jsdom` | 統一以 `parseSvg()` 包裝（§4.3） |
 | Lint／格式 | ESLint（typescript-eslint、react-hooks）＋ Prettier | 與現有程式風格（2 空白、雙引號）對齊 |
 | Node | 固定 LTS 版本，寫入 `engines` 與 `.nvmrc` | |
@@ -287,12 +287,13 @@ interface AppState {
 
 ### 階段 0：基線凍結
 - 建立 `tests/fixtures/`：以現有範例 JSON（`旭峰建設.json`、`測試visible.json`、`圖示用測試.json`…）搭配**舊版**執行代表性操作，產出「黃金輸出」（§9.1）。
-- 將舊版檔案移到 `legacy/`，保持可獨立開啟。
+- 舊版檔案暫留在 `fuxaSetting/` 根目錄，不移入 `fuxaViewEditor/`；新版與舊版分開執行，舊版作為行為參考及回退來源。完成遷移後再決定是否封存或移除。
 - **驗收**：`npm test` 仍全綠；黃金檔產生流程文件化。
 
 ### 階段 1：工具鏈
-- 初始化 Vite + React + TS + Antd + ESLint + Prettier + Vitest。
-- 實作空殼 `App`（`ConfigProvider` + Layout），驗證離線建置：`npm run build` 後斷網以 `vite preview`／靜態伺服器可用。
+- **已完成基礎建立**：`fuxaViewEditor/` 已有 Vite 8、React 19、TypeScript、Ant Design 6、ESLint；已加入 Vitest 5。
+- **目前進行中**：實作 `ConfigProvider` + Layout，完成本機 JSON 載入與 View 摘要顯示；補齊 lint、test、typecheck 與 build 驗證。
+- 後續驗證建置產物離線可用：以 `yarn build` 後斷網測試 `vite preview`／靜態伺服器。
 - CI（若有）：lint、typecheck、test、build。
 - **驗收**：建置產物不含外部網路請求（可用瀏覽器 DevTools Network 檢查）。
 

@@ -1,78 +1,32 @@
-# React + TypeScript + Vite
+# FUXA View Editor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+新版 FUXA 配置編輯工具，使用 React、TypeScript、Ant Design 與 Vite。此專案目前處於分階段遷移初期；既有原生版仍保留在上一層目錄，作為行為與輸出格式的參考。
 
-Currently, two official plugins are available:
+## 目前功能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 在瀏覽器本機開啟 FUXA JSON，不上傳配置。
+- 驗證配置需包含 `devices` 與 `hmi.views`。
+- 顯示 View 清單，以及選取 View 的基本資訊。
+- 保留載入的原始配置物件，供後續 domain 與編輯流程遷移使用。
 
-## React Compiler
+目前為唯讀載入切片；編輯、預覽、Undo/Redo 與另存功能尚未遷移。
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## 開發
 
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
+使用 Yarn（專案已提交 `yarn.lock`）：
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```powershell
+yarn install
+yarn dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## 驗證與建置
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```powershell
+yarn lint
+yarn test
+yarn typecheck
+yarn build
 ```
+
+建置輸出位於 `dist/`。Vite 使用相對資產路徑，部署方式及直接以 `file://` 開啟的支援狀況仍待確認。

@@ -1,121 +1,228 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import {
+  Alert,
+  Button,
+  Card,
+  ConfigProvider,
+  Descriptions,
+  Empty,
+  Layout,
+  Space,
+  Statistic,
+  Tag,
+  Typography,
+  message,
+} from 'antd'
+import zhTW from 'antd/locale/zh_TW'
+import {
+  parseFuxaConfig,
+  type FuxaConfigSummary,
+  type FuxaViewSummary,
+} from './domain/config/parseFuxaConfig'
 import './App.css'
 
+const { Header, Sider, Content } = Layout
+const { Text, Title } = Typography
+
+function countTags(devices: Record<string, unknown>): number {
+  return Object.values(devices).reduce<number>((count, device) => {
+    if (!isRecord(device) || !isRecord(device.tags)) return count
+    return count + Object.keys(device.tags).length
+  }, 0)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getSelectedView(
+  views: FuxaViewSummary[],
+  selectedViewId: string,
+): FuxaViewSummary | undefined {
+  return views.find((view) => view.key === selectedViewId)
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [messageApi, contextHolder] = message.useMessage()
+  const [config, setConfig] = useState<FuxaConfigSummary | null>(null)
+  const [fileName, setFileName] = useState('')
+  const [selectedViewId, setSelectedViewId] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const selectedView = useMemo(
+    () => config ? getSelectedView(config.views, selectedViewId) : undefined,
+    [config, selectedViewId],
+  )
+  const tagCount = config ? countTags(config.devices) : 0
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setIsLoading(true)
+    try {
+      const text = await file.text()
+      const parsed = parseFuxaConfig(text)
+      setConfig(parsed)
+      setFileName(file.name)
+      setSelectedViewId(parsed.views[0]?.key ?? '')
+      messageApi.success(`已載入 ${file.name}`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '未知錯誤'
+      messageApi.error(`載入失敗：${detail}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <ConfigProvider
+      locale={zhTW}
+      theme={{
+        token: {
+          colorPrimary: '#176b87',
+          borderRadius: 8,
+          fontFamily: '"Segoe UI", "Microsoft JhengHei", sans-serif',
+        },
+      }}
+    >
+      {contextHolder}
+      <Layout className="editor-shell">
+        <Header className="editor-header">
+          <div className="brand">
+            <div className="brand-mark">F</div>
+            <div>
+              <Text className="brand-name">FUXA View Editor</Text>
+              <Text className="brand-caption">View 元件批次管理工具</Text>
+            </div>
+          </div>
+          <Space size="middle">
+            <Text className="file-indicator" ellipsis title={fileName || '尚未載入配置'}>
+              {fileName || '尚未載入配置'}
+            </Text>
+            <input
+              ref={fileInputRef}
+              hidden
+              type="file"
+              accept=".json,application/json"
+              onChange={handleFileChange}
+            />
+            <Button
+              type="primary"
+              loading={isLoading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              開啟 JSON
+            </Button>
+            <Button disabled title="主流程完成後啟用另存功能">
+              另存新 JSON
+            </Button>
+          </Space>
+        </Header>
 
-      <div className="ticks"></div>
+        <Layout className="editor-body">
+          <Sider width={260} theme="light" className="view-sidebar">
+            <div className="sidebar-heading">
+              <Text strong>Views</Text>
+              <Tag>{config?.views.length ?? 0}</Tag>
+            </div>
+            {config ? (
+              config.views.length > 0 ? (
+                <nav className="view-list" aria-label="View 清單">
+                  {config.views.map((view) => (
+                    <Button
+                      key={view.key}
+                      type="text"
+                      block
+                      className={view.key === selectedViewId ? 'view-item selected' : 'view-item'}
+                      aria-current={view.key === selectedViewId ? 'page' : undefined}
+                      onClick={() => setSelectedViewId(view.key)}
+                    >
+                      <Text ellipsis title={view.name}>{view.name}</Text>
+                      <Text className="view-id" ellipsis title={view.id}>{view.id || '無 ID'}</Text>
+                    </Button>
+                  ))}
+                </nav>
+              ) : (
+                <div className="sidebar-empty">
+                  <Text type="secondary">配置中沒有 View。</Text>
+                </div>
+              )
+            ) : (
+              <div className="sidebar-empty">
+                <Text type="secondary">開啟 FUXA JSON 後，View 清單會顯示於此。</Text>
+              </div>
+            )}
+          </Sider>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
+          <Content className="workspace">
+            {!config ? (
+              <div className="welcome-panel">
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={(
+                    <Space orientation="vertical" size={4}>
+                      <Title level={4}>開始編輯 FUXA View</Title>
+                      <Text type="secondary">
+                        選取本機 FUXA 配置 JSON。檔案只在瀏覽器中讀取，不會上傳。
+                      </Text>
+                    </Space>
+                  )}
                 >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+                  <Button type="primary" size="large" onClick={() => fileInputRef.current?.click()}>
+                    開啟 JSON
+                  </Button>
+                </Empty>
+              </div>
+            ) : (
+              <div className="workspace-content">
+                <div className="workspace-title">
+                  <div>
+                    <Text className="eyebrow">CONFIGURATION</Text>
+                    <Title level={3}>{selectedView?.name ?? 'View'}</Title>
+                  </div>
+                  <Tag color="blue">唯讀載入階段</Tag>
+                </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+                <Space className="summary-cards" size="middle" wrap>
+                  <Card className="summary-card"><Statistic title="Views" value={config.views.length} /></Card>
+                  <Card className="summary-card"><Statistic title="Devices" value={Object.keys(config.devices).length} /></Card>
+                  <Card className="summary-card"><Statistic title="Tags" value={tagCount} /></Card>
+                </Space>
+
+                {selectedView ? (
+                  <Card title="View 資訊" className="view-details">
+                    <Descriptions column={{ xs: 1, sm: 2 }}>
+                      <Descriptions.Item label="名稱">{selectedView.name}</Descriptions.Item>
+                      <Descriptions.Item label="View ID">{selectedView.id || '—'}</Descriptions.Item>
+                      <Descriptions.Item label="畫布尺寸">
+                        {selectedView.width && selectedView.height
+                          ? `${selectedView.width} × ${selectedView.height}`
+                          : '未提供'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="元件數">
+                        {selectedView.itemCount ?? '未提供'}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+                ) : (
+                  <Alert type="info" showIcon message="此配置沒有可選取的 View。" />
+                )}
+
+                <Card className="next-step-card">
+                  <Text strong>目前進度</Text>
+                  <Text type="secondary">
+                    已完成應用程式外框與本機配置載入。接續將遷移 domain 資料規則及 View 元件編輯流程。
+                  </Text>
+                </Card>
+              </div>
+            )}
+          </Content>
+        </Layout>
+      </Layout>
+    </ConfigProvider>
   )
 }
 
