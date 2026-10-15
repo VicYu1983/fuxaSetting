@@ -347,6 +347,13 @@ dialog form { padding: 18px; }
   justify-content: space-between;
   align-items: center;
 }
+.address-shift-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
 
 .badge {
   display: inline-block;

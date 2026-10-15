@@ -125,6 +125,8 @@
     devForceFC16: $("#dev-force-fc16"),
     deviceTagsCountText: $("#device-tags-count-text"),
     goToBatchTagsBtn: $("#go-to-batch-tags-btn"),
+    shiftAddressesUp: $("#shift-addresses-up-btn"),
+    shiftAddressesDown: $("#shift-addresses-down-btn"),
     deleteDeviceBtn: $("#delete-device-btn"),
     saveDeviceBtn: $("#save-device-btn"),
     batchCreateTagsForm: $("#batch-create-tags-form"),
@@ -521,7 +523,11 @@
         prepareNewDevice();
       }
       updateBatchDeviceOptions();
-      renderBatchTagPreview();
+      if (state.selectedDeviceId && state.config.devices[state.selectedDeviceId]) {
+        onBatchDeviceChange();
+      } else {
+        renderBatchTagPreview();
+      }
     }
   }
 
@@ -2420,6 +2426,8 @@
     const tagCount = dev.tags ? Object.keys(dev.tags).length : 0;
     elements.deviceTagsCountText.textContent = `目前已有 ${tagCount} 個 Tag`;
     elements.deleteDeviceBtn.hidden = (dev.id === "0");
+    elements.shiftAddressesUp.hidden = !isModbusTcp;
+    elements.shiftAddressesDown.hidden = !isModbusTcp;
   }
 
   function prepareNewDevice() {
@@ -2443,7 +2451,47 @@
     elements.devForceFC16.checked = false;
     elements.deviceTagsCountText.textContent = "目前已有 0 個 Tag";
     elements.deleteDeviceBtn.hidden = true;
+    elements.shiftAddressesUp.hidden = true;
+    elements.shiftAddressesDown.hidden = true;
     renderDeviceList(elements.deviceSearch.value);
+  }
+
+  function shiftSelectedDeviceAddresses(delta) {
+    const device = state.config && state.config.devices[state.selectedDeviceId];
+    if (!device || device.type !== "ModbusTCP") return;
+
+    let plan;
+    try {
+      plan = D.getModbusTcpAddressShiftPlan(device, delta);
+    } catch (error) {
+      setStatus(error.message, "error");
+      return;
+    }
+    const direction = delta > 0 ? "+1" : "-1";
+    if (!plan.count) {
+      setStatus(plan.skippedInvalid
+        ? `沒有可調整的有效數字 address；另有 ${plan.skippedInvalid} 個無效 address 保持不變。`
+        : "本站沒有可調整的數字 address。", plan.skippedInvalid ? "warning" : "info");
+      return;
+    }
+    if (!window.confirm(
+      `確定將設備「${device.name || device.id}」的 ${plan.count} 個 Tag address 全部 ${direction}？\n` +
+      "此操作跨所有 memaddress 區段；沒有 address 的 Tag 不變。"
+    )) return;
+
+    rememberUndo();
+    const result = D.shiftModbusTcpAddresses(device, delta);
+    state.tags = D.buildTagIndex(state.config);
+    renderAll();
+    renderDeviceList(elements.deviceSearch.value);
+    selectDevice(state.selectedDeviceId);
+    updateBatchDeviceOptions();
+    onBatchDeviceChange();
+    setStatus(
+      `已將設備「${device.name || device.id}」的 ${result.count} 個 Tag address 全部 ${direction}。` +
+      (result.skippedInvalid ? ` ${result.skippedInvalid} 個無效 address 未變更。` : ""),
+      result.skippedInvalid ? "warning" : "success"
+    );
   }
 
   function handleSaveDevice(event) {
@@ -2917,6 +2965,8 @@
   elements.newDeviceBtn.addEventListener("click", prepareNewDevice);
   elements.deviceForm.addEventListener("submit", handleSaveDevice);
   elements.deleteDeviceBtn.addEventListener("click", handleDeleteDevice);
+  elements.shiftAddressesUp.addEventListener("click", () => shiftSelectedDeviceAddresses(1));
+  elements.shiftAddressesDown.addEventListener("click", () => shiftSelectedDeviceAddresses(-1));
   elements.goToBatchTagsBtn.addEventListener("click", () => {
     if (state.selectedDeviceId) {
       elements.batchTagDevice.value = state.selectedDeviceId;

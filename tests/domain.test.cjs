@@ -609,6 +609,60 @@ test("validates ModbusTCP address fill bounds and waits until a tag establishes 
   ), /地址數量/);
 });
 
+test("shifts every valid ModbusTCP tag address across memory areas", () => {
+  const device = {
+    type: "ModbusTCP",
+    tags: {
+      coil: { address: 1, memaddress: "000000" },
+      register: { address: "10", memaddress: "400000" },
+      noAddress: { memaddress: "d_demo" },
+      invalid: { address: "not-an-address", memaddress: "300000" }
+    }
+  };
+
+  assert.deepEqual(D.getModbusTcpAddressShiftPlan(device, 1).count, 2);
+  assert.deepEqual(D.shiftModbusTcpAddresses(device, 1), {
+    count: 2,
+    skippedInvalid: 1
+  });
+  assert.equal(device.tags.coil.address, 2);
+  assert.equal(device.tags.register.address, "11");
+  assert.equal(device.tags.noAddress.address, undefined);
+  assert.equal(device.tags.invalid.address, "not-an-address");
+
+  assert.deepEqual(D.shiftModbusTcpAddresses(device, -1), {
+    count: 2,
+    skippedInvalid: 1
+  });
+  assert.equal(device.tags.coil.address, 1);
+  assert.equal(device.tags.register.address, "10");
+});
+
+test("rejects out-of-range ModbusTCP shifts atomically", () => {
+  const upperBound = {
+    type: "ModbusTCP",
+    tags: {
+      first: { address: 8 },
+      last: { address: 65535 }
+    }
+  };
+  assert.throws(() => D.shiftModbusTcpAddresses(upperBound, 1), /未修改任何 Tag/);
+  assert.equal(upperBound.tags.first.address, 8);
+  assert.equal(upperBound.tags.last.address, 65535);
+
+  const lowerBound = {
+    type: "ModbusTCP",
+    tags: {
+      first: { address: 0 },
+      last: { address: 10 }
+    }
+  };
+  assert.throws(() => D.shiftModbusTcpAddresses(lowerBound, -1), /未修改任何 Tag/);
+  assert.equal(lowerBound.tags.first.address, 0);
+  assert.equal(lowerBound.tags.last.address, 10);
+  assert.throws(() => D.getModbusTcpAddressShiftPlan(upperBound, 2), /只能是 \+1 或 -1/);
+});
+
 test("parses tag batch input with automatic increment and custom columns", () => {
   const input = `
     # 註解行

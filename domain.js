@@ -942,6 +942,41 @@
     };
   }
 
+  function getModbusTcpAddressShiftPlan(device, delta) {
+    if (!isRecord(device) || device.type !== "ModbusTCP") {
+      throw new Error("無效的 ModbusTCP 設備。");
+    }
+    if (delta !== 1 && delta !== -1) {
+      throw new Error("位址調整量只能是 +1 或 -1。");
+    }
+    const tags = isRecord(device.tags) ? Object.values(device.tags) : [];
+    const updates = [];
+    let skippedInvalid = 0;
+    for (const tag of tags) {
+      if (!isRecord(tag) || tag.address === undefined ||
+          tag.address === null || tag.address === "") continue;
+      const address = Number(tag.address);
+      if (!Number.isSafeInteger(address) || address < 0 || address > 65535) {
+        skippedInvalid += 1;
+        continue;
+      }
+      const nextAddress = address + delta;
+      if (nextAddress < 0 || nextAddress > 65535) {
+        throw new Error(`無法將本站所有 Tag address ${delta > 0 ? "+1" : "-1"}：位址 ${address} 超出 Modbus 位址範圍 0–65535。未修改任何 Tag。`);
+      }
+      updates.push({ tag, nextAddress });
+    }
+    return { count: updates.length, skippedInvalid, updates };
+  }
+
+  function shiftModbusTcpAddresses(device, delta) {
+    const plan = getModbusTcpAddressShiftPlan(device, delta);
+    for (const { tag, nextAddress } of plan.updates) {
+      tag.address = typeof tag.address === "string" ? String(nextAddress) : nextAddress;
+    }
+    return { count: plan.count, skippedInvalid: plan.skippedInvalid };
+  }
+
   function fillModbusTcpAddressGaps(device, usedTagIds, cryptoObject) {
     const plan = getModbusTcpAddressFillPlan(device);
     if (!plan.hasAnchor || !plan.missing.length) return { ...plan, created: [] };
@@ -1120,7 +1155,8 @@
     parseSvg, readManaged, removeLayoutViewReferences,
     serializeConfig, validateConfig,
     createModbusTcpDevice, updateModbusTcpDevice, getNextAvailableAddress,
-    getModbusTcpAddressFillPlan, fillModbusTcpAddressGaps,
+    getModbusTcpAddressFillPlan, getModbusTcpAddressShiftPlan,
+    shiftModbusTcpAddresses, fillModbusTcpAddressGaps,
     parseTagBatchInput, batchCreateTags, syncDeviceConnectionTag, removeDevice
   };
 });
