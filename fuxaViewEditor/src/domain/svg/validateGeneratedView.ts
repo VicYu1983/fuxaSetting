@@ -17,6 +17,7 @@ export interface GeneratedComponent extends FloorLayoutComponent {
   labelId?: string
   alarmShapeId?: string
   invertIconState?: boolean
+  shapeInnerIds?: Array<string | null>
 }
 
 export interface GeneratedViewModel {

@@ -8,16 +8,12 @@ import { saveViewGridSettings } from '../layout/gridSettings'
 import { saveFloorGroupFrameSettings } from '../layout/floorGroupFrame'
 import { saveFloorGroupArtifacts } from '../layout/floorGroupArtifacts'
 import { groupComponentsByFloor } from '../layout/floorLayout'
-import type { FloorLayoutComponent, FloorTag } from '../layout/floorLayout'
+import type { FloorTag } from '../layout/floorLayout'
 import { saveIconLibrary } from '../icons/iconLibrary'
 import { isRecord } from './validateFuxaConfig'
+import type { GeneratedViewModel } from '../svg/validateGeneratedView'
 
-export interface ExportViewModel {
-  viewId: string
-  components: readonly FloorLayoutComponent[]
-  grid: unknown
-  floorTitles: Record<string, string>
-  floorFrames: Record<string, string>
+export interface ExportViewModel extends GeneratedViewModel {
   floorFrameShapeIds: Record<string, string>
 }
 
@@ -35,7 +31,11 @@ export interface PrepareFuxaConfigExportInput {
 }
 
 export interface PrepareFuxaConfigExportDependencies {
-  applyView?: (view: Record<string, unknown>, model: ExportViewModel) => void
+  applyView?: (
+    view: Record<string, unknown>,
+    model: ExportViewModel,
+    models: readonly ExportViewModel[],
+  ) => void
   validate?: (
     config: FuxaConfig,
     modifiedViewIds: ReadonlySet<string>,
@@ -48,11 +48,12 @@ export interface PreparedFuxaConfigExport {
   text: string
   dirty: boolean
   modifiedViewIds: ReadonlySet<string>
+  models: readonly ExportViewModel[]
 }
 
-function viewById(config: FuxaConfig, viewId: string): Record<string, unknown> | undefined {
-  if (!Array.isArray(config.hmi.views)) return undefined
-  return config.hmi.views.find(
+function viewsById(config: FuxaConfig, viewId: string): Record<string, unknown>[] {
+  if (!Array.isArray(config.hmi.views)) return []
+  return config.hmi.views.filter(
     (view): view is Record<string, unknown> => isRecord(view) && view.id === viewId,
   )
 }
@@ -84,25 +85,45 @@ export function prepareFuxaConfigExport(
       text: input.originalText,
       dirty: false,
       modifiedViewIds: new Set(),
+      models: input.models ?? [],
     }
   }
 
   const output = structuredClone(input.config)
-  const models = input.models ?? []
+  const models = (input.models ?? []).map((model) => structuredClone(model))
   const modifiedViewIds = new Set<string>()
   const tags = input.tags ?? {}
+  const modelIds = new Set<string>()
+  for (const model of models) {
+    if (modelIds.has(model.viewId)) {
+      throw new Error(`編輯模型包含重複的 View ID「${model.viewId}」，無法安全匯出。`)
+    }
+    modelIds.add(model.viewId)
+  }
   const allViewIds = output.hmi.views.flatMap((view) =>
     isRecord(view) && typeof view.id === 'string' ? [view.id] : [],
   )
 
-  for (const model of models) {
-    const view = viewById(output, model.viewId)
-    if (!view || !input.modifiedViewIds?.has(model.viewId)) continue
+  const requestedViewIds = input.modifiedViewIds ?? new Set<string>()
+  for (const viewId of requestedViewIds) {
+    const model = models.find((candidate) => candidate.viewId === viewId)
+    if (!model) {
+      throw new Error(`找不到 View「${viewId}」的編輯模型，無法匯出修改。`)
+    }
+    const matchingViews = viewsById(output, viewId)
+    if (matchingViews.length !== 1) {
+      throw new Error(
+        matchingViews.length === 0
+          ? `配置中找不到已修改的 View「${viewId}」。`
+          : `配置中 View ID「${viewId}」重複，無法安全匯出。`,
+      )
+    }
+    const view = matchingViews[0]!
     if (!dependencies.applyView) {
       throw new Error('尚未設定 SVG View 套用函式，無法匯出修改後的配置。')
     }
-    dependencies.applyView(view, model)
-    modifiedViewIds.add(model.viewId)
+    dependencies.applyView(view, model, models)
+    modifiedViewIds.add(viewId)
   }
 
   if (input.iconLibrary !== undefined
@@ -131,5 +152,5 @@ export function prepareFuxaConfigExport(
   const parsedOutput = JSON.parse(text) as FuxaConfig
   dependencies.validate(parsedOutput, modifiedViewIds, models)
 
-  return { config: output, text, dirty: true, modifiedViewIds }
+  return { config: output, text, dirty: true, modifiedViewIds, models }
 }

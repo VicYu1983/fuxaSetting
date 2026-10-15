@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FuxaConfig, SourceTextFormat } from '../../src/domain/config/types'
 import { prepareFuxaConfigExport } from '../../src/domain/config/prepareFuxaConfigExport'
+import { createFuxaConfigExportDependencies } from '../../src/domain/config/fuxaConfigExportDependencies'
 import type {
   ExportViewModel,
   PrepareFuxaConfigExportInput,
@@ -38,8 +39,18 @@ function model(viewId = 'view-1'): ExportViewModel {
       labelOffset: 3,
       labelFontSize: 12,
     },
+    floorGroupFrame: {
+      fill: '#eff6ff',
+      fillOpacity: 0.55,
+      stroke: '#93c5fd',
+      strokeWidth: 1,
+      cornerRadius: 12,
+      padding: 16,
+    },
     floorTitles: {},
+    floorTitleIds: {},
     floorFrames: {},
+    floorFrameIds: {},
     floorFrameShapeIds: {},
   }
 }
@@ -163,5 +174,96 @@ describe('prepareFuxaConfigExport', () => {
   it('requires output validation for modified exports', () => {
     expect(() => prepareFuxaConfigExport(input({ dirty: true })))
       .toThrow('尚未設定輸出驗證函式，無法匯出修改後的配置。')
+  })
+
+  it('rejects missing or ambiguous modified Views instead of silently skipping them', () => {
+    const missingView = input({
+      dirty: true,
+      models: [model('missing')],
+      modifiedViewIds: new Set(['missing']),
+    })
+    expect(() => prepareFuxaConfigExport(missingView, {
+      applyView: vi.fn(),
+      validate: vi.fn(),
+    })).toThrow('配置中找不到已修改的 View「missing」。')
+
+    const duplicateConfig = config()
+    duplicateConfig.hmi.views.push({
+      id: 'view-1',
+      name: 'Duplicate',
+      items: {},
+      svgcontent: '<svg/>',
+    })
+    expect(() => prepareFuxaConfigExport(input({
+      config: duplicateConfig,
+      dirty: true,
+      models: [model()],
+      modifiedViewIds: new Set(['view-1']),
+    }), {
+      applyView: vi.fn(),
+      validate: vi.fn(),
+    })).toThrow('配置中 View ID「view-1」重複，無法安全匯出。')
+
+    expect(() => prepareFuxaConfigExport(input({
+      dirty: true,
+      modifiedViewIds: new Set(['view-1']),
+    }), {
+      applyView: vi.fn(),
+      validate: vi.fn(),
+    })).toThrow('找不到 View「view-1」的編輯模型，無法匯出修改。')
+
+    expect(() => prepareFuxaConfigExport(input({
+      dirty: true,
+      models: [model(), model()],
+    }), {
+      validate: vi.fn(),
+    })).toThrow('編輯模型包含重複的 View ID「view-1」，無法安全匯出。')
+  })
+
+  it('does not let SVG application mutate the caller-owned model', () => {
+    const currentModel = model()
+    const snapshot = structuredClone(currentModel)
+    const result = prepareFuxaConfigExport(input({
+      dirty: true,
+      models: [currentModel],
+      modifiedViewIds: new Set(['view-1']),
+    }), {
+      applyView: (_view, stagedModel) => {
+        stagedModel.floorTitles['floor:1F'] = 'generated-title'
+      },
+      validate: vi.fn(),
+    })
+
+    expect(currentModel).toEqual(snapshot)
+    expect(result.models[0]?.floorTitles['floor:1F']).toBe('generated-title')
+  })
+
+  it('provides the SVG validation/export adapters for metadata-only dirty changes', () => {
+    class Parser {
+      parseFromString(): XMLDocument {
+        throw new Error('Parser should not be used when no View is modified.')
+      }
+    }
+    const original = config()
+    const dependencies = createFuxaConfigExportDependencies(original, {
+      Parser,
+      serialize: () => {
+        throw new Error('Serializer should not be used when no View is modified.')
+      },
+      crypto: {
+        getRandomValues(bytes) {
+          return bytes
+        },
+      },
+    })
+
+    const result = prepareFuxaConfigExport(input({
+      config: original,
+      dirty: true,
+    }), dependencies)
+
+    expect(result.dirty).toBe(true)
+    expect(result.modifiedViewIds.size).toBe(0)
+    expect(JSON.parse(result.text).hmi.views).toHaveLength(2)
   })
 })
