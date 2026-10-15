@@ -5,6 +5,7 @@ import { layoutFloorComponents } from '../layout/floorLayout'
 import { findSvgElementById, parseSvg } from './parseSvg'
 import type { SvgParserConstructor } from './parseSvg'
 import { existingTagTransform } from './existingTagTransform'
+import type { IconLibraryEntry } from '../icons/iconLibrary'
 
 const FLOOR_LAYOUT_MARKER = 'floor-layout-v1'
 const FLOOR_TITLE_NAME = 'fuxa_floor_section_title'
@@ -20,6 +21,13 @@ export interface GeneratedComponent extends FloorLayoutComponent {
   labelId?: string
   alarmShapeId?: string
   invertIconState?: boolean
+  multiIconSetId?: string
+  multiStateBindings?: Array<{
+    stateKey: string
+    iconId: string
+    tagId: string
+    shapeId: string
+  }>
   shapeInnerIds?: Array<string | null>
 }
 
@@ -47,6 +55,7 @@ export interface ValidateGeneratedViewOptions {
   tags: Map<string, FloorTag> | Record<string, FloorTag>
   models: readonly GeneratedViewModel[]
   createdIds?: ReadonlySet<string>
+  iconLibrary?: readonly IconLibraryEntry[]
 }
 
 function viewLabel(view: GeneratedView): string {
@@ -134,6 +143,7 @@ function validateManagedComponent(
   doc: XMLDocument,
   tags: Map<string, FloorTag> | Record<string, FloorTag>,
   component: GeneratedComponent,
+  iconLibrary?: readonly IconLibraryEntry[],
 ): void {
   const normalNode = findSvgElementById(doc, component.shapeId)
   const alarmNode = component.alarmShapeId
@@ -160,12 +170,15 @@ function validateManagedComponent(
   if (!items[component.shapeId]
       || (component.template === 'icon-pair'
         && (!component.alarmShapeId || !items[component.alarmShapeId]))
+      || (component.template === 'icon-multi'
+        && (component.multiStateBindings ?? []).some((binding) => !items[binding.shapeId]))
       || !component.labelId
       || !items[component.labelId]) {
     throw new Error(`View「${viewLabel(view)}」缺少元件或 Label 的 items 記錄。`)
   }
 
-  if (!component.tagId || !tagExists(tags, component.tagId)) {
+  if (component.template !== 'icon-multi'
+      && (!component.tagId || !tagExists(tags, component.tagId))) {
     throw new Error(
       `元件 ${component.shapeId} 連結到不存在的 Tag：${component.tagId || '(空白)'}`,
     )
@@ -185,6 +198,8 @@ function validateManagedComponent(
     if (!tag || !['bool', 'boolean'].includes(String(tag.type ?? '').toLocaleLowerCase())) {
       throw new Error(`元件 ${component.shapeId} 的正常／告警圖示顯示條件需要 Boolean Tag。`)
     }
+  } else if (component.template === 'icon-multi') {
+    validateMultiStateComponent(items, doc, normalNode, tags, component, iconLibrary)
   } else if (tagProperty(items[component.shapeId]).variableId !== component.tagId) {
     throw new Error(`元件 ${component.shapeId} 的 Tag 連結與清單不一致。`)
   }
@@ -193,7 +208,7 @@ function validateManagedComponent(
     throw new Error(`元件 ${component.shapeId} 的文字標籤未正確寫入 SVG。`)
   }
 
-  if (component.template !== 'icon-pair') {
+  if (component.template !== 'icon-pair' && component.template !== 'icon-multi') {
     const expectedColors = component.palette === 'alarm'
       ? ['#ff0000ff', '#00ff07ff']
       : ['#00ff07ff', '#f80000ff']
@@ -203,6 +218,97 @@ function validateManagedComponent(
         || ranges.some((range, index) =>
           !isRecord(range) || range.color !== expectedColors[index])) {
       throw new Error(`元件 ${component.shapeId} 的顏色狀態未正確寫入。`)
+    }
+  }
+
+  function validateMultiStateComponent(
+    items: Record<string, unknown>,
+    doc: XMLDocument,
+    normalNode: Element,
+    tags: Map<string, FloorTag> | Record<string, FloorTag>,
+    component: GeneratedComponent,
+    iconLibrary?: readonly IconLibraryEntry[],
+  ): void {
+    const bindings = component.multiStateBindings ?? []
+    if (!component.multiIconSetId || !component.normalIconId || bindings.length < 1) {
+      throw new Error(`元件「${component.label || component.shapeId}」的多狀態圖示組設定不完整。`)
+    }
+    if (normalNode.localName !== 'image'
+        || normalNode.getAttribute('data-fuxa-icon-set-id') !== component.multiIconSetId
+        || normalNode.getAttribute('data-fuxa-state-key') !== 'normal'
+        || normalNode.getAttribute('data-fuxa-icon-id') !== component.normalIconId) {
+      throw new Error(`元件 ${component.shapeId} 的正常圖示未連結至正確的多狀態圖示組。`)
+    }
+    const iconSet = iconLibrary?.find((icon) =>
+      icon.type === 'multi-state' && icon.id === component.multiIconSetId)
+    if (iconLibrary && (!iconSet || iconSet.type !== 'multi-state'
+        || iconSet.normal.id !== component.normalIconId
+        || iconSet.states.length !== bindings.length
+        || iconSet.states.some((state, index) =>
+          state.key !== bindings[index]?.stateKey || state.asset.id !== bindings[index]?.iconId))) {
+      throw new Error(`元件「${component.label || component.shapeId}」引用的多狀態圖示組已變更或不存在。`)
+    }
+    const expectedStackIds = [
+      component.shapeId,
+      ...bindings.slice().reverse().map((binding) => binding.shapeId),
+    ]
+    const componentNamePrefix = `tc_${component.seq}`
+    const actualStackIds = Array.from(doc.getElementsByTagName('*'))
+      .filter((node) => node.parentNode === normalNode.parentNode
+        && node.getAttribute('data-fuxa-icon-set-id') === component.multiIconSetId
+        && (node.getAttribute('data-name') === componentNamePrefix
+          || node.getAttribute('data-name')?.startsWith(`${componentNamePrefix}_state_`)))
+      .map((node) => node.getAttribute('id') || '')
+    if (JSON.stringify(actualStackIds) !== JSON.stringify(expectedStackIds)) {
+      throw new Error(`元件「${component.label || component.shapeId}」的狀態圖層順序與優先順序不一致。`)
+    }
+    const normalItem = items[component.shapeId]
+    const normalProperty = tagProperty(normalItem)
+    if (normalProperty.variableId !== undefined
+        || !Array.isArray(normalProperty.actions)
+        || normalProperty.actions.length !== 0) {
+      throw new Error(`元件「${component.label || component.shapeId}」的預設／正常圖示不應有 Tag 顯示條件。`)
+    }
+    const bounds = ['x', 'y', 'width', 'height']
+    const parent = normalNode.parentNode
+    const seenTags = new Set<string>()
+    for (const [priority, binding] of bindings.entries()) {
+      if (!binding.tagId || !tagExists(tags, binding.tagId)) {
+        throw new Error(
+          `元件「${component.label || component.shapeId}」的狀態「${binding.stateKey}」尚未綁定有效 Tag。`,
+        )
+      }
+      if (seenTags.has(binding.tagId)) {
+        throw new Error(`元件「${component.label || component.shapeId}」不能在多個狀態重複使用同一 Tag。`)
+      }
+      seenTags.add(binding.tagId)
+      const tag = tagFor(tags, binding.tagId)
+      if (!tag || !['bool', 'boolean'].includes(String(tag.type ?? '').toLocaleLowerCase())) {
+        throw new Error(
+          `元件「${component.label || component.shapeId}」的狀態「${binding.stateKey}」需要 Boolean Tag。`,
+        )
+      }
+      const node = findSvgElementById(doc, binding.shapeId)
+      const item = items[binding.shapeId]
+      if (!node || node.localName !== 'image'
+          || node.parentNode !== parent
+          || node.getAttribute('data-fuxa-icon-set-id') !== component.multiIconSetId
+          || node.getAttribute('data-fuxa-state-key') !== binding.stateKey
+          || node.getAttribute('data-fuxa-icon-id') !== binding.iconId
+          || node.getAttribute('data-fuxa-state-priority') !== String(priority)
+          || bounds.some((attribute) =>
+            node.getAttribute(attribute) !== normalNode.getAttribute(attribute))
+          || !isRecord(item)
+          || item.type !== 'svg-ext-shapes-select'
+          || tagProperty(item).variableId !== undefined
+          || !hasVisibilityRule(tagProperty(item).actions, binding.tagId, 1)) {
+        throw new Error(
+          `元件「${component.label || component.shapeId}」的狀態「${binding.stateKey}」圖示或可見條件未正確輸出。`,
+        )
+      }
+    }
+    if (component.tagId !== bindings[0]?.tagId) {
+      throw new Error(`元件「${component.label || component.shapeId}」的主要 Tag 與最高優先狀態不一致。`)
     }
   }
 
@@ -254,21 +360,28 @@ function validateDeletedComponents(
   doc: XMLDocument,
   model: GeneratedViewModel,
 ): void {
-  const currentIds = new Set<string>()
-  for (const component of model.components) {
-    if (component.managed === false) continue
-    currentIds.add(component.shapeId)
-    if (component.alarmShapeId) currentIds.add(component.alarmShapeId)
-    if (component.labelId) currentIds.add(component.labelId)
-  }
   for (const original of model.originalComponents ?? []) {
-    if (original.managed === false || currentIds.has(original.shapeId)) continue
-    if (items[original.shapeId]
-        || (original.alarmShapeId && items[original.alarmShapeId])
-        || (original.labelId && items[original.labelId])
-        || findSvgElementById(doc, original.shapeId)
-        || (original.alarmShapeId && findSvgElementById(doc, original.alarmShapeId))
-        || (original.labelId && findSvgElementById(doc, original.labelId))) {
+    if (original.managed === false) continue
+    const current = model.components.find((component) =>
+      component.managed !== false && component.shapeId === original.shapeId)
+    const currentIdsForComponent = new Set(
+      current
+        ? [
+          current.shapeId,
+          current.alarmShapeId,
+          current.labelId,
+          ...(current.multiStateBindings ?? []).map((binding) => binding.shapeId),
+        ].filter((id): id is string => Boolean(id))
+        : [],
+    )
+    const originalIds = [
+      original.shapeId,
+      original.alarmShapeId,
+      original.labelId,
+      ...(original.multiStateBindings ?? []).map((binding) => binding.shapeId),
+    ].filter((id): id is string => Boolean(id))
+    if (originalIds.some((id) => !currentIdsForComponent.has(id)
+        && (items[id] || findSvgElementById(doc, id)))) {
       throw new Error(`已刪除的元件 ${original.shapeId} 仍留在輸出配置中。`)
     }
   }
@@ -278,7 +391,7 @@ function validateDeletedComponents(
 export function validateGeneratedView(
   view: GeneratedView,
   model: GeneratedViewModel,
-  options: Pick<ValidateGeneratedViewOptions, 'Parser' | 'tags'>,
+  options: Pick<ValidateGeneratedViewOptions, 'Parser' | 'tags' | 'iconLibrary'>,
 ): XMLDocument {
   if (!isRecord(view.items)) {
     throw new Error(`View「${viewLabel(view)}」的 items 結構無效。`)
@@ -298,7 +411,7 @@ export function validateGeneratedView(
       validateExistingTag(items, doc, component, layout.placements)
       continue
     }
-    validateManagedComponent(view, items, doc, options.tags, component)
+    validateManagedComponent(view, items, doc, options.tags, component, options.iconLibrary)
   }
   validateFloorArtifacts(view, items, doc, model, layout.sections)
   validateDeletedComponents(view, items, doc, model)

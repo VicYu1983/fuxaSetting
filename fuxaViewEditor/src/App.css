@@ -450,6 +450,34 @@
   flex: 1 1 180px;
 }
 
+.multi-state-bindings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 0 100%;
+  margin-inline-start: 8px;
+}
+
+.multi-state-binding-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.multi-state-binding-row .ant-select {
+  flex: 1 1 260px;
+  min-width: min(100%, 260px);
+}
+
+.icon-state-draft-list {
+  width: 100%;
+}
+
+.icon-state-draft-list .ant-space-item {
+  max-width: 100%;
+}
+
 .grid-settings {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

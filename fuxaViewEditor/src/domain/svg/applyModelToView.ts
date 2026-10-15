@@ -17,6 +17,7 @@ import { insertFloorFrame } from './insertFloorFrame'
 import { parseSvg } from './parseSvg'
 import type { SvgParserConstructor } from './parseSvg'
 import { removeManagedFromView } from './removeManagedFromView'
+import type { MultiStateBinding } from './readManagedComponents'
 
 export interface ApplyModelComponent extends FloorLayoutComponent {
   template?: string
@@ -25,6 +26,8 @@ export interface ApplyModelComponent extends FloorLayoutComponent {
   alarmIconId?: string
   alarmShapeId?: string
   invertIconState?: boolean
+  multiIconSetId?: string
+  multiStateBindings?: MultiStateBinding[]
   palette?: SvgComponent['palette']
   labelId?: string
   shapeInnerIds?: Array<string | null>
@@ -72,7 +75,15 @@ function isManagedComponent(
     && (component.template === 'rect'
       || component.template === 'cylinder'
       || component.template === 'icon'
-      || component.template === 'icon-pair')
+      || component.template === 'icon-pair'
+      || component.template === 'icon-multi')
+    && (component.template !== 'icon-multi'
+      || ('multiIconSetId' in component
+        && typeof component.multiIconSetId === 'string'
+        && 'normalIconId' in component
+        && typeof component.normalIconId === 'string'
+        && 'multiStateBindings' in component
+        && Array.isArray(component.multiStateBindings)))
     && 'palette' in component
     && (component.palette === 'normal' || component.palette === 'alarm')
 }
@@ -80,12 +91,18 @@ function isManagedComponent(
 function existingItemItems(
   previousItems: Record<string, unknown>,
   component: SvgComponent,
-): { shape?: unknown; alarmShape?: unknown; label?: unknown } {
+): { shape?: unknown; alarmShape?: unknown; states?: Record<string, unknown>; label?: unknown } {
   return {
     shape: previousItems[component.shapeId],
     alarmShape: component.alarmShapeId
       ? previousItems[component.alarmShapeId]
       : undefined,
+    states: Object.fromEntries(
+      (component.multiStateBindings ?? []).map((binding) => [
+        binding.shapeId,
+        previousItems[binding.shapeId],
+      ]),
+    ),
     label: previousItems[component.labelId],
   }
 }
@@ -108,6 +125,15 @@ function writeComponentEntries(
     }
     view.items[component.alarmShapeId] = entries.shapeEntries[1]
   }
+  if (component.template === 'icon-multi') {
+    for (const entry of entries.shapeEntries) {
+      const id = entry.id
+      if (typeof id !== 'string' || !id) {
+        throw new Error(`元件「${component.label || '未命名'}」的多狀態圖示項目缺少 ID。`)
+      }
+      view.items[id] = entry
+    }
+  }
   view.items[component.labelId] = entries.labelEntry
 }
 
@@ -122,7 +148,9 @@ function applyModelToViewInPlace(
 ): void {
   const doc = parseSvg(view.svgcontent, options.Parser)
   if (model.components.some(
-    (component) => component.template === 'icon' || component.template === 'icon-pair',
+    (component) => component.template === 'icon'
+      || component.template === 'icon-pair'
+      || component.template === 'icon-multi',
   )) {
     ensureXlinkNamespace(doc)
   }
@@ -209,6 +237,7 @@ function cloneComponents(
   return components?.map((component) => ({
     ...component,
     shapeInnerIds: component.shapeInnerIds?.slice(),
+    multiStateBindings: component.multiStateBindings?.map((binding) => ({ ...binding })),
     companions: component.companions?.map((companion) => ({
       ...companion,
       bounds: companion.bounds ? { ...companion.bounds } : undefined,

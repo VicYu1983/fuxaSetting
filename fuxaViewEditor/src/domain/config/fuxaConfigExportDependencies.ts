@@ -1,7 +1,7 @@
 import type { FuxaConfig } from './types'
 import { buildTagIndex } from '../tags/index'
 import { generateId, type RandomValuesProvider } from '../ids'
-import { getIconLibrary, validateIconLibrary } from '../icons/iconLibrary'
+import { getIconAssets, getIconLibrary, validateIconLibrary } from '../icons/iconLibrary'
 import type { IconAsset } from '../icons/iconLibrary'
 import { applyModelToView } from '../svg/applyModelToView'
 import type { ApplyModelView } from '../svg/applyModelToView'
@@ -46,12 +46,7 @@ function iconResolver(config: FuxaConfig, iconLibrary: unknown): IconAssetResolv
     ? getIconLibrary(config)
     : validateIconLibrary(iconLibrary)
   for (const icon of icons) {
-    if (icon.type === 'pair') {
-      assets.set(icon.normal.id, icon.normal)
-      assets.set(icon.alarm.id, icon.alarm)
-    } else {
-      assets.set(icon.id, icon)
-    }
+    getIconAssets(icon).forEach((asset) => assets.set(asset.id, asset))
   }
   return (iconId) => (iconId ? assets.get(iconId) : undefined)
 }
@@ -101,6 +96,9 @@ function reserveModelIds(ids: Set<string>, models: readonly ExportViewModel[]): 
     for (const component of [...model.components, ...(model.originalComponents ?? [])]) {
       if (component.shapeId) ids.add(component.shapeId)
       if (component.alarmShapeId) ids.add(component.alarmShapeId)
+      for (const binding of component.multiStateBindings ?? []) {
+        if (binding.shapeId) ids.add(binding.shapeId)
+      }
       if (component.labelId) ids.add(component.labelId)
       for (const id of component.shapeInnerIds ?? []) {
         if (id) ids.add(id)
@@ -163,7 +161,12 @@ export function createFuxaConfigExportDependencies(
         viewIds(output),
         modifiedIds,
         models,
-        { Parser: runtime.Parser, tags, createdIds },
+        {
+          Parser: runtime.Parser,
+          tags,
+          createdIds,
+          iconLibrary: getIconLibrary(output),
+        },
       )
     },
   }

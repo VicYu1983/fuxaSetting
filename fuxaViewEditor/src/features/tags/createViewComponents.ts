@@ -1,11 +1,13 @@
 import type { FuxaConfig } from '../../domain/config/types'
 import type { ExportViewModel } from '../../domain/config/prepareFuxaConfigExport'
+import type { IconLibraryEntry } from '../../domain/icons/iconLibrary'
 import { isRecord } from '../../domain/config/validateFuxaConfig'
 import { generateId, type RandomValuesProvider } from '../../domain/ids'
 import { parseSvg } from '../../domain/svg/parseSvg'
 import type { SvgParserConstructor } from '../../domain/svg/parseSvg'
 import type { IndexedTag } from '../../domain/tags/index'
 import { buildTagIndex } from '../../domain/tags/index'
+import { updateComponentGraphic } from '../icons/componentGraphics'
 
 function collectUsedIds(
   config: FuxaConfig,
@@ -41,6 +43,9 @@ function collectUsedIds(
       if (component.shapeId) usedIds.add(component.shapeId)
       if (component.labelId) usedIds.add(component.labelId)
       if (component.alarmShapeId) usedIds.add(component.alarmShapeId)
+      for (const binding of component.multiStateBindings ?? []) {
+        if (binding.shapeId) usedIds.add(binding.shapeId)
+      }
       for (const id of component.shapeInnerIds ?? []) {
         if (id) usedIds.add(id)
       }
@@ -60,6 +65,8 @@ export function createViewComponents(
   models: ReadonlyMap<string, ExportViewModel>,
   tags: readonly IndexedTag[],
   runtime: CreateViewComponentsRuntime,
+  graphic = 'rect',
+  icons: readonly IconLibraryEntry[] = [],
 ): ExportViewModel {
   const usedIds = collectUsedIds(config, models, runtime.Parser)
   let sequence = model.components.reduce(
@@ -80,6 +87,13 @@ export function createViewComponents(
       shapeInnerIds: [generateId('SHE', usedIds, runtime.crypto)],
       managed: true,
     }
-  })
+  }).map((component) => graphic === 'rect'
+    ? component
+    : updateComponentGraphic(
+      component,
+      graphic,
+      icons,
+      () => generateId('SHE', usedIds, runtime.crypto),
+    ))
   return { ...model, components: [...model.components, ...components] }
 }

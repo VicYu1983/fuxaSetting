@@ -1,5 +1,6 @@
 import type { IconLibraryEntry } from '../../domain/icons/iconLibrary'
 import type { GeneratedComponent } from '../../domain/svg/validateGeneratedView'
+import type { MultiStateBinding } from '../../domain/svg/readManagedComponents'
 
 export interface ComponentGraphicChoice {
   value: string
@@ -16,7 +17,7 @@ export function getComponentGraphicChoices(
     { value: 'rect', label: '矩形' },
     { value: 'cylinder', label: '圓柱' },
     ...icons
-      .filter((icon) => icon.type !== 'pair')
+      .filter((icon) => icon.type === undefined || icon.type === 'single')
       .map((icon) => ({ value: `icon:${icon.id}`, label: icon.name })),
     ...icons
       .filter((icon) => icon.type === 'pair')
@@ -25,10 +26,18 @@ export function getComponentGraphicChoices(
         label: `${icon.name}（正常／告警）`,
         disabled: !canUsePair && component.template !== 'icon-pair',
       })),
+    ...icons
+      .filter((icon) => icon.type === 'multi-state')
+      .map((icon) => ({
+        value: `multi:${icon.id}`,
+        label: `${icon.name}（多狀態）`,
+        disabled: !canUsePair && component.template !== 'icon-multi',
+      })),
   ]
 
   if (component.template === 'icon' && component.iconId
-      && !icons.some((icon) => icon.type !== 'pair' && icon.id === component.iconId)) {
+      && !icons.some((icon) => (icon.type === undefined || icon.type === 'single')
+        && icon.id === component.iconId)) {
     choices.push({
       value: `icon:${component.iconId}`,
       label: `圖示不存在（${component.iconId}）`,
@@ -49,6 +58,14 @@ export function getComponentGraphicChoices(
       label: `${normal?.name ?? '缺少正常圖'} / ${alarm?.name ?? '缺少告警圖'}（舊圖示組）`,
     })
   }
+  if (component.template === 'icon-multi'
+      && !icons.some((icon) => icon.type === 'multi-state'
+        && icon.id === component.multiIconSetId)) {
+    choices.push({
+      value: `multi:${component.multiIconSetId || 'missing'}`,
+      label: `多狀態圖示組不存在（${component.multiIconSetId || '未知'}）`,
+    })
+  }
   return choices
 }
 
@@ -65,6 +82,9 @@ export function selectedComponentGraphic(
       ? `pair:${pair.id}`
       : `pair:legacy:${component.normalIconId || ''}:${component.alarmIconId || ''}`
   }
+  if (component.template === 'icon-multi' && component.multiIconSetId) {
+    return `multi:${component.multiIconSetId}`
+  }
   return component.template || 'rect'
 }
 
@@ -77,7 +97,8 @@ export function updateComponentGraphic(
   const next = { ...component }
   if (value.startsWith('icon:')) {
     const iconId = value.slice('icon:'.length)
-    const icon = icons.find((candidate) => candidate.type !== 'pair' && candidate.id === iconId)
+    const icon = icons.find((candidate) =>
+      (candidate.type === undefined || candidate.type === 'single') && candidate.id === iconId)
     if (!icon) {
       if (component.template === 'icon' && component.iconId === iconId) return next
       throw new Error('找不到所選的一般圖示。')
@@ -89,6 +110,8 @@ export function updateComponentGraphic(
     delete next.alarmIconId
     delete next.invertIconState
     delete next.alarmShapeId
+    delete next.multiIconSetId
+    delete next.multiStateBindings
     return next
   }
 
@@ -109,6 +132,36 @@ export function updateComponentGraphic(
     next.alarmIconId = alarmIconId
     next.alarmShapeId = component.alarmShapeId || createAlarmShapeId()
     delete next.iconId
+    delete next.multiIconSetId
+    delete next.multiStateBindings
+    return next
+  }
+
+  if (value.startsWith('multi:')) {
+    const iconSetId = value.slice('multi:'.length)
+    const iconSet = icons.find((candidate) =>
+      candidate.type === 'multi-state' && candidate.id === iconSetId)
+    if (!iconSet || iconSet.type !== 'multi-state') {
+      if (component.template === 'icon-multi' && component.multiIconSetId === iconSetId) return next
+      throw new Error('找不到所選的多狀態圖示組。')
+    }
+    if (component.template === 'icon-multi' && component.multiIconSetId === iconSetId) return next
+    const bindings: MultiStateBinding[] = iconSet.states.map((state, index) => ({
+      stateKey: state.key,
+      iconId: state.asset.id,
+      tagId: index === 0 ? component.tagId : '',
+      shapeId: createAlarmShapeId(),
+    }))
+    next.template = 'icon-multi'
+    next.multiIconSetId = iconSet.id
+    next.normalIconId = iconSet.normal.id
+    next.multiStateBindings = bindings
+    next.tagId = bindings[0]?.tagId ?? ''
+    next.shapeInnerIds = []
+    delete next.iconId
+    delete next.alarmIconId
+    delete next.invertIconState
+    delete next.alarmShapeId
     return next
   }
 
@@ -122,5 +175,7 @@ export function updateComponentGraphic(
   delete next.alarmIconId
   delete next.invertIconState
   delete next.alarmShapeId
+  delete next.multiIconSetId
+  delete next.multiStateBindings
   return next
 }

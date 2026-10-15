@@ -24,7 +24,23 @@ export interface IconPair {
   [key: string]: unknown
 }
 
-export type IconLibraryEntry = SingleIcon | IconPair
+export interface MultiStateIconDefinition {
+  key: string
+  name: string
+  asset: IconAsset
+}
+
+export interface MultiStateIconSet {
+  id: string
+  name: string
+  type: 'multi-state'
+  normal: IconAsset
+  states: MultiStateIconDefinition[]
+  [key: string]: unknown
+}
+
+export type IconLibraryEntry = SingleIcon | IconPair | MultiStateIconSet
+export const MAX_MULTI_STATE_COUNT = 8
 
 const TOOL_SETTINGS_KEY = 'fuxaSetting'
 const ICON_LIBRARY_KEY = 'icons'
@@ -66,16 +82,61 @@ export function validateIconLibrary(icons: unknown): IconLibraryEntry[] {
         if (ids.has(asset.id)) throw new Error(`圖示庫包含重複 ID：${asset.id}`)
         ids.add(asset.id)
       }
+    } else if (icon.type === 'multi-state') {
+      if (!isIconAsset(icon.normal)
+          || !Array.isArray(icon.states)
+          || icon.states.length < 1
+          || icon.states.length > MAX_MULTI_STATE_COUNT) {
+        throw new Error(`多狀態圖示組「${icon.name}」需要正常圖示及 1–${MAX_MULTI_STATE_COUNT} 個狀態。`)
+      }
+      const keys = new Set<string>()
+      const names = new Set<string>()
+      for (const state of icon.states) {
+        if (!isRecord(state)
+            || typeof state.key !== 'string' || !state.key
+            || typeof state.name !== 'string' || !state.name.trim()
+            || !isIconAsset(state.asset)) {
+          throw new Error(`多狀態圖示組「${icon.name}」包含無效狀態。`)
+        }
+        if (keys.has(state.key)) throw new Error(`多狀態圖示組「${icon.name}」包含重複狀態 ID：${state.key}`)
+        keys.add(state.key)
+        const normalizedName = state.name.trim().toLocaleLowerCase()
+        if (names.has(normalizedName)) throw new Error(`多狀態圖示組「${icon.name}」包含重複狀態名稱：${state.name}`)
+        names.add(normalizedName)
+      }
+      for (const asset of [icon.normal, ...icon.states.map((state) => state.asset)]) {
+        if (ids.has(asset.id)) throw new Error(`圖示庫包含重複 ID：${asset.id}`)
+        ids.add(asset.id)
+      }
     } else if (icon.type !== undefined && icon.type !== 'single') {
-      throw new Error('圖示庫項目類型無效；僅支援一般圖示或正常／告警圖示。')
+      throw new Error('圖示庫項目類型無效；僅支援一般圖示、正常／告警圖示或多狀態圖示。')
     } else if (!isIconAsset(icon)) {
       throw new Error('圖示庫包含無效項目；請確認圖片格式與 Base64 資料。')
     }
   }
 
-  return icons.map((icon) => icon.type === 'pair'
-    ? { ...icon, normal: { ...icon.normal }, alarm: { ...icon.alarm } }
-    : { ...icon })
+  return icons.map((icon) => {
+    if (icon.type === 'pair') {
+      return { ...icon, normal: { ...icon.normal }, alarm: { ...icon.alarm } }
+    }
+    if (icon.type === 'multi-state') {
+      return {
+        ...icon,
+        normal: { ...icon.normal },
+        states: icon.states.map((state: MultiStateIconDefinition) => ({
+          ...state,
+          asset: { ...state.asset },
+        })),
+      }
+    }
+    return { ...icon }
+  })
+}
+
+export function getIconAssets(icon: IconLibraryEntry): IconAsset[] {
+  if (icon.type === 'pair') return [icon.normal, icon.alarm]
+  if (icon.type === 'multi-state') return [icon.normal, ...icon.states.map((state) => state.asset)]
+  return [icon]
 }
 
 export interface VisibilityAction {

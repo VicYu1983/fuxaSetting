@@ -244,6 +244,60 @@ describe('applyModelToView', () => {
     expect(root.getAttribute('xmlns:xlink')).toBe('http://www.w3.org/1999/xlink')
   })
 
+  it('writes all multi-state images and per-state FUXA items in priority stacking order', () => {
+    const root = new TestElement('svg')
+    const layer = root.appendChild(new TestElement('g'))
+    const doc = new TestDocument(root)
+    const normal = {
+      id: 'normal-icon',
+      mimeType: 'image/png' as const,
+      dataUrl: 'data:image/png;base64,AA==',
+    }
+    const alarm = { ...normal, id: 'alarm-icon' }
+    const high = { ...normal, id: 'high-icon' }
+    const multiComponent = component({
+      template: 'icon-multi',
+      multiIconSetId: 'tank-set',
+      normalIconId: normal.id,
+      multiStateBindings: [
+        { stateKey: 'alarm', iconId: alarm.id, tagId: 'tag-alarm', shapeId: 'alarm-shape' },
+        { stateKey: 'high', iconId: high.id, tagId: 'tag-high', shapeId: 'high-shape' },
+      ],
+    })
+    const currentModel = model([multiComponent])
+    currentModel.originalComponents = [structuredClone(multiComponent)]
+    const currentView = view()
+
+    applyModelToView(currentView, currentModel, {
+      ...options(doc),
+      resolveIcon: (id) => [normal, alarm, high].find((icon) => icon.id === id),
+      tags: {
+        'tag-alarm': { floor: '1F' },
+        'tag-high': { floor: '1F' },
+      },
+    })
+
+    expect(root.getAttribute('xmlns:xlink')).toBe('http://www.w3.org/1999/xlink')
+    expect(layer.children
+      .filter((node) => node.localName === 'image')
+      .map((node) => node.getAttribute('data-fuxa-state-key')))
+      .toEqual(['normal', 'high', 'alarm'])
+    expect(currentView.items['high-shape']).toMatchObject({
+      id: 'high-shape',
+      property: {
+        actions: [
+          { variableId: 'tag-high', range: { min: 0, max: 0 }, type: 'hide' },
+          { variableId: 'tag-high', range: { min: 1, max: 1 }, type: 'show' },
+        ],
+      },
+    })
+    expect(currentView.items['alarm-shape']).toMatchObject({
+      id: 'alarm-shape',
+      property: { actions: [{ variableId: 'tag-alarm' }, { variableId: 'tag-alarm' }] },
+    })
+    expect(currentView.items['label-1']).toBeDefined()
+  })
+
   it('fails without altering the view when no SVG insertion layer exists', () => {
     const doc = new TestDocument(new TestElement('svg'))
     const currentView = view()

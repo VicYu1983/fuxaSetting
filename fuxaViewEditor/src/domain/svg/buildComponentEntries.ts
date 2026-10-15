@@ -54,6 +54,37 @@ function buildIconPairEntry(
   })
 }
 
+function buildMultiStateEntry(
+  existing: unknown,
+  component: SvgComponent,
+  shape: Element,
+): Record<string, unknown> {
+  const stateKey = shape.getAttribute('data-fuxa-state-key') ?? ''
+  const binding = stateKey === 'normal'
+    ? undefined
+    : component.multiStateBindings?.find((candidate) => candidate.stateKey === stateKey)
+  if (stateKey !== 'normal' && !binding) {
+    throw new Error(`元件「${component.label || '未命名'}」找不到狀態「${stateKey}」的 Tag 綁定。`)
+  }
+  const oldProperty = propertyOf(existing)
+  const property: Record<string, unknown> = {
+    ...oldProperty,
+    ranges: [],
+    events: Array.isArray(oldProperty.events) ? oldProperty.events : [],
+    actions: binding ? buildVisibilityActions(binding.tagId, 1) : [],
+  }
+  delete property.variableId
+  return preserveItem(existing, {
+    id: shape.getAttribute('id'),
+    type: 'svg-ext-shapes-select',
+    name: shape.getAttribute('data-name') ?? '',
+    property,
+    label: 'Shapes',
+    hide: false,
+    lock: false,
+  })
+}
+
 function buildStandardEntry(
   existing: unknown,
   component: SvgComponent,
@@ -105,6 +136,7 @@ export function buildComponentEntries(
   existing: {
     shape?: unknown
     alarmShape?: unknown
+    states?: Record<string, unknown>
     label?: unknown
   } = {},
 ): ComponentItemEntries {
@@ -119,6 +151,23 @@ export function buildComponentEntries(
         buildIconPairEntry(existing.shape, component, normalShape),
         buildIconPairEntry(existing.alarmShape, component, alarmShape),
       ],
+      labelEntry: buildLabelEntry(existing.label, component),
+    }
+  }
+
+  if (component.template === 'icon-multi') {
+    if (shapeNodes.length !== (component.multiStateBindings?.length ?? 0) + 1) {
+      throw new Error(`元件「${component.label || '未命名'}」的多狀態圖示節點不完整。`)
+    }
+    return {
+      shapeEntries: shapeNodes.map((shape) => {
+        const id = shape.getAttribute('id') ?? ''
+        return buildMultiStateEntry(
+          id === component.shapeId ? existing.shape : existing.states?.[id],
+          component,
+          shape,
+        )
+      }),
       labelEntry: buildLabelEntry(existing.label, component),
     }
   }

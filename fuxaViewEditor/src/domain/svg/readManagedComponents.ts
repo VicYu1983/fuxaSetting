@@ -3,17 +3,26 @@ import { isRecord } from '../config/validateFuxaConfig'
 const MANAGED_NAME = /^tc_(\d+)$/
 const ALARM_PALETTE_FIRST_COLOR = '#ff0000ff'
 
+export interface MultiStateBinding {
+  stateKey: string
+  iconId: string
+  tagId: string
+  shapeId: string
+}
+
 export interface ManagedComponentRecord {
   key: string
   seq: number
   tagId: string
   label: string
-  template: 'icon-pair' | 'icon' | 'cylinder' | 'rect'
+  template: 'icon-multi' | 'icon-pair' | 'icon' | 'cylinder' | 'rect'
   iconId?: string
   normalIconId?: string
   alarmIconId?: string
   alarmShapeId?: string
   invertIconState?: boolean
+  multiIconSetId?: string
+  multiStateBindings?: MultiStateBinding[]
   palette: 'normal' | 'alarm'
   shapeId: string
   labelId: string
@@ -87,6 +96,31 @@ export function readManagedComponents(
     const shapeNode = findById(doc, shapeId)
     const labelNode = findById(doc, labelId)
     if (!shapeNode || !labelNode || labelNode.localName !== 'text') continue
+    const multiIconSetId = shapeNode.getAttribute('data-fuxa-icon-set-id') || ''
+    const multiStateNodes = multiIconSetId
+      ? Array.from(doc.getElementsByTagName('*'))
+        .filter((node) =>
+          node.getAttribute('data-fuxa-icon-set-id') === multiIconSetId
+          && node.getAttribute('data-name')?.startsWith(`tc_${seq}_state_`)
+          && node.getAttribute('data-fuxa-state-key')
+          && node.getAttribute('data-fuxa-state-key') !== 'normal')
+        .map((node) => {
+          const stateKey = node.getAttribute('data-fuxa-state-key') || ''
+          const id = node.getAttribute('id') || ''
+          const item = items[id]
+          const actions = actionsFor(item)
+          return {
+            stateKey,
+            iconId: node.getAttribute('data-fuxa-icon-id') || '',
+            tagId: actions.map(actionVariableId)
+              .find((variableId): variableId is string => variableId !== undefined) ?? '',
+            shapeId: id,
+            priority: Number(node.getAttribute('data-fuxa-state-priority')),
+          }
+        })
+        .filter((binding) => binding.stateKey && binding.shapeId)
+        .sort((left, right) => left.priority - right.priority)
+      : []
 
     const alarmItemId = itemIds.find((id) => {
       const candidate = items[id]
@@ -122,7 +156,9 @@ export function readManagedComponents(
     const iconId = shapeNode.getAttribute('data-fuxa-icon-id')
       || iconNode?.getAttribute('data-fuxa-icon-id')
       || ''
-    const shapeType = isIconPair
+    const shapeType = multiIconSetId
+      ? 'icon-multi'
+      : isIconPair
       ? 'icon-pair'
       : iconId
         ? 'icon'
@@ -141,7 +177,9 @@ export function readManagedComponents(
     const record: ManagedComponentRecord = {
       key: `loaded-${seq}`,
       seq,
-      tagId: isIconPair ? visibilityTagId : variableId,
+      tagId: multiIconSetId
+        ? multiStateNodes[0]?.tagId ?? ''
+        : isIconPair ? visibilityTagId : variableId,
       label: labelNode.textContent || '',
       template: shapeType,
       ...(iconId && !isIconPair ? { iconId } : {}),
@@ -150,6 +188,16 @@ export function readManagedComponents(
         alarmIconId: alarmNode.getAttribute('data-fuxa-icon-id') || '',
         alarmShapeId: alarmItemId,
         invertIconState: !normalVisibleAtZero && alarmVisibleAtZero,
+      } : {}),
+      ...(multiIconSetId ? {
+        multiIconSetId,
+        normalIconId: shapeNode.getAttribute('data-fuxa-icon-id') || '',
+        multiStateBindings: multiStateNodes.map((binding) => ({
+          stateKey: binding.stateKey,
+          iconId: binding.iconId,
+          tagId: binding.tagId,
+          shapeId: binding.shapeId,
+        })),
       } : {}),
       palette,
       shapeId,
@@ -160,6 +208,7 @@ export function readManagedComponents(
     records.push(record)
     consumed.add(shapeId)
     if (isIconPair && alarmItemId) consumed.add(alarmItemId)
+    for (const binding of multiStateNodes) consumed.add(binding.shapeId)
     consumed.add(labelId)
   }
 

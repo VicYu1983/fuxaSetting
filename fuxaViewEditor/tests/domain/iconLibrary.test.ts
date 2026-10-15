@@ -3,6 +3,7 @@ import type { FuxaConfig } from '../../src/domain/config/types'
 import { isRecord } from '../../src/domain/config/validateFuxaConfig'
 import {
   buildVisibilityActions,
+  getIconAssets,
   getIconLibrary,
   saveIconLibrary,
   validateIconLibrary,
@@ -29,6 +30,26 @@ const iconPair = {
     mimeType: 'image/gif',
     dataUrl: 'data:image/gif;base64,R0lGODlh',
   },
+}
+
+const multiStateIconSet = {
+  id: 'icon-set-multi',
+  name: 'Water tank',
+  type: 'multi-state',
+  normal: {
+    id: 'water-normal',
+    mimeType: 'image/png',
+    dataUrl: 'data:image/png;base64,iVBORw==',
+  },
+  states: [{
+    key: 'high-level',
+    name: 'High level',
+    asset: {
+      id: 'water-high',
+      mimeType: 'image/gif',
+      dataUrl: 'data:image/gif;base64,R0lGODlh',
+    },
+  }],
 }
 
 describe('icon library', () => {
@@ -67,6 +88,32 @@ describe('icon library', () => {
     expect(validated).not.toBe(iconPair)
     expect(validated.normal).not.toBe(iconPair.normal)
     expect(validated.alarm).not.toBe(iconPair.alarm)
+  })
+
+  it('validates and clones multi-state icon sets with unique state keys and assets', () => {
+    const firstState = multiStateIconSet.states[0]!
+    const [validated] = validateIconLibrary([multiStateIconSet])
+    expect(validated).toEqual(multiStateIconSet)
+    if (!validated || validated.type !== 'multi-state') {
+      throw new Error('Expected a multi-state icon set')
+    }
+    expect(validated.normal).not.toBe(multiStateIconSet.normal)
+    expect(validated.states[0]?.asset).not.toBe(firstState.asset)
+    expect(getIconAssets(validated).map((asset) => asset.id))
+      .toEqual(['water-normal', 'water-high'])
+    expect(() => validateIconLibrary([{
+      ...multiStateIconSet,
+      states: [firstState, {
+        ...firstState,
+        key: 'low-level',
+        name: 'High Level',
+        asset: { ...firstState.asset, id: 'water-high-2' },
+      }],
+    }])).toThrow('重複狀態名稱')
+    expect(() => validateIconLibrary([{
+      ...multiStateIconSet,
+      states: [{ ...firstState, key: '' }],
+    }])).toThrow('無效狀態')
   })
 
   it('rejects invalid MIME/base64 data, duplicate IDs, and malformed tool settings', () => {

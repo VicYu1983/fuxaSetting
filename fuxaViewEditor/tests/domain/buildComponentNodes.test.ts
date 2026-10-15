@@ -167,6 +167,29 @@ describe('buildComponentNodes', () => {
     ])
   })
 
+  it('builds stacked multi-state images from lowest to highest priority', () => {
+    const alarm = { ...icon, id: 'icon-alarm' }
+    const high = { ...icon, id: 'icon-high' }
+    const result = build(component({
+      template: 'icon-multi',
+      multiIconSetId: 'set-tank',
+      normalIconId: icon.id,
+      multiStateBindings: [
+        { stateKey: 'alarm', iconId: alarm.id, tagId: 'tag-alarm', shapeId: 'shape-alarm' },
+        { stateKey: 'high', iconId: high.id, tagId: 'tag-high', shapeId: 'shape-high' },
+      ],
+    }), [icon, alarm, high])
+    const shapes = result.shapeNodes as unknown as TestElement[]
+    expect(shapes.map((shape) => shape.attributes['data-fuxa-state-key']))
+      .toEqual(['normal', 'high', 'alarm'])
+    expect(shapes.map((shape) => shape.attributes['data-fuxa-state-priority']))
+      .toEqual([undefined, '1', '0'])
+    expect(shapes.map((shape) => shape.attributes.id))
+      .toEqual(['shape-1', 'shape-high', 'shape-alarm'])
+    expect(shapes.every((shape) =>
+      shape.attributes['data-fuxa-icon-set-id'] === 'set-tank')).toBe(true)
+  })
+
   it('reports missing configured icons rather than emitting incomplete SVG', () => {
     expect(() => build(component({ template: 'icon', iconId: 'missing' })))
       .toThrow('元件「Pump」使用的圖示不存在。')

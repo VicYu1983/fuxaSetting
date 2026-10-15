@@ -161,4 +161,67 @@ describe('createViewComponents', () => {
       },
     )).toThrow('無法安全加入 Tag 元件：View「Broken」的 SVG ID 無法檢查')
   })
+
+  it('creates one multi-state component per Tag and binds each Tag to the highest-priority state', () => {
+    const initial = model()
+    const iconSet = {
+      id: 'set-tank',
+      name: 'Tank',
+      type: 'multi-state' as const,
+      normal: {
+        id: 'tank-normal',
+        mimeType: 'image/gif' as const,
+        dataUrl: 'data:image/gif;base64,R0lGODlh',
+      },
+      states: [
+        {
+          key: 'alarm',
+          name: 'Alarm',
+          asset: {
+            id: 'tank-alarm',
+            mimeType: 'image/gif' as const,
+            dataUrl: 'data:image/gif;base64,R0lGODlh',
+          },
+        },
+        {
+          key: 'high',
+          name: 'High',
+          asset: {
+            id: 'tank-high',
+            mimeType: 'image/gif' as const,
+            dataUrl: 'data:image/gif;base64,R0lGODlh',
+          },
+        },
+      ],
+    }
+    let random = 1
+    const result = createViewComponents(
+      { devices: {}, hmi: { views: [] } },
+      initial,
+      new Map([['view-1', initial]]),
+      [tag],
+      {
+        Parser: TestParser,
+        crypto: {
+          getRandomValues(bytes) {
+            bytes.fill(random++)
+            return bytes
+          },
+        },
+      },
+      `multi:${iconSet.id}`,
+      [iconSet],
+    )
+    expect(result.components).toHaveLength(1)
+    expect(result.components[0]).toMatchObject({
+      template: 'icon-multi',
+      tagId: 'tag-1',
+      multiIconSetId: 'set-tank',
+      normalIconId: 'tank-normal',
+      multiStateBindings: [
+        { stateKey: 'alarm', iconId: 'tank-alarm', tagId: 'tag-1' },
+        { stateKey: 'high', iconId: 'tank-high', tagId: '' },
+      ],
+    })
+  })
 })

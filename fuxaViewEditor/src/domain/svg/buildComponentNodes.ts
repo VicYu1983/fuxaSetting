@@ -13,7 +13,7 @@ const PALETTES = {
 } as const
 
 export type SvgComponent = ManagedComponentRecord & {
-  template: 'icon-pair' | 'icon' | 'cylinder' | 'rect'
+  template: 'icon-multi' | 'icon-pair' | 'icon' | 'cylinder' | 'rect'
   shapeInnerIds: Array<string | null>
   normalIconId?: string
   alarmIconId?: string
@@ -121,6 +121,78 @@ function buildIconPairNodes(
     setIconHref(image, icon)
     return image
   })
+}
+
+function buildMultiStateNodes(
+  doc: XMLDocument,
+  component: SvgComponent,
+  placement: ComponentPlacement,
+  resolveIcon: IconAssetResolver,
+): Element[] {
+  const normalIcon = requireIcon(
+    resolveIcon,
+    component.normalIconId,
+    component,
+    '尚未設定多狀態圖示組的正常圖示。',
+  )
+  const iconSetId = component.multiIconSetId
+  const bindings = component.multiStateBindings
+  if (!iconSetId || !bindings?.length) {
+    throw new Error(`元件「${component.label || '未命名'}」尚未設定多狀態圖示組或狀態。`)
+  }
+  const { x, y } = placement.shape
+  const createImage = (
+    icon: IconAsset,
+    id: string,
+    name: string,
+    stateKey: string,
+    priority?: number,
+  ): Element => {
+    const image = createSvgNode(doc, 'image', {
+      'data-name': name,
+      'data-fuxa-icon-id': icon.id,
+      'data-fuxa-icon-set-id': iconSetId,
+      'data-fuxa-state-key': stateKey,
+      ...(priority === undefined ? {} : { 'data-fuxa-state-priority': priority }),
+      id,
+      x,
+      y,
+      width: RECT_SIZE.width,
+      height: RECT_SIZE.height,
+      preserveAspectRatio: 'xMidYMid meet',
+    })
+    setIconHref(image, icon)
+    return image
+  }
+  const nodes = [
+    createImage(normalIcon, component.shapeId, `tc_${component.seq}`, 'normal'),
+  ]
+  for (const binding of bindings) {
+    if (!binding.tagId) {
+      throw new Error(`元件「${component.label || '未命名'}」的狀態「${binding.stateKey}」尚未綁定 Boolean Tag。`)
+    }
+    if (!binding.shapeId) {
+      throw new Error(`元件「${component.label || '未命名'}」的狀態「${binding.stateKey}」缺少圖示 ID。`)
+    }
+  }
+  for (const { binding, priority } of bindings
+    .map((binding, priority) => ({ binding, priority }))
+    .reverse()) {
+    const icon = requireIcon(
+      resolveIcon,
+      binding.iconId,
+      component,
+      `的狀態「${binding.stateKey}」圖示不存在。`,
+    )
+    nodes.push(createImage(
+      icon,
+      binding.shapeId,
+      `tc_${component.seq}_state_${binding.stateKey}`,
+      binding.stateKey,
+      priority,
+    ))
+  }
+  return nodes
 }
 
 function buildShapeNode(
@@ -232,7 +304,9 @@ export function buildComponentNodes(
 ): BuiltComponentNodes {
   const shapeNodes = component.template === 'icon-pair'
     ? buildIconPairNodes(doc, component, placement, resolveIcon)
-    : [buildShapeNode(doc, component, placement, resolveIcon, allocateId)]
+    : component.template === 'icon-multi'
+      ? buildMultiStateNodes(doc, component, placement, resolveIcon)
+      : [buildShapeNode(doc, component, placement, resolveIcon, allocateId)]
   return {
     shapeNodes,
     labelNode: buildLabelNode(doc, component, placement, grid),

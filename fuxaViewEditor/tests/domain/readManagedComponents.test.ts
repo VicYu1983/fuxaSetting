@@ -172,6 +172,63 @@ describe('readManagedComponents', () => {
     expect(result.consumed.has('alarm-shape')).toBe(true)
   })
 
+  it('loads multi-state bindings in configured priority order', () => {
+    const root = new TestElement('svg', {}, '', [
+      new TestElement('image', {
+        id: 'normal',
+        'data-name': 'tc_8',
+        'data-fuxa-icon-id': 'normal-asset',
+        'data-fuxa-icon-set-id': 'tank-set',
+        'data-fuxa-state-key': 'normal',
+      }),
+      new TestElement('image', {
+        id: 'high',
+        'data-name': 'tc_8_state_high',
+        'data-fuxa-icon-id': 'high-asset',
+        'data-fuxa-icon-set-id': 'tank-set',
+        'data-fuxa-state-key': 'high',
+        'data-fuxa-state-priority': '1',
+      }),
+      new TestElement('image', {
+        id: 'alarm',
+        'data-name': 'tc_8_state_alarm',
+        'data-fuxa-icon-id': 'alarm-asset',
+        'data-fuxa-icon-set-id': 'tank-set',
+        'data-fuxa-state-key': 'alarm',
+        'data-fuxa-state-priority': '0',
+      }),
+      new TestElement('text', { id: 'label-8' }, 'Tank'),
+    ])
+    const result = readManagedComponents({
+      normal: { id: 'normal', name: 'tc_8', type: 'svg-ext-shapes-select', property: {} },
+      high: {
+        id: 'high',
+        name: 'tc_8_state_high',
+        type: 'svg-ext-shapes-select',
+        property: { actions: [{ variableId: 'tag-high' }] },
+      },
+      alarm: {
+        id: 'alarm',
+        name: 'tc_8_state_alarm',
+        type: 'svg-ext-shapes-select',
+        property: { actions: [{ variableId: 'tag-alarm' }] },
+      },
+      'label-8': { id: 'label-8', name: 'tc_8_label', type: 'svg-ext-shapes-text' },
+    }, makeDocument(root))
+    expect(result.records[0]).toMatchObject({
+      template: 'icon-multi',
+      tagId: 'tag-alarm',
+      normalIconId: 'normal-asset',
+      multiIconSetId: 'tank-set',
+      multiStateBindings: [
+        { stateKey: 'alarm', iconId: 'alarm-asset', tagId: 'tag-alarm', shapeId: 'alarm' },
+        { stateKey: 'high', iconId: 'high-asset', tagId: 'tag-high', shapeId: 'high' },
+      ],
+    })
+    expect(result.consumed.has('high')).toBe(true)
+    expect(result.consumed.has('alarm')).toBe(true)
+  })
+
   it('ignores incomplete managed entries, invalid labels, and previously consumed shapes', () => {
     const root = new TestElement('svg', {}, '', [
       new TestElement('rect', { id: 'shape' }),

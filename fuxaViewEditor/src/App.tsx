@@ -40,7 +40,7 @@ import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
 import { buildTagIndex } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
-import { getIconLibrary } from './domain/icons/iconLibrary'
+import { getIconAssets, getIconLibrary, MAX_MULTI_STATE_COUNT } from './domain/icons/iconLibrary'
 import { generateId } from './domain/ids'
 import {
   deleteManagedDevice,
@@ -59,9 +59,12 @@ import { updateFloorGroupFrame } from './features/floors/updateFloorGroupFrame'
 import { createViewComponents } from './features/tags/createViewComponents'
 import { createBlankView } from './features/views/createBlankView'
 import {
+  addMultiStateIconState,
   addIconLibraryEntry,
   findIconLibraryUsages,
   findIconLibrarySvgUsages,
+  moveMultiStateIconState,
+  removeMultiStateIconState,
   removeIconLibraryEntry,
 } from './features/icons/iconLibraryManagement'
 import {
@@ -83,6 +86,11 @@ import './App.css'
 
 const { Header, Sider, Content } = Layout
 const { Text, Title } = Typography
+
+interface MultiStateIconDraft {
+  name: string
+  file: File | null
+}
 
 interface PreviewState {
   width: number
@@ -207,6 +215,7 @@ function App() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
   const [batchSearch, setBatchSearch] = useState('')
   const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set())
+  const [batchGraphic, setBatchGraphic] = useState('rect')
   const [floorManagerOpen, setFloorManagerOpen] = useState(false)
   const [floorSearch, setFloorSearch] = useState('')
   const [floorDisplayMode, setFloorDisplayMode] = useState<'group' | 'list'>('group')
@@ -214,10 +223,16 @@ function App() {
   const [bulkFloor, setBulkFloor] = useState('')
   const [iconLibraryOpen, setIconLibraryOpen] = useState(false)
   const [iconName, setIconName] = useState('')
-  const [iconType, setIconType] = useState<'single' | 'pair'>('single')
+  const [iconType, setIconType] = useState<'single' | 'pair' | 'multi-state'>('single')
   const [singleIconFile, setSingleIconFile] = useState<File | null>(null)
   const [normalIconFile, setNormalIconFile] = useState<File | null>(null)
   const [alarmIconFile, setAlarmIconFile] = useState<File | null>(null)
+  const [multiStateDrafts, setMultiStateDrafts] = useState<MultiStateIconDraft[]>([
+    { name: '', file: null },
+  ])
+  const [multiStateAddDrafts, setMultiStateAddDrafts] = useState<
+    Record<string, MultiStateIconDraft>
+  >({})
   const [deviceManagerOpen, setDeviceManagerOpen] = useState(false)
   const [floorFrameDialogOpen, setFloorFrameDialogOpen] = useState(false)
   const [deviceManagerMode, setDeviceManagerMode] = useState<'create' | 'edit'>('edit')
@@ -294,6 +309,9 @@ function App() {
     ))
   }, [batchSearch, tags])
   const selectedBatchCount = filteredBatchTags.filter((tag) => batchSelection.has(tag.id)).length
+  const selectedBatchTags = tags.filter((tag) => batchSelection.has(tag.id))
+  const batchCanUseBooleanGraphic = selectedBatchTags.length > 0
+    && selectedBatchTags.every((tag) => ['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))
   const usedTagIds = new Set(selectedModel?.components.map((component) => component.tagId) ?? [])
   const filteredFloorTags = useMemo(() => {
     const query = floorSearch.trim().toLocaleLowerCase()
@@ -622,6 +640,7 @@ function App() {
       GeneratedComponent,
       | 'label' | 'tagId' | 'palette' | 'template' | 'iconId'
       | 'normalIconId' | 'alarmIconId' | 'alarmShapeId' | 'invertIconState'
+      | 'multiIconSetId' | 'multiStateBindings'
     >>,
   ) {
     const model = models.get(viewId)
@@ -643,7 +662,7 @@ function App() {
 
   function handleUpdateGraphic(viewId: string, component: GeneratedComponent, value: string) {
     const model = models.get(viewId)
-    if (!model) return
+    if (!model || !config) return
     try {
       if (value.startsWith('pair:')
           && !['bool', 'boolean'].includes(
@@ -652,16 +671,33 @@ function App() {
         messageApi.warning('正常／告警圖示組需要綁定 Boolean Tag，請先變更 Tag 型別。')
         return
       }
-      const usedIds = new Set<string>()
-      for (const view of config?.rawConfig.hmi.views ?? []) {
-        if (!isRecord(view) || !isRecord(view.items)) continue
-        Object.keys(view.items).forEach((id) => usedIds.add(id))
+      if (value.startsWith('multi:')
+          && !['bool', 'boolean'].includes(
+            tags.find((tag) => tag.id === component.tagId)?.type.toLocaleLowerCase() ?? '',
+          )) {
+        messageApi.warning('多狀態圖示組需要 Boolean Tag，請先選擇 Boolean Tag。')
+        return
+      }
+      const usedIds = new Set(buildTagIndex(config.rawConfig).keys())
+      for (const view of config.rawConfig.hmi.views) {
+        if (!isRecord(view)) continue
+        if (isRecord(view.items)) Object.keys(view.items).forEach((id) => usedIds.add(id))
+        if (typeof view.svgcontent === 'string') {
+          const doc = parseSvg(view.svgcontent, DOMParser)
+          for (const node of Array.from(doc.getElementsByTagName('*'))) {
+            const id = node.getAttribute('id')
+            if (id) usedIds.add(id)
+          }
+        }
       }
       for (const currentModel of models.values()) {
         for (const item of currentModel.components) {
           if (item.shapeId) usedIds.add(item.shapeId)
           if (item.labelId) usedIds.add(item.labelId)
           if (item.alarmShapeId) usedIds.add(item.alarmShapeId)
+          for (const binding of item.multiStateBindings ?? []) {
+            if (binding.shapeId) usedIds.add(binding.shapeId)
+          }
         }
       }
       const updated = updateComponentGraphic(
@@ -674,11 +710,45 @@ function App() {
           || (updated.template === component.template
             && updated.iconId === component.iconId
             && updated.normalIconId === component.normalIconId
-            && updated.alarmIconId === component.alarmIconId)) return
+            && updated.alarmIconId === component.alarmIconId
+            && updated.multiIconSetId === component.multiIconSetId
+            && JSON.stringify(updated.multiStateBindings) ===
+              JSON.stringify(component.multiStateBindings))) return
       handleUpdateComponent(viewId, component.key, updated)
     } catch (error) {
       messageApi.error(`更新元件圖形失敗：${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  function handleUpdateMultiStateBinding(
+    viewId: string,
+    component: GeneratedComponent,
+    stateKey: string,
+    tagId: string,
+  ) {
+    const bindings = component.multiStateBindings ?? []
+    const binding = bindings.find((candidate) => candidate.stateKey === stateKey)
+    if (!binding) return
+    const selectedTag = tags.find((tag) => tag.id === tagId)
+    if (tagId && (!selectedTag || !['bool', 'boolean'].includes(
+      selectedTag.type.toLocaleLowerCase(),
+    ))) {
+      messageApi.warning('多狀態規則只能綁定 Boolean Tag。')
+      return
+    }
+    if (tagId && bindings.some(
+      (candidate) => candidate.stateKey !== stateKey && candidate.tagId === tagId,
+    )) {
+      messageApi.warning('同一元件的多個狀態不能重複使用相同的 Tag。')
+      return
+    }
+    const nextBindings = bindings.map((candidate) => (
+      candidate.stateKey === stateKey ? { ...candidate, tagId } : candidate
+    ))
+    handleUpdateComponent(viewId, component.key, {
+      multiStateBindings: nextBindings,
+      tagId: nextBindings[0]?.tagId ?? '',
+    })
   }
 
   function handleUpdateGrid(
@@ -700,6 +770,7 @@ function App() {
   function openBatchDialog() {
     setBatchSelection(new Set())
     setBatchSearch('')
+    setBatchGraphic('rect')
     setBatchDialogOpen(true)
   }
 
@@ -721,6 +792,11 @@ function App() {
       messageApi.warning('請至少選取一個 Tag。')
       return
     }
+    if (batchGraphic.startsWith('multi:')
+        && selectedTags.some((tag) => !['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))) {
+      messageApi.warning('多狀態圖示組只能套用至 Boolean Tag；請調整選取的 Tag。')
+      return
+    }
 
     try {
       const nextModels = createViewComponents(
@@ -729,6 +805,8 @@ function App() {
         models,
         selectedTags,
         { Parser: DOMParser, crypto: window.crypto },
+        batchGraphic,
+        iconLibrary,
       )
       dispatchEditor({
         type: 'edit',
@@ -1015,9 +1093,15 @@ function App() {
   async function handleAddIcon() {
     if (!config) return
     try {
+      const stateNames = iconType === 'multi-state'
+        ? multiStateDrafts.map((state) => state.name.trim())
+        : []
       const files = iconType === 'single'
         ? singleIconFile ? [singleIconFile] : []
-        : [normalIconFile, alarmIconFile].filter((file): file is File => file !== null)
+        : iconType === 'pair'
+          ? [normalIconFile, alarmIconFile].filter((file): file is File => file !== null)
+          : [normalIconFile, ...multiStateDrafts.map((state) => state.file)]
+            .filter((file): file is File => file !== null)
       const images = await Promise.all(files.map(async (file) => (
         new Uint8Array(await file.arrayBuffer())
       )))
@@ -1027,6 +1111,7 @@ function App() {
         iconType,
         images,
         window.crypto,
+        stateNames,
       )
       dispatchEditor({
         type: 'document-edit',
@@ -1037,6 +1122,7 @@ function App() {
       setSingleIconFile(null)
       setNormalIconFile(null)
       setAlarmIconFile(null)
+      setMultiStateDrafts([{ name: '', file: null }])
       messageApi.success('已新增圖示。')
     } catch (error) {
       messageApi.error(`新增圖示失敗：${error instanceof Error ? error.message : String(error)}`)
@@ -1069,6 +1155,182 @@ function App() {
     }
   }
 
+  function handleMoveMultiStateIconState(
+    iconSetId: string,
+    stateKey: string,
+    direction: -1 | 1,
+  ) {
+    if (!config) return
+    try {
+      const nextConfig = moveMultiStateIconState(config.rawConfig, iconSetId, stateKey, direction)
+      const nextIcon = getIconLibrary(nextConfig).find((icon) =>
+        icon.type === 'multi-state' && icon.id === iconSetId)
+      if (!nextIcon || nextIcon.type !== 'multi-state') {
+        throw new Error('找不到更新後的多狀態圖示組。')
+      }
+      const modifiedIds = new Set(modifiedViewIds)
+      const nextModels = new Map<string, ExportViewModel>()
+      for (const [viewId, model] of models) {
+        const hasSet = model.components.some((component) =>
+          component.managed !== false && component.multiIconSetId === iconSetId)
+        if (hasSet) modifiedIds.add(viewId)
+        nextModels.set(viewId, {
+          ...model,
+          components: model.components.map((component) => {
+            if (component.managed === false || component.multiIconSetId !== iconSetId) {
+              return component
+            }
+            const bindings = component.multiStateBindings ?? []
+            const orderedBindings = nextIcon.states.flatMap((state) => {
+              const binding = bindings.find((candidate) => candidate.stateKey === state.key)
+              return binding ? [binding] : []
+            })
+            return {
+              ...component,
+              multiStateBindings: orderedBindings,
+              tagId: orderedBindings[0]?.tagId ?? '',
+            }
+          }),
+        })
+      }
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(nextConfig, config),
+        models: nextModels,
+        modifiedViewIds: modifiedIds,
+      })
+    } catch (error) {
+      messageApi.error(`調整狀態優先順序失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  async function handleAddMultiStateIconState(iconSetId: string) {
+    if (!config) return
+    const draft = multiStateAddDrafts[iconSetId]
+    if (!draft?.file) {
+      messageApi.warning('請選擇狀態圖片。')
+      return
+    }
+    try {
+      const bytes = new Uint8Array(await draft.file.arrayBuffer())
+      const nextConfig = addMultiStateIconState(
+        config.rawConfig,
+        iconSetId,
+        draft.name,
+        bytes,
+        window.crypto,
+      )
+      const nextIcon = getIconLibrary(nextConfig).find((icon) =>
+        icon.type === 'multi-state' && icon.id === iconSetId)
+      if (!nextIcon || nextIcon.type !== 'multi-state') {
+        throw new Error('找不到更新後的多狀態圖示組。')
+      }
+      const newState = nextIcon.states[nextIcon.states.length - 1]
+      if (!newState) throw new Error('新增的狀態資料不完整。')
+      const usedIds = new Set(buildTagIndex(config.rawConfig).keys())
+      for (const view of config.rawConfig.hmi.views) {
+        if (!isRecord(view)) continue
+        if (isRecord(view.items)) {
+          Object.keys(view.items).forEach((id) => usedIds.add(id))
+        }
+        if (typeof view.svgcontent === 'string') {
+          const doc = parseSvg(view.svgcontent, DOMParser)
+          for (const node of Array.from(doc.getElementsByTagName('*'))) {
+            const id = node.getAttribute('id')
+            if (id) usedIds.add(id)
+          }
+        }
+      }
+      for (const model of models.values()) {
+        for (const component of [...model.components, ...(model.originalComponents ?? [])]) {
+          if (component.shapeId) usedIds.add(component.shapeId)
+          if (component.labelId) usedIds.add(component.labelId)
+          if (component.alarmShapeId) usedIds.add(component.alarmShapeId)
+          for (const binding of component.multiStateBindings ?? []) {
+            if (binding.shapeId) usedIds.add(binding.shapeId)
+          }
+        }
+      }
+      const modifiedIds = new Set(modifiedViewIds)
+      const nextModels = new Map<string, ExportViewModel>()
+      for (const [viewId, model] of models) {
+        const hasSet = model.components.some((component) =>
+          component.managed !== false && component.multiIconSetId === iconSetId)
+        if (hasSet) modifiedIds.add(viewId)
+        nextModels.set(viewId, {
+          ...model,
+          components: model.components.map((component) => (
+            component.managed === false || component.multiIconSetId !== iconSetId
+              ? component
+              : {
+                ...component,
+                multiStateBindings: [
+                  ...(component.multiStateBindings ?? []),
+                  {
+                    stateKey: newState.key,
+                    iconId: newState.asset.id,
+                    tagId: '',
+                    shapeId: generateId('SHE', usedIds, window.crypto),
+                  },
+                ],
+              }
+          )),
+        })
+      }
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(nextConfig, config),
+        models: nextModels,
+        modifiedViewIds: modifiedIds,
+      })
+      setMultiStateAddDrafts((current) => ({ ...current, [iconSetId]: { name: '', file: null } }))
+      messageApi.success('已新增狀態；請在使用此圖示組的元件中綁定 Boolean Tag。')
+    } catch (error) {
+      messageApi.error(`新增狀態失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  function handleRemoveMultiStateIconState(iconSetId: string, stateKey: string) {
+    if (!config) return
+    try {
+      const usages: string[] = []
+      for (const [viewId, model] of models) {
+        for (const component of model.components) {
+          if (component.managed === false
+              || component.multiIconSetId !== iconSetId
+              || !component.multiStateBindings?.some((binding) => binding.stateKey === stateKey)) continue
+          usages.push(`「${config.views.find((view) => view.id === viewId)?.name || viewId}」的 ${
+            component.label || `元件 #${component.seq}`
+          }`)
+        }
+      }
+      for (const view of config.rawConfig.hmi.views) {
+        if (!isRecord(view) || typeof view.svgcontent !== 'string') continue
+        const doc = parseSvg(view.svgcontent, DOMParser)
+        const used = Array.from(doc.getElementsByTagName('*')).some((node) =>
+          node.getAttribute('data-fuxa-icon-set-id') === iconSetId
+          && node.getAttribute('data-fuxa-state-key') === stateKey)
+        if (used) {
+          usages.push(`「${typeof view.name === 'string' ? view.name : String(view.id || '未知 View')}」的 SVG 元件`)
+        }
+      }
+      const nextConfig = removeMultiStateIconState(
+        config.rawConfig,
+        iconSetId,
+        stateKey,
+        usages,
+      )
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(nextConfig, config),
+        models,
+      })
+      messageApi.success('已刪除多狀態圖示定義。')
+    } catch (error) {
+      messageApi.error(`刪除狀態失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   function tagLabel(tag: IndexedTag): string {
     return `${tag.deviceName} / ${tag.name} (${tag.type || '未設定型別'})`
   }
@@ -1077,7 +1339,7 @@ function App() {
     const options = tags.map((tag) => ({
       value: tag.id,
       label: tagLabel(tag),
-      disabled: component.template === 'icon-pair'
+      disabled: (component.template === 'icon-pair' || component.template === 'icon-multi')
         && !['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()),
     }))
     if (component.tagId && !tags.some((tag) => tag.id === component.tagId)) {
@@ -1291,6 +1553,7 @@ function App() {
               options={[
                 { label: '一般圖示', value: 'single' },
                 { label: '正常／告警圖示組', value: 'pair' },
+                { label: '多狀態圖示組', value: 'multi-state' },
               ]}
             />
           </Space>
@@ -1303,7 +1566,7 @@ function App() {
                 onChange={(event) => setSingleIconFile(event.target.files?.[0] ?? null)}
               />
             </label>
-          ) : (
+          ) : iconType === 'pair' ? (
             <Space wrap>
               <label className="icon-file-field">
                 正常狀態圖片
@@ -1322,11 +1585,94 @@ function App() {
                 />
               </label>
             </Space>
+          ) : (
+            <Space orientation="vertical" className="icon-state-draft-list">
+              <label className="icon-file-field">
+                預設／正常狀態圖片
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  onChange={(event) => setNormalIconFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+              <Text type="secondary">狀態依列表順序設定優先權，第一項優先權最高；最多 {MAX_MULTI_STATE_COUNT} 項。</Text>
+              {multiStateDrafts.map((state, index) => (
+                <Space key={`state-draft-${index}`} wrap>
+                  <Text>優先 {index + 1}</Text>
+                  <Input
+                    aria-label={`狀態 ${index + 1} 名稱`}
+                    placeholder="狀態名稱"
+                    maxLength={80}
+                    value={state.name}
+                    onChange={(event) => setMultiStateDrafts((current) => current.map(
+                      (candidate, candidateIndex) => candidateIndex === index
+                        ? { ...candidate, name: event.target.value }
+                        : candidate,
+                    ))}
+                  />
+                  <label className="icon-file-field">
+                    狀態圖片
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif"
+                      onChange={(event) => setMultiStateDrafts((current) => current.map(
+                        (candidate, candidateIndex) => candidateIndex === index
+                          ? { ...candidate, file: event.target.files?.[0] ?? null }
+                          : candidate,
+                      ))}
+                    />
+                  </label>
+                  <Button
+                    aria-label={`狀態 ${index + 1} 上移`}
+                    disabled={index === 0}
+                    onClick={() => setMultiStateDrafts((current) => {
+                      const next = [...current]
+                      ;[next[index - 1], next[index]] = [next[index]!, next[index - 1]!]
+                      return next
+                    })}
+                  >
+                    上移
+                  </Button>
+                  <Button
+                    aria-label={`狀態 ${index + 1} 下移`}
+                    disabled={index === multiStateDrafts.length - 1}
+                    onClick={() => setMultiStateDrafts((current) => {
+                      const next = [...current]
+                      ;[next[index], next[index + 1]] = [next[index + 1]!, next[index]!]
+                      return next
+                    })}
+                  >
+                    下移
+                  </Button>
+                  <Button
+                    danger
+                    disabled={multiStateDrafts.length <= 1}
+                    onClick={() => setMultiStateDrafts((current) =>
+                      current.filter((_candidate, candidateIndex) => candidateIndex !== index))}
+                  >
+                    移除
+                  </Button>
+                </Space>
+              ))}
+              <Button
+                disabled={multiStateDrafts.length >= MAX_MULTI_STATE_COUNT}
+                onClick={() => setMultiStateDrafts((current) => [...current, { name: '', file: null }])}
+              >
+                新增狀態
+              </Button>
+            </Space>
           )}
           <Button
             type="primary"
             disabled={!config || !iconName.trim()
-              || (iconType === 'single' ? !singleIconFile : !normalIconFile || !alarmIconFile)}
+              || (iconType === 'single'
+                ? !singleIconFile
+                : iconType === 'pair'
+                  ? !normalIconFile || !alarmIconFile
+                  : !normalIconFile
+                    || multiStateDrafts.some((state) => !state.file || !state.name.trim())
+                    || new Set(multiStateDrafts.map((state) =>
+                      state.name.trim().toLocaleLowerCase())).size !== multiStateDrafts.length)}
             onClick={() => void handleAddIcon()}
           >
             新增至圖示庫
@@ -1334,9 +1680,7 @@ function App() {
           {iconLibrary.length ? (
             <div className="icon-library-list">
               {iconLibrary.map((icon) => {
-                const assets = icon.type === 'pair'
-                  ? [icon.normal, icon.alarm]
-                  : [icon]
+                const assets = getIconAssets(icon)
                 return (
                   <Card
                     key={icon.id}
@@ -1349,11 +1693,84 @@ function App() {
                         <Space key={asset.id} orientation="vertical" align="center" size="small">
                           <Image src={asset.dataUrl} alt={`${icon.name} ${index + 1}`} width={64} height={64} />
                           <Text type="secondary">
-                            {icon.type === 'pair' ? (index === 0 ? '正常' : '告警') : '預覽'}
+                            {icon.type === 'pair'
+                              ? (index === 0 ? '正常' : '告警')
+                              : icon.type === 'multi-state'
+                                ? index === 0 ? '預設／正常' : icon.states[index - 1]?.name
+                                : '預覽'}
                           </Text>
                         </Space>
                       ))}
                     </Space>
+                    {icon.type === 'multi-state' && (
+                      <Space orientation="vertical" className="multi-state-library-order">
+                        <Text strong>狀態優先順序（第一項最高）</Text>
+                        {icon.states.map((state, index) => (
+                          <Space key={state.key} wrap>
+                            <Text>{index + 1}. {state.name}</Text>
+                            <Button
+                              aria-label={`${state.name} 狀態上移`}
+                              disabled={index === 0}
+                              onClick={() => handleMoveMultiStateIconState(icon.id, state.key, -1)}
+                            >
+                              上移
+                            </Button>
+                            <Button
+                              aria-label={`${state.name} 狀態下移`}
+                              disabled={index === icon.states.length - 1}
+                              onClick={() => handleMoveMultiStateIconState(icon.id, state.key, 1)}
+                            >
+                              下移
+                            </Button>
+                            <Button
+                              danger
+                              disabled={icon.states.length <= 1}
+                              onClick={() => handleRemoveMultiStateIconState(icon.id, state.key)}
+                            >
+                              刪除狀態
+                            </Button>
+                          </Space>
+                        ))}
+                        {icon.states.length < MAX_MULTI_STATE_COUNT && (
+                          <Space wrap>
+                            <Input
+                              aria-label={`${icon.name} 新增狀態名稱`}
+                              placeholder="新增狀態名稱"
+                              maxLength={80}
+                              value={multiStateAddDrafts[icon.id]?.name ?? ''}
+                              onChange={(event) => setMultiStateAddDrafts((current) => ({
+                                ...current,
+                                [icon.id]: {
+                                  name: event.target.value,
+                                  file: current[icon.id]?.file ?? null,
+                                },
+                              }))}
+                            />
+                            <label className="icon-file-field">
+                              狀態圖片
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/gif"
+                                onChange={(event) => setMultiStateAddDrafts((current) => ({
+                                  ...current,
+                                  [icon.id]: {
+                                    name: current[icon.id]?.name ?? '',
+                                    file: event.target.files?.[0] ?? null,
+                                  },
+                                }))}
+                              />
+                            </label>
+                            <Button
+                              disabled={!multiStateAddDrafts[icon.id]?.name.trim()
+                                || !multiStateAddDrafts[icon.id]?.file}
+                              onClick={() => void handleAddMultiStateIconState(icon.id)}
+                            >
+                              新增狀態
+                            </Button>
+                          </Space>
+                        )}
+                      </Space>
+                    )}
                   </Card>
                 )
               })}
@@ -1593,6 +2010,30 @@ function App() {
         <Text type="secondary">
           Tag 會沿用配置中的樓層；未設定樓層的 Tag 會歸入「未設定樓層」。
         </Text>
+        <Select
+          aria-label="批次圖形"
+          value={batchGraphic}
+          options={getComponentGraphicChoices(
+            iconLibrary,
+            {
+              key: 'batch',
+              seq: 0,
+              tagId: selectedBatchTags[0]?.id ?? '',
+              label: '',
+              template: 'rect',
+              shapeId: '',
+              managed: true,
+            },
+            batchCanUseBooleanGraphic,
+          )}
+          onChange={setBatchGraphic}
+          style={{ width: '100%', marginTop: 12 }}
+        />
+        {batchGraphic.startsWith('multi:') && (
+          <Text type="secondary">
+            每筆 Tag 各建立一個元件，並綁定至所選多狀態圖示組的最高優先狀態。
+          </Text>
+        )}
         <Input
           aria-label="搜尋 Tag"
           allowClear
@@ -1985,19 +2426,21 @@ function App() {
                                         { label: event.target.value },
                                       )}
                                     />
-                                    <Select
-                                      aria-label="綁定 Tag"
-                                      showSearch
-                                      optionFilterProp="label"
-                                      value={component.tagId || undefined}
-                                      placeholder="選擇 Tag"
-                                      options={tagOptions(component)}
-                                      onChange={(tagId: string) => handleUpdateComponent(
-                                        selectedView.id,
-                                        component.key,
-                                        { tagId },
-                                      )}
-                                    />
+                                    {component.template !== 'icon-multi' && (
+                                      <Select
+                                        aria-label="綁定 Tag"
+                                        showSearch
+                                        optionFilterProp="label"
+                                        value={component.tagId || undefined}
+                                        placeholder="選擇 Tag"
+                                        options={tagOptions(component)}
+                                        onChange={(tagId: string) => handleUpdateComponent(
+                                          selectedView.id,
+                                          component.key,
+                                          { tagId },
+                                        )}
+                                      />
+                                    )}
                                     <Select
                                       aria-label="圖形"
                                       value={selectedComponentGraphic(component, iconLibrary)}
@@ -2027,7 +2470,8 @@ function App() {
                                         反轉狀態
                                       </Checkbox>
                                     )}
-                                    {component.template !== 'icon-pair' && (
+                                    {component.template !== 'icon-pair'
+                                      && component.template !== 'icon-multi' && (
                                       <Select
                                         aria-label="顏色狀態"
                                         value={component.palette === 'alarm' ? 'alarm' : 'normal'}
@@ -2043,6 +2487,87 @@ function App() {
                                       />
                                     )}
                                   </div>
+                                  {component.template === 'icon-multi' && (
+                                    <div className="multi-state-bindings">
+                                      <Text strong>多狀態 Tag 綁定</Text>
+                                      {!iconLibrary.some((icon) =>
+                                        icon.type === 'multi-state' && icon.id === component.multiIconSetId)
+                                        && (
+                                          <Alert
+                                            type="error"
+                                            showIcon
+                                            title={`找不到多狀態圖示組「${component.multiIconSetId || ''}」。`}
+                                          />
+                                        )}
+                                      {(component.multiStateBindings ?? []).map((binding, index) => {
+                                        const iconSet = iconLibrary.find((icon) =>
+                                          icon.type === 'multi-state'
+                                          && icon.id === component.multiIconSetId)
+                                        const stateDefinition = iconSet?.type === 'multi-state'
+                                          ? iconSet.states.find((state) => state.key === binding.stateKey)
+                                          : undefined
+                                        const stateTagOptions = tags
+                                          .filter((tag) => ['bool', 'boolean'].includes(
+                                            tag.type.toLocaleLowerCase(),
+                                          ))
+                                          .map((tag) => ({
+                                            value: tag.id,
+                                            label: tagLabel(tag),
+                                            disabled: component.multiStateBindings?.some(
+                                              (candidate) => candidate.stateKey !== binding.stateKey
+                                                && candidate.tagId === tag.id,
+                                            ) ?? false,
+                                          }))
+                                        if (binding.tagId && !stateTagOptions.some(
+                                          (option) => option.value === binding.tagId,
+                                        )) {
+                                          const existingTag = tags.find((tag) => tag.id === binding.tagId)
+                                          stateTagOptions.unshift({
+                                            value: binding.tagId,
+                                            label: existingTag
+                                              ? `Tag 型別不符（${tagLabel(existingTag)}）`
+                                              : `Tag 不存在（${binding.tagId}）`,
+                                            disabled: true,
+                                          })
+                                        }
+                                        return (
+                                          <div className="multi-state-binding-row" key={binding.stateKey}>
+                                            {stateDefinition && (
+                                              <Image
+                                                src={stateDefinition.asset.dataUrl}
+                                                alt={`${stateDefinition.name} 圖示`}
+                                                width={32}
+                                                height={32}
+                                              />
+                                            )}
+                                            <Text>
+                                              優先 {index + 1} · {stateDefinition?.name ?? binding.stateKey}
+                                            </Text>
+                                            <Select
+                                              aria-label={`${stateDefinition?.name ?? binding.stateKey} 狀態 Tag`}
+                                              allowClear
+                                              showSearch
+                                              optionFilterProp="label"
+                                              value={binding.tagId || undefined}
+                                              placeholder="選擇 Boolean Tag"
+                                              options={stateTagOptions}
+                                              onChange={(tagId: string | undefined) => (
+                                                handleUpdateMultiStateBinding(
+                                                  selectedView.id,
+                                                  component,
+                                                  binding.stateKey,
+                                                  tagId ?? '',
+                                                )
+                                              )}
+                                            />
+                                          </div>
+                                        )
+                                      })}
+                                      <Text type="secondary">
+                                        優先順序依圖示庫狀態列表設定；同一元件不可重複綁定 Tag。
+                                      </Text>
+                                    </div>
+                                  )}
                                   <Button
                                     danger
                                     type="link"

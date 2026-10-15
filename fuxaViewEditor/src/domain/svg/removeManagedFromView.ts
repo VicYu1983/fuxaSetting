@@ -11,6 +11,7 @@ interface ManagedComponentRef {
   shapeId?: unknown
   alarmShapeId?: unknown
   labelId?: unknown
+  multiStateBindings?: unknown
 }
 
 export interface ManagedSvgModelRef {
@@ -50,6 +51,12 @@ function addComponentIds(target: Set<string>, components: unknown): void {
     for (const key of ['shapeId', 'alarmShapeId', 'labelId'] as const) {
       const id = component[key]
       if (typeof id === 'string' && id) target.add(id)
+    }
+    if (Array.isArray(component.multiStateBindings)) {
+      for (const binding of component.multiStateBindings) {
+        if (!isRecord(binding) || typeof binding.shapeId !== 'string' || !binding.shapeId) continue
+        target.add(binding.shapeId)
+      }
     }
   }
 }

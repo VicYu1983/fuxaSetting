@@ -150,6 +150,46 @@ describe('buildComponentEntries', () => {
     ])
   })
 
+  it('builds normal and per-Tag actions for stacked multi-state images', () => {
+    const model = component({
+      template: 'icon-multi',
+      multiIconSetId: 'icon-set-tank',
+      normalIconId: 'normal-asset',
+      multiStateBindings: [
+        { stateKey: 'alarm', iconId: 'alarm-asset', tagId: 'tag-alarm', shapeId: 'shape-alarm' },
+        { stateKey: 'high', iconId: 'high-asset', tagId: 'tag-high', shapeId: 'shape-high' },
+      ],
+    })
+    const result = buildComponentEntries(model, [
+      new TestElement({ id: 'shape-3', 'data-name': 'tc_3', 'data-fuxa-state-key': 'normal' }) as unknown as Element,
+      new TestElement({
+        id: 'shape-high',
+        'data-name': 'tc_3_state_high',
+        'data-fuxa-state-key': 'high',
+      }) as unknown as Element,
+      new TestElement({
+        id: 'shape-alarm',
+        'data-name': 'tc_3_state_alarm',
+        'data-fuxa-state-key': 'alarm',
+      }) as unknown as Element,
+    ])
+    expect(result.shapeEntries.map((entry) => entry.id))
+      .toEqual(['shape-3', 'shape-high', 'shape-alarm'])
+    expect(result.shapeEntries[0]?.property).toMatchObject({ actions: [], ranges: [] })
+    expect(result.shapeEntries[1]?.property).toMatchObject({
+      actions: [
+        { variableId: 'tag-high', range: { min: 0, max: 0 }, type: 'hide' },
+        { variableId: 'tag-high', range: { min: 1, max: 1 }, type: 'show' },
+      ],
+    })
+    expect(result.shapeEntries[2]?.property).toMatchObject({
+      actions: [
+        { variableId: 'tag-alarm', range: { min: 0, max: 0 }, type: 'hide' },
+        { variableId: 'tag-alarm', range: { min: 1, max: 1 }, type: 'show' },
+      ],
+    })
+  })
+
   it('rejects incomplete icon pairs and missing standard nodes', () => {
     expect(() => buildComponentEntries(
       component({ template: 'icon-pair' }),

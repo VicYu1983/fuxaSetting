@@ -161,12 +161,125 @@ function validItems(): Record<string, unknown> {
   }
 }
 
+function validMultiStateArtifacts() {
+  const root = new TestElement('svg')
+  const layer = root.appendChild(new TestElement('g'))
+  const common = {
+    'data-fuxa-icon-set-id': 'tank-set',
+    x: '10',
+    y: '20',
+    width: '40',
+    height: '40',
+  }
+  layer.appendChild(new TestElement('image', {
+    ...common,
+    id: 'normal-id',
+    'data-name': 'tc_1',
+    'data-fuxa-icon-id': 'normal-icon',
+    'data-fuxa-state-key': 'normal',
+  }))
+  layer.appendChild(new TestElement('image', {
+    ...common,
+    id: 'high-id',
+    'data-name': 'tc_1_state_high',
+    'data-fuxa-icon-id': 'high-icon',
+    'data-fuxa-state-key': 'high',
+    'data-fuxa-state-priority': '1',
+  }))
+  layer.appendChild(new TestElement('image', {
+    ...common,
+    id: 'alarm-id',
+    'data-name': 'tc_1_state_alarm',
+    'data-fuxa-icon-id': 'alarm-icon',
+    'data-fuxa-state-key': 'alarm',
+    'data-fuxa-state-priority': '0',
+  }))
+  layer.appendChild(new TestElement('text', { id: 'label-id' }, 'Tank'))
+  layer.appendChild(new TestElement(
+    'text',
+    { id: 'title-id', 'data-floor-group': '1F' },
+    '1F',
+  ))
+  layer.appendChild(new TestElement('g', { id: 'frame-id', 'data-floor-group': '1F' }))
+
+  const model = makeModel([{
+    key: 'component-1',
+    seq: 1,
+    tagId: 'tag-alarm',
+    label: 'Tank',
+    template: 'icon-multi',
+    multiIconSetId: 'tank-set',
+    normalIconId: 'normal-icon',
+    multiStateBindings: [
+      { stateKey: 'alarm', iconId: 'alarm-icon', tagId: 'tag-alarm', shapeId: 'alarm-id' },
+      { stateKey: 'high', iconId: 'high-icon', tagId: 'tag-high', shapeId: 'high-id' },
+    ],
+    shapeId: 'normal-id',
+    labelId: 'label-id',
+    managed: true,
+  }])
+  const actions = (variableId: string) => [
+    { variableId, range: { min: 0, max: 0 }, type: 'hide' },
+    { variableId, range: { min: 1, max: 1 }, type: 'show' },
+  ]
+  const items = {
+    'normal-id': { id: 'normal-id', type: 'svg-ext-shapes-select', property: { actions: [] } },
+    'high-id': {
+      id: 'high-id',
+      type: 'svg-ext-shapes-select',
+      property: { actions: actions('tag-high') },
+    },
+    'alarm-id': {
+      id: 'alarm-id',
+      type: 'svg-ext-shapes-select',
+      property: { actions: actions('tag-alarm') },
+    },
+    'label-id': { id: 'label-id', name: 'tc_1_label' },
+    'title-id': { id: 'title-id', name: 'fuxa_floor_section_title' },
+    'frame-id': { id: 'frame-id', name: 'fuxa_floor_section_frame' },
+  }
+  return { doc: new TestDocument(root), model, items }
+}
+
 describe('validateGeneratedView', () => {
   it('accepts a consistent generated component with matching floor artifacts', () => {
     expect(() => validateGeneratedView(
       makeView(validItems()),
       makeModel([managedComponent()]),
       { Parser: parserFor(validDocument()), tags: new Map([['tag-1', { floor: '1F' }]]) },
+    )).not.toThrow()
+  })
+
+  it('accepts multi-state images with unique Boolean Tag visibility rules and matching priority', () => {
+    const { doc, model, items } = validMultiStateArtifacts()
+    expect(() => validateGeneratedView(
+      makeView(items),
+      model,
+      {
+        Parser: parserFor(doc),
+        tags: new Map([
+          ['tag-alarm', { floor: '1F', type: 'Bool' }],
+          ['tag-high', { floor: '1F', type: 'Boolean' }],
+        ]),
+        iconLibrary: [{
+          id: 'tank-set',
+          name: 'Tank',
+          type: 'multi-state',
+          normal: { id: 'normal-icon', mimeType: 'image/png', dataUrl: 'data:image/png;base64,AA==' },
+          states: [
+            {
+              key: 'alarm',
+              name: 'Alarm',
+              asset: { id: 'alarm-icon', mimeType: 'image/png', dataUrl: 'data:image/png;base64,AA==' },
+            },
+            {
+              key: 'high',
+              name: 'High',
+              asset: { id: 'high-icon', mimeType: 'image/png', dataUrl: 'data:image/png;base64,AA==' },
+            },
+          ],
+        }],
+      },
     )).not.toThrow()
   })
 

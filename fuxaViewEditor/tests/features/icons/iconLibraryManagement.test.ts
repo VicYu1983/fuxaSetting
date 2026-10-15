@@ -8,10 +8,13 @@ import { prepareFuxaConfigExport } from '../../../src/domain/config/prepareFuxaC
 import { getIconLibrary } from '../../../src/domain/icons/iconLibrary'
 import type { SvgParserConstructor } from '../../../src/domain/svg/parseSvg'
 import {
+  addMultiStateIconState,
   addIconLibraryEntry,
   findIconLibraryUsages,
   findIconLibrarySvgUsages,
   identifyIconMimeType,
+  moveMultiStateIconState,
+  removeMultiStateIconState,
   removeIconLibraryEntry,
 } from '../../../src/features/icons/iconLibraryManagement'
 import {
@@ -145,6 +148,94 @@ describe('iconLibraryManagement', () => {
     expect(pair.alarm).toMatchObject({ mimeType: 'image/gif' })
     expect(() => addIconLibraryEntry(source, 'pUMP', 'single', [gifBytes], fixedRandom))
       .toThrow('已存在')
+  })
+
+  it('creates reusable multi-state icon sets and preserves priority when reordered', () => {
+    const source = addIconLibraryEntry(
+      emptyConfig(),
+      'Tank',
+      'multi-state',
+      [gifBytes, gifBytes, gifBytes],
+      fixedRandom,
+      ['Fault', 'High level'],
+    )
+    const set = getIconLibrary(source)[0]!
+    if (set.type !== 'multi-state') throw new Error('Expected multi-state icon set.')
+    expect(set.states.map((state) => state.name)).toEqual(['Fault', 'High level'])
+    const reordered = moveMultiStateIconState(source, set.id, set.states[0]!.key, 1)
+    const reorderedSet = getIconLibrary(reordered)[0]!
+    if (reorderedSet.type !== 'multi-state') throw new Error('Expected multi-state icon set.')
+    expect(reorderedSet.states.map((state) => state.name)).toEqual(['High level', 'Fault'])
+
+    const baseComponent: GeneratedComponent = {
+      key: 'new-component',
+      seq: 1,
+      tagId: 'bool-tag',
+      label: 'Tank',
+      template: 'rect',
+      shapeId: 'shape-tank',
+      labelId: 'label-tank',
+      managed: true,
+    }
+    const choices = getComponentGraphicChoices([set], baseComponent, true)
+    expect(choices.map(({ value }) => value)).toContain(`multi:${set.id}`)
+    const assigned = updateComponentGraphic(
+      baseComponent,
+      `multi:${set.id}`,
+      [set],
+      (() => {
+        let next = 0
+        return () => `state-shape-${++next}`
+      })(),
+    )
+    expect(assigned).toMatchObject({
+      template: 'icon-multi',
+      multiIconSetId: set.id,
+      normalIconId: set.normal.id,
+      tagId: 'bool-tag',
+      multiStateBindings: [
+        { stateKey: set.states[0]!.key, iconId: set.states[0]!.asset.id, tagId: 'bool-tag' },
+        { stateKey: set.states[1]!.key, iconId: set.states[1]!.asset.id, tagId: '' },
+      ],
+    })
+  })
+
+  it('adds and removes states while protecting referenced definitions', () => {
+      const source = addIconLibraryEntry(
+        emptyConfig(),
+        'Tank',
+        'multi-state',
+        [gifBytes, gifBytes],
+        fixedRandom,
+        ['Alarm'],
+      )
+      const iconSet = getIconLibrary(source)[0]!
+      if (iconSet.type !== 'multi-state') throw new Error('Expected multi-state icon set.')
+      const expanded = addMultiStateIconState(
+        source,
+        iconSet.id,
+        'High',
+        gifBytes,
+        fixedRandom,
+      )
+      const expandedSet = getIconLibrary(expanded)[0]!
+      if (expandedSet.type !== 'multi-state') throw new Error('Expected multi-state icon set.')
+      expect(expandedSet.states.map((state) => state.name)).toEqual(['Alarm', 'High'])
+      expect(() => removeMultiStateIconState(
+        expanded,
+        iconSet.id,
+        expandedSet.states[0]!.key,
+        ['「Overview」的 Tank'],
+      )).toThrow('仍被使用')
+      const reduced = removeMultiStateIconState(
+        expanded,
+        iconSet.id,
+        expandedSet.states[1]!.key,
+        [],
+      )
+      const reducedSet = getIconLibrary(reduced)[0]!
+      if (reducedSet.type !== 'multi-state') throw new Error('Expected multi-state icon set.')
+      expect(reducedSet.states.map((state) => state.name)).toEqual(['Alarm'])
   })
 
   it('blocks removal while a managed component references either pair asset', () => {

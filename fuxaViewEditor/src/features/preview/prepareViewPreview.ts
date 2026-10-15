@@ -89,6 +89,12 @@ export function prepareViewPreview(
     throw new Error('View 缺少有效的 SVG 內容。')
   }
   const doc = parseSvg(view.svgcontent, runtime.Parser)
+  for (const node of Array.from(doc.getElementsByTagName('*'))) {
+    if (node.getAttribute('data-fuxa-icon-set-id')
+        && node.getAttribute('data-fuxa-state-key') !== 'normal') {
+      node.setAttribute('visibility', 'hidden')
+    }
+  }
   sanitizePreview(doc)
 
   const profile = isRecord(view.profile) ? view.profile : {}
