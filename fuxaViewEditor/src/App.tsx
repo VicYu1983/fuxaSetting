@@ -1,4 +1,11 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from 'react'
 import {
   Alert,
   Button,
@@ -30,6 +37,10 @@ import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
 import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
 import type { GridSettings } from './domain/config/types'
 import type { IndexedTag } from './domain/tags/index'
+import {
+  createEditorHistoryState,
+  editorHistoryReducer,
+} from './app/store/editorHistory'
 import './App.css'
 
 const { Header, Sider, Content } = Layout
@@ -90,10 +101,25 @@ function App() {
   const [fileName, setFileName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [models, setModels] = useState<Map<string, ExportViewModel>>(new Map())
+  const [editor, dispatchEditor] = useReducer(
+    editorHistoryReducer<ExportViewModel>,
+    createEditorHistoryState<ExportViewModel>(),
+  )
   const [modelErrors, setModelErrors] = useState<Map<string, string>>(new Map())
   const [unsupported, setUnsupported] = useState<Map<string, string[]>>(new Map())
-  const [modifiedViewIds, setModifiedViewIds] = useState<Set<string>>(new Set())
+  const { models, modifiedViewIds } = editor
+
+  useEffect(() => {
+    if (modifiedViewIds.size === 0) return
+
+    function preventDataLoss(event: BeforeUnloadEvent) {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', preventDataLoss)
+    return () => window.removeEventListener('beforeunload', preventDataLoss)
+  }, [modifiedViewIds.size])
 
   const selectedView = useMemo(
     () => config ? getSelectedView(config.views, selectedViewId) : undefined,
@@ -113,10 +139,9 @@ function App() {
       const parsed = parseFuxaConfig(text)
       const editorModels = buildViewEditorModels(parsed.rawConfig, DOMParser, measureSvgBounds)
       setConfig(parsed)
-      setModels(editorModels.models)
+      dispatchEditor({ type: 'reset', models: editorModels.models })
       setModelErrors(editorModels.errors)
       setUnsupported(editorModels.unsupported)
-      setModifiedViewIds(new Set())
       setFileName(file.name)
       setSelectedViewId(parsed.views[0]?.key ?? '')
       messageApi.success(`已載入 ${file.name}`)
@@ -169,6 +194,7 @@ function App() {
       link.click()
       link.remove()
       window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      let modelsToReset = models
       if (prepared.dirty) {
         const savedModels = new Map<string, ExportViewModel>()
         for (const model of prepared.models) {
@@ -180,9 +206,9 @@ function App() {
           })
         }
         setConfig(parseFuxaConfig(prepared.text))
-        setModels(savedModels)
-        setModifiedViewIds(new Set())
+        modelsToReset = savedModels
       }
+      dispatchEditor({ type: 'reset', models: modelsToReset })
       messageApi.success(prepared.dirty ? '已匯出修改後的配置 JSON。' : '已另存配置 JSON。')
     } catch (error) {
       const detail = error instanceof Error ? error.message : '未知錯誤'
@@ -195,13 +221,14 @@ function App() {
     if (!model) return
     const component = model.components.find((item) => item.key === key)
     if (!component || component.managed === false) return
-    const nextModels = new Map(models)
-    nextModels.set(viewId, {
-      ...model,
-      components: model.components.filter((item) => item.key !== key),
+    dispatchEditor({
+      type: 'edit',
+      viewId,
+      model: {
+        ...model,
+        components: model.components.filter((item) => item.key !== key),
+      },
     })
-    setModels(nextModels)
-    setModifiedViewIds((current) => new Set(current).add(viewId))
   }
 
   function handleUpdateComponent(
@@ -214,15 +241,16 @@ function App() {
     const component = model.components.find((item) => item.key === key)
     if (!component || component.managed === false) return
 
-    const nextModels = new Map(models)
-    nextModels.set(viewId, {
-      ...model,
-      components: model.components.map((item) => (
-        item.key === key ? { ...item, ...update } : item
-      )),
+    dispatchEditor({
+      type: 'edit',
+      viewId,
+      model: {
+        ...model,
+        components: model.components.map((item) => (
+          item.key === key ? { ...item, ...update } : item
+        )),
+      },
     })
-    setModels(nextModels)
-    setModifiedViewIds((current) => new Set(current).add(viewId))
   }
 
   function handleUpdateGrid(
@@ -231,13 +259,14 @@ function App() {
   ) {
     const model = models.get(viewId)
     if (!model) return
-    const nextModels = new Map(models)
-    nextModels.set(viewId, {
-      ...model,
-      grid: { ...model.grid, ...update },
+    dispatchEditor({
+      type: 'edit',
+      viewId,
+      model: {
+        ...model,
+        grid: { ...model.grid, ...update },
+      },
     })
-    setModels(nextModels)
-    setModifiedViewIds((current) => new Set(current).add(viewId))
   }
 
   function tagLabel(tag: IndexedTag): string {
@@ -286,6 +315,18 @@ function App() {
             <Text className="file-indicator" ellipsis title={fileName || '尚未載入配置'}>
               {fileName || '尚未載入配置'}
             </Text>
+            <Button
+              disabled={editor.past.length === 0}
+              onClick={() => dispatchEditor({ type: 'undo' })}
+            >
+              復原
+            </Button>
+            <Button
+              disabled={editor.future.length === 0}
+              onClick={() => dispatchEditor({ type: 'redo' })}
+            >
+              重做
+            </Button>
             <input
               ref={fileInputRef}
               className="visually-hidden"

@@ -314,7 +314,8 @@ interface AppState {
 - **已完成切片**：`icons/iconLibrary` 的圖示庫讀取、保存、Base64/MIME 與唯一 ID 驗證、一般及正常／告警圖示組，以及 Boolean 可見條件動作產生。
 - **已完成切片**：`svg/parseSvg` 的 SVG MIME 解析與根節點／解析錯誤檢查，以及依 ID 查找 SVG 節點；`svg/readFloorArtifacts` 已遷移 Floor Group 標題／底框節點索引、重複 artifact 收集、已保存 ID 優先及未標記底框的座標推斷；`svg/readMovableTags` 已遷移既有 SVG Tag 的可移動性檢查（ID 重複、支援元素、節點／上層 transform）；`svg/readManagedComponents` 已遷移一般元件／圖示／正常告警圖示組與 Label 配對、Palette、內層 SVG ID 及 visibility state 解析；`svg/readManaged` 已整合上述讀取流程，維持 View/SVG 錯誤回傳形狀並合併樓層 artifacts、managed records 與既有可移動 Tag；`svg/buildComponentNodes` 已遷移一般矩形／圓柱、圖示與正常／告警圖示組及標籤節點生成，保留 ID 配置、SVG attributes、圖示引用與缺少圖示錯誤；`svg/buildFloorArtifactNodes` 已遷移樓層標題及底框節點與對應 FUXA `items` entry 生成，保留既有 entry 的未知欄位與 frame shape ID 選配行為；`svg/buildComponentEntries` 已遷移一般元件／雙圖示組與 Label 的 FUXA `items` entry 生成，保留舊 property/events 和未知欄位、palette range、雙圖示 visibility actions；`svg/removeManagedFromView` 已遷移套用新版佈局前清除舊 managed SVG 元件及 Floor Group artifacts 的流程，保留 unmanaged 元件與非目標 items；`svg/findSvgLayer` 已遷移 Layer 1 優先、第一個直接子圖層 fallback 的選擇；`svg/existingTagTransform` 已遷移既有 Tag 的平移差值、0.001 門檻與三位小數格式；`svg/applyExistingTagLayout` 已遷移既有 Tag 及 companion label 的 transform 套用／移除及缺少節點錯誤；`svg/insertFloorFrame` 已遷移底框插入第一個既有 Tag 之前或圖層末端的順序規則；`svg/ensureXlinkNamespace` 已遷移 icon SVG 的 XLink namespace 宣告；`svg/cleanupInactiveFloorArtifacts` 已遷移清除沒有 active layout section 的標題、底框與 inner-shape ID 索引；`svg/applyModelToView` 已整合解析、圖層定位、managed 清除、樓層排版、artifact/component 節點與 items 更新、既有 Tag 位移、inactive artifact 清理及 SVG 序列化，XML parser／serializer、ID allocator、圖示 resolver 與 Tag 索引透過 options 注入；套用流程以暫存 View/model 執行，成功序列化後才提交，避免建構或解析錯誤留下部分變更；`svg/validateGeneratedView` 已遷移輸出檢查，驗證 item ID、既有 Tag 綁定與位移、managed component／圖示組、Tag 參照、樓層 artifact、已刪除元件殘留，以及跨修改 View 的新 ID 重複。
 - **已完成切片**：`config/prepareFuxaConfigExport` 已整合匯出前處理；未修改時保留原始 JSON 文字，修改時以複本套用指定 View、保存圖示／Grid／Floor Group metadata、序列化並執行注入式輸出驗證。新增 `config/fuxaConfigExportDependencies` 將 SVG parser／serializer、唯一 ID 配置、圖示解析、Tag index、`applyModelToView` 及 `validateGeneratedViews` 組合成可供匯出入口使用的依賴；ID 產生會避開現有 Tag、items 與 SVG ID。新增 `views/buildViewEditorModels`，依既有 SVG reader 載入 managed 元件、可移動既有 Tag、Tag 旁文字及 Floor Group 資訊，SVG 無法解析、View ID 重複或缺少 ID 時明確設為唯讀。React 工作台目前可編輯 managed 元件的標籤、Tag 綁定和一般／告警配色、刪除元件，並編輯每個 View 的 Grid 欄數、起點、間距、標籤位置／位移／字級；icon-pair 僅允許 Boolean Tag。修改會標記 dirty，透過 SVG 套用及輸出驗證後下載；輸出驗證涵蓋 Label、palette ranges、Tag 綁定及 icon-pair Boolean Tag 條件。成功匯出後更新工作階段基準，重新載入其他檔案前警告未匯出修改。編輯模型在匯出前複製，避免失敗污染呼叫端狀態。
-- 新版以 Vitest 覆蓋已遷移函式；目前新版 110 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- **已完成切片**：新增 `app/store/editorHistory`，以純 reducer 保存最多 50 筆 immutable 編輯快照，Undo/Redo 同步恢復模型與 `modifiedViewIds`，新編輯會清除 redo 分支；載入配置或成功匯出後重設歷程。工作台加入復原／重做按鈕，未匯出修改時攔截頁面離開。新增 reducer 測試涵蓋 dirty 還原、redo 分支、歷程上限及重設。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 114 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
 - 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
@@ -325,7 +326,7 @@ interface AppState {
 
 ### 階段 4：Store 與主流程垂直切片
 - 實作 store（§5）、載入 → 選 View → 元件編輯 → 預覽 → 另存。
-- 實作 Undo/Redo 與 dirty。
+- **已完成切片**：managed 元件／Grid 編輯的 Undo/Redo 與 dirty 狀態同步、載入／匯出後清空歷程；完整應用 Store 及 SVG 預覽仍待遷移。
 - **驗收**：從載入到匯出的主流程，輸出等同黃金檔；Undo/Redo 行為與舊版一致。
 
 ### 階段 5：管理功能遷移（可平行，每項獨立 PR）
