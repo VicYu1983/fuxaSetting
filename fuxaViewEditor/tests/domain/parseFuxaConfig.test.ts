@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { parseFuxaConfig } from '../../src/domain/config/parseFuxaConfig'
+import {
+  generatedFileName,
+  serializeFuxaConfig,
+} from '../../src/domain/config/serialization'
 
 describe('parseFuxaConfig', () => {
   it('summarizes FUXA views while retaining the original configuration', () => {
@@ -50,7 +56,7 @@ describe('parseFuxaConfig', () => {
       'duplicate-1',
       'view-2',
     ])
-    expect(result.views[2].name).toBe('未命名 View 3')
+    expect(result.views.at(2)?.name).toBe('未命名 View 3')
   })
 
   it('reports malformed JSON and non-FUXA shapes explicitly', () => {
@@ -58,5 +64,37 @@ describe('parseFuxaConfig', () => {
     expect(() => parseFuxaConfig(JSON.stringify({}))).toThrow(
       '需包含 devices 與 hmi.views',
     )
+  })
+})
+
+describe('FUXA config serialization', () => {
+  it('preserves line endings and trailing-newline policy', () => {
+    const config = { devices: {}, hmi: { views: [] } }
+    const json = JSON.stringify(config, null, 4)
+
+    expect(serializeFuxaConfig(config, {
+      lineEnding: '\n',
+      hasTrailingNewline: false,
+    })).toBe(json)
+    expect(serializeFuxaConfig(config, {
+      lineEnding: '\r\n',
+      hasTrailingNewline: true,
+    })).toBe(`${json.replace(/\n/g, '\r\n')}\r\n`)
+  })
+
+  it('retains the exact source text for an unchanged FUXA configuration', () => {
+    const originalText = readFileSync(resolve(process.cwd(), '..', '旭峰建設.json'), 'utf8')
+    const parsed = parseFuxaConfig(originalText)
+
+    expect(parsed.originalText).toBe(originalText)
+    expect(parsed.sourceFormat).toEqual({
+      lineEnding: originalText.includes('\r\n') ? '\r\n' : '\n',
+      hasTrailingNewline: /(?:\r\n|\n)$/.test(originalText),
+    })
+  })
+
+  it('creates the established generated filename', () => {
+    expect(generatedFileName('旭峰建設.json')).toBe('旭峰建設.generated.json')
+    expect(generatedFileName('旭峰建設')).toBe('旭峰建設.generated.json')
   })
 })

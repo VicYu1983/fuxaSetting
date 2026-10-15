@@ -2,6 +2,8 @@
 
 本工具在本機瀏覽器中讀取 FUXA 配置 JSON，讓你選擇 View、管理 Tag 元件清單，批次連接既有 Tag、設定 Label，並依 Grid 自動排列。產生的 JSON 另存為新檔，原始檔不會被覆蓋。預覽不可拖曳；細部位置與互動請在 FUXA 編輯器中調整。
 
+> React 重構版本位於 [`fuxaViewEditor/`](./fuxaViewEditor/)，目前可載入配置、檢視 View，並原樣另存未修改的 JSON；尚未取代下方可完整使用的原生版。開發說明見 [`fuxaViewEditor/README.md`](./fuxaViewEditor/README.md)。
+
 ## 開始使用
 
 1. 在 Windows 檔案總管中開啟本資料夾。

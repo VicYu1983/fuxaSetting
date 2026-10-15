@@ -16,9 +16,9 @@ import {
 import zhTW from 'antd/locale/zh_TW'
 import {
   parseFuxaConfig,
-  type FuxaConfigSummary,
-  type FuxaViewSummary,
 } from './domain/config/parseFuxaConfig'
+import { generatedFileName } from './domain/config/serialization'
+import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import './App.css'
 
 const { Header, Sider, Content } = Layout
@@ -45,7 +45,7 @@ function getSelectedView(
 function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [messageApi, contextHolder] = message.useMessage()
-  const [config, setConfig] = useState<FuxaConfigSummary | null>(null)
+  const [config, setConfig] = useState<ParsedFuxaConfig | null>(null)
   const [fileName, setFileName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -77,6 +77,27 @@ function App() {
     }
   }
 
+  function handleSave() {
+    if (!config) return
+
+    try {
+      const blob = new Blob([config.originalText], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = generatedFileName(fileName)
+      link.hidden = true
+      document.body.append(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      messageApi.success('已另存配置 JSON。')
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '未知錯誤'
+      messageApi.error(`匯出失敗：${detail}`)
+    }
+  }
+
   return (
     <ConfigProvider
       locale={zhTW}
@@ -104,7 +125,7 @@ function App() {
             </Text>
             <input
               ref={fileInputRef}
-              hidden
+              className="visually-hidden"
               type="file"
               accept=".json,application/json"
               onChange={handleFileChange}
@@ -116,7 +137,7 @@ function App() {
             >
               開啟 JSON
             </Button>
-            <Button disabled title="主流程完成後啟用另存功能">
+            <Button disabled={!config} onClick={handleSave}>
               另存新 JSON
             </Button>
           </Space>

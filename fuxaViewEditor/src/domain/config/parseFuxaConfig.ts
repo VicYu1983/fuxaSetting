@@ -1,23 +1,8 @@
-export interface FuxaViewSummary {
-  key: string
-  id: string
-  name: string
-  width?: number
-  height?: number
-  itemCount?: number
-}
+import { detectSourceTextFormat } from './serialization'
+import type { FuxaViewSummary, ParsedFuxaConfig } from './types'
+import { isRecord, validateFuxaConfig } from './validateFuxaConfig'
 
-export interface FuxaConfigSummary {
-  rawConfig: Record<string, unknown>
-  devices: Record<string, unknown>
-  views: FuxaViewSummary[]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-export function parseFuxaConfig(text: string): FuxaConfigSummary {
+export function parseFuxaConfig(text: string): ParsedFuxaConfig {
   let value: unknown
   try {
     value = JSON.parse(text)
@@ -26,12 +11,8 @@ export function parseFuxaConfig(text: string): FuxaConfigSummary {
     throw new Error(`JSON 格式錯誤：${detail}`, { cause: error })
   }
 
-  if (!isRecord(value) || !isRecord(value.devices) || !isRecord(value.hmi)
-    || !Array.isArray(value.hmi.views)) {
-    throw new Error('檔案不是可辨識的 FUXA 配置（需包含 devices 與 hmi.views）。')
-  }
-
-  const views = value.hmi.views.map((view, index): FuxaViewSummary => {
+  const rawConfig = validateFuxaConfig(value)
+  const views = rawConfig.hmi.views.map((view, index): FuxaViewSummary => {
     const record = isRecord(view) ? view : {}
     const profile = isRecord(record.profile) ? record.profile : {}
     const items = isRecord(record.items) ? record.items : undefined
@@ -50,5 +31,11 @@ export function parseFuxaConfig(text: string): FuxaConfigSummary {
     }
   })
 
-  return { rawConfig: value, devices: value.devices, views }
+  return {
+    originalText: text,
+    rawConfig,
+    devices: rawConfig.devices,
+    views,
+    sourceFormat: detectSourceTextFormat(text),
+  }
 }
