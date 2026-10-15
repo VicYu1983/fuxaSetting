@@ -14,9 +14,35 @@ export interface FuxaViewSummary {
   itemCount?: number
 }
 
+export type LabelPosition = 'above' | 'below' | 'left' | 'right'
+
+export interface GridSettings {
+  columns: number
+  originX: number
+  originY: number
+  gapX: number
+  gapY: number
+  labelPosition: LabelPosition
+  labelOffset: number
+  labelFontSize: number
+}
+
 export interface FuxaConfig {
   devices: Record<string, unknown>
   hmi: Record<string, unknown> & { views: unknown[] }
+  [key: string]: unknown
+}
+
+export interface TagExtra {
+  floor?: string
+  [key: string]: unknown
+}
+
+export interface FuxaTag {
+  id?: string
+  name?: string
+  type?: string
+  extra?: TagExtra
   [key: string]: unknown
 }
 
