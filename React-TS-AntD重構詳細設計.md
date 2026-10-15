@@ -306,7 +306,8 @@ interface AppState {
 - **已完成切片**：`config/validate`、來源文字格式偵測／序列化工具、`tags/floor`（樓層正規化、Tag metadata、排序分組）、`layout/gridSettings`（View Grid 的讀取、正規化與保存）。
 - **已完成切片**：`layout/gridLayout` 的元件尺寸、行列定位、四種 Label 位置，以及 SVG 文字近似量測／Bounds 計算。
 - **已完成切片**：`layout/floorGroupFrame` 的底框設定正規化、讀取與保存；`layout/floorLayout` 的樓層排序分組、區段排版、底框 bounds 與既有 Tag companion bounds。
-- 新版以 Vitest 覆蓋已遷移函式；目前新版 20 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- **已完成切片**：`ids` 的唯一 ID 產生與碰撞重試；`devices/modbusTcp` 的設備建立／更新、位址補位規劃與執行、位址位移及範圍檢查；`tags/batch` 的批次輸入解析、樓層正規化、Tag 建立與下一位址計算。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 27 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
 - 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
