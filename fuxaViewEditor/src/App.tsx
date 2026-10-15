@@ -24,6 +24,7 @@ import {
   Select,
   Space,
   Statistic,
+  Switch,
   Tag,
   Typography,
   message,
@@ -91,6 +92,13 @@ interface PreviewState {
   error?: string
 }
 
+interface PreviewSnapshot {
+  result: PreviewState
+  config: ParsedFuxaConfig
+  models: Map<string, ExportViewModel>
+  viewId: string
+}
+
 interface ModbusDeviceFormValues {
   [key: string]: unknown
   name: string
@@ -134,6 +142,26 @@ function parseUpdatedConfig(
   }
 }
 
+function createPreviewState(
+  config: ParsedFuxaConfig,
+  view: FuxaViewSummary,
+  models: Map<string, ExportViewModel>,
+): PreviewState {
+  try {
+    return prepareViewPreview(config.rawConfig, view.id, [...models.values()], {
+      Parser: DOMParser,
+      serialize: (doc) => new XMLSerializer().serializeToString(doc),
+      crypto: window.crypto,
+    })
+  } catch (error) {
+    return {
+      width: view.width || 1024,
+      height: view.height || 768,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
 function measureSvgBounds(doc: XMLDocument, id: string): Bounds {
   const node = Array.from(doc.getElementsByTagName('*'))
     .find((element) => element.getAttribute('id') === id)
@@ -172,6 +200,8 @@ function App() {
   const [messageApi, contextHolder] = message.useMessage()
   const [fileName, setFileName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
+  const [previewRealtime, setPreviewRealtime] = useState(true)
+  const [previewSnapshot, setPreviewSnapshot] = useState<PreviewSnapshot | null>(null)
   const [viewDialogMode, setViewDialogMode] = useState<'create' | 'rename' | null>(null)
   const [viewDialogTargetId, setViewDialogTargetId] = useState('')
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
@@ -282,23 +312,39 @@ function App() {
     [tags],
   )
   const tagCount = config ? countTags(config.devices) : 0
-  const preview = useMemo((): PreviewState | null => {
-    if (!config || !selectedView) return null
+  const preview = previewSnapshot && selectedView
+    && previewSnapshot.viewId === selectedView.id
+    ? previewSnapshot.result
+    : null
+  const previewStale = !config || !selectedView
+    ? false
+    : !previewSnapshot
+      || previewSnapshot.config !== config
+      || previewSnapshot.models !== models
+      || previewSnapshot.viewId !== selectedView.id
 
-    try {
-      return prepareViewPreview(config.rawConfig, selectedView.id, [...models.values()], {
-        Parser: DOMParser,
-        serialize: (doc) => new XMLSerializer().serializeToString(doc),
-        crypto: window.crypto,
+  useEffect(() => {
+    if (!previewRealtime || !config || !selectedView) return
+    const timeout = window.setTimeout(() => {
+      setPreviewSnapshot({
+        result: createPreviewState(config, selectedView, models),
+        config,
+        models,
+        viewId: selectedView.id,
       })
-    } catch (error) {
-      return {
-        width: selectedView.width || 1024,
-        height: selectedView.height || 768,
-        error: error instanceof Error ? error.message : String(error),
-      }
-    }
-  }, [config, models, selectedView])
+    }, 180)
+    return () => window.clearTimeout(timeout)
+  }, [config, models, previewRealtime, selectedView])
+
+  function handleRefreshPreview() {
+    if (!config || !selectedView) return
+    setPreviewSnapshot({
+      result: createPreviewState(config, selectedView, models),
+      config,
+      models,
+      viewId: selectedView.id,
+    })
+  }
 
   async function loadFile(file: File) {
     setIsLoading(true)
@@ -1047,12 +1093,36 @@ function App() {
   const previewPanel = (
     <Card
       title="SVG 預覽"
-      extra={preview && !preview.error ? (
-        <Space size="small">
-          <Text type="secondary">{preview.width} × {preview.height}</Text>
-          {preview.outsideCanvas && <Tag color="warning">排列超出畫布</Tag>}
+      extra={(
+        <Space size="small" wrap>
+          <Text type="secondary">{previewRealtime ? '即時預覽' : '手動預覽'}</Text>
+          <Switch
+            aria-label="即時更新 SVG 預覽"
+            checked={previewRealtime}
+            checkedChildren="即時"
+            unCheckedChildren="手動"
+            onChange={setPreviewRealtime}
+          />
+          <Button
+            size="small"
+            disabled={!config || !selectedView}
+            onClick={handleRefreshPreview}
+          >
+            更新預覽
+          </Button>
+          {preview && !preview.error && (
+            <>
+              <Text type="secondary">{preview.width} × {preview.height}</Text>
+              {preview.outsideCanvas && <Tag color="warning">排列超出畫布</Tag>}
+            </>
+          )}
+          {config && selectedView && previewStale && (
+            <Tag color="warning">
+              {previewRealtime ? '預覽更新中' : '預覽尚未更新'}
+            </Tag>
+          )}
         </Space>
-      ) : undefined}
+      )}
       className="view-details preview-card"
     >
       {preview?.error ? (
@@ -1070,7 +1140,12 @@ function App() {
           dangerouslySetInnerHTML={{ __html: preview.svgMarkup }}
         />
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚無可預覽的 View。" />
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={config && selectedView
+            ? previewRealtime ? '正在產生預覽…' : '請按「更新預覽」產生預覽。'
+            : '尚無可預覽的 View。'}
+        />
       )}
     </Card>
   )
