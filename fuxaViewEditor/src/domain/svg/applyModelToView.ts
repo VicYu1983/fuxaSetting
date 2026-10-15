@@ -115,7 +115,7 @@ function floorKey(floor: string): string {
   return `floor:${floor}`
 }
 
-export function applyModelToView(
+function applyModelToViewInPlace(
   view: ApplyModelView,
   model: ApplyModel,
   options: ApplyModelToViewOptions,
@@ -201,4 +201,57 @@ export function applyModelToView(
 
   cleanupInactiveFloorArtifacts(model, layout.sections)
   view.svgcontent = options.serialize(doc)
+}
+
+function cloneComponents(
+  components: readonly ApplyModelComponent[] | undefined,
+): ApplyModelComponent[] | undefined {
+  return components?.map((component) => ({
+    ...component,
+    shapeInnerIds: component.shapeInnerIds?.slice(),
+    companions: component.companions?.map((companion) => ({
+      ...companion,
+      bounds: companion.bounds ? { ...companion.bounds } : undefined,
+    })),
+    originalBounds: component.originalBounds ? { ...component.originalBounds } : undefined,
+  }))
+}
+
+export function applyModelToView(
+  view: ApplyModelView,
+  model: ApplyModel,
+  options: ApplyModelToViewOptions,
+): void {
+  const stagedView: ApplyModelView = {
+    ...view,
+    items: { ...view.items },
+  }
+  const stagedModel: ApplyModel = {
+    ...model,
+    components: cloneComponents(model.components) ?? [],
+    originalComponents: cloneComponents(model.originalComponents),
+    floorTitles: { ...model.floorTitles },
+    floorTitleIds: Object.fromEntries(
+      Object.entries(model.floorTitleIds).map(([key, ids]) => [key, [...ids]]),
+    ),
+    floorFrames: { ...model.floorFrames },
+    floorFrameIds: Object.fromEntries(
+      Object.entries(model.floorFrameIds).map(([key, ids]) => [key, [...ids]]),
+    ),
+    floorFrameShapeIds: { ...model.floorFrameShapeIds },
+    originalFloorTitleIds: model.originalFloorTitleIds
+      ? Object.fromEntries(
+        Object.entries(model.originalFloorTitleIds).map(([key, ids]) => [key, [...ids]]),
+      )
+      : undefined,
+    originalFloorFrameIds: model.originalFloorFrameIds
+      ? Object.fromEntries(
+        Object.entries(model.originalFloorFrameIds).map(([key, ids]) => [key, [...ids]]),
+      )
+      : undefined,
+  }
+
+  applyModelToViewInPlace(stagedView, stagedModel, options)
+  Object.assign(view, stagedView)
+  Object.assign(model, stagedModel)
 }

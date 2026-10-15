@@ -252,4 +252,27 @@ describe('applyModelToView', () => {
       .toThrow('View「Main」找不到可安全插入元件的 SVG 圖層。')
     expect(currentView).toEqual(before)
   })
+
+  it('does not commit view or model changes when component generation fails', () => {
+    const root = new TestElement('svg')
+    root.appendChild(new TestElement('g'))
+    const doc = new TestDocument(root)
+    const currentView = view({ 'user-item': { id: 'user-item', custom: true } })
+    const iconComponent = component({
+      template: 'icon',
+      iconId: 'missing-icon',
+    })
+    const currentModel = model([iconComponent])
+    const previousView = structuredClone(currentView)
+    const previousModel = structuredClone(currentModel)
+    const opts = options(doc)
+
+    expect(() => applyModelToView(currentView, currentModel, {
+      ...opts,
+      resolveIcon: () => undefined,
+    })).toThrow('元件「Pump」使用的圖示不存在。')
+
+    expect(currentView).toEqual(previousView)
+    expect(currentModel).toEqual(previousModel)
+  })
 })
