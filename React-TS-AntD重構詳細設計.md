@@ -86,48 +86,79 @@
 
 ### 3.1 目錄結構
 
+Vite 專案已建立於 `fuxaViewEditor/`，因此該資料夾是新版應用程式根目錄；既有原生版目前留在上一層 `fuxaSetting/`。遷移期間不把舊版檔案移入新版專案，也不與新版的 `index.html` 混淆。舊版先作為對照與回退來源，後續是否封存或移除依階段 6 決策。
+
 ```text
-fuxaSetting/
-  legacy/                    # 遷移期間：舊版 index.html/app.js/domain.js/styles.css（階段 0 移入）
-  src/
-    main.tsx
-    app/
-      App.tsx                # Layout、ConfigProvider（zh_TW 語系）
-      store/                 # reducer、actions、selectors、history
-      providers/
-    domain/                  # 無 React、無全域 DOM 依賴（僅透過 parseSvg 注入）
-      types/                 # FUXA 型別、Model 型別
-      config/                # validate、index、serialize
-      tags/                  # floor、batch parse、tag 建立
-      devices/               # modbus 相關
-      layout/                # grid、floor layout、text measure
-      svg/                   # 節點生成、applyModelToView、讀取既有元件
-      icons/
-      ids/
-    features/
-      config/                # 開檔、儲存、狀態列
-      views/
-      components/            # 元件清單與編輯
-      preview/
-      devices/
-      floors/
-      icons/
-    shared/
-      ui/                    # 共用 Antd 組合元件（TagSelect、ColorField…）
-      hooks/
-      utils/
+fuxaSetting/                         # 工作區／既有原生版所在目錄
+  app.js                             # 舊版 UI 與應用流程（遷移參考）
+  domain.js                          # 舊版 domain 函式（遷移參考）
+  index.html                         # 舊版入口；不是 Vite 入口
+  styles.css                         # 舊版樣式
   tests/
-    domain/                  # 由 domain.test.cjs 遷入
-    fixtures/                # 黃金檔輸入與期望輸出
-    e2e/
+    domain.test.cjs                  # 舊版 domain 回歸測試
+  React-TS-AntD重構大綱.md
+  React-TS-AntD重構詳細設計.md
+  fuxaViewEditor/                    # 新版 React + TypeScript + Vite 專案根目錄
+    index.html                       # Vite 入口 HTML
+    package.json
+    yarn.lock
+    vite.config.ts
+    tsconfig.json
+    tsconfig.app.json
+    tsconfig.node.json
+    eslint.config.js
+    public/                          # 不經模組匯入的靜態資產
+      favicon.svg
+      icons.svg
+    src/
+      main.tsx                       # React 啟動點
+      app/
+        App.tsx                      # 全域 Layout、Ant Design ConfigProvider
+        store/                       # reducer、actions、selectors、history
+        providers/
+      domain/                        # 純 TypeScript；不依賴 React／Ant Design
+        types/                       # FUXA 與執行期 Model 型別
+        config/                      # validate、index、serialize
+        tags/                        # floor、batch parse、tag 建立
+        devices/                     # Modbus 相關規則
+        layout/                      # Grid、floor layout、文字量測
+        svg/                         # SVG 解析、節點生成、applyModelToView
+        icons/
+        ids/
+      features/
+        config/                      # 開檔、驗證、另存
+        views/                       # View 管理
+        components/                  # 元件清單與編輯
+        preview/                     # 唯讀 SVG 預覽
+        devices/                     # 設備與 Tag 管理
+        floors/                      # 樓層管理
+        icons/                       # 圖示庫管理
+      shared/
+        ui/                          # 共用 Ant Design 組合元件
+        hooks/
+        utils/
+      assets/                        # 由程式匯入並參與建置的資產
+    tests/
+      domain/                        # 遷入後的 domain 單元測試
+      store/                         # reducer／history 測試
+      components/                    # React Testing Library 測試
+      fixtures/                      # 測試輸入與黃金輸出
+      e2e/                            # Playwright 測試（若採用）
+    dist/                            # Vite 建置產物（忽略版本控制）
 ```
+
+說明：
+- `fuxaViewEditor/src/App.tsx`、`App.css`、`index.css` 是目前 Vite 範本檔案；依階段逐步搬入 `src/app/` 與 `src/features/`，不要求一次搬完。
+- 測試遷移完成前，舊版測試仍在 `fuxaSetting/tests/domain.test.cjs`；新版測試放在 `fuxaViewEditor/tests/`，避免兩套測試與設定混在一起。
+- 舊版 JSON 樣本及需求／開發文件目前也在 `fuxaSetting/`；只有確認需由新版測試使用的 fixture 才複製到 `fuxaViewEditor/tests/fixtures/`，不要直接將使用者配置檔搬進 `public/` 或正式建置產物。
+- `node_modules/` 不列入結構，並應加入版本控制忽略清單。
 
 依賴方向（以 ESLint `no-restricted-imports` 強制）：
 
 ```text
-features → app/store → domain
-shared  → domain（型別除外不得反向）
-domain  ✗ 不可 import react / antd / features / app
+src/features → src/app/store → src/domain
+src/shared   → src/domain（限共用型別／純工具，不依賴 features 或 app）
+src/domain   ✗ 不可 import react / antd / features / app
 ```
 
 ---
