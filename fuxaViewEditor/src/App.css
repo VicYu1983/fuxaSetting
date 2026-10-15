@@ -224,8 +224,15 @@
 .component-meta {
   display: flex;
   min-width: 0;
-  flex-direction: column;
-  gap: 3px;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.component-meta .ant-input,
+.component-meta .ant-select {
+  min-width: min(100%, 220px);
+  flex: 1 1 180px;
 }
 
 .next-step-card .ant-card-body {

@@ -22,6 +22,7 @@ export interface CompanionShape {
 
 export interface FloorLayoutComponent extends LayoutComponent {
   tagId: string
+  palette?: 'normal' | 'alarm'
   shapeId?: string
   label?: string
   seq?: number
@@ -32,6 +33,7 @@ export interface FloorLayoutComponent extends LayoutComponent {
 
 export interface FloorTag {
   floor?: unknown
+  type?: unknown
 }
 
 export interface FloorLayoutEntry {

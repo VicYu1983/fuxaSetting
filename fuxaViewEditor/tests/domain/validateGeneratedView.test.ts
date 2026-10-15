@@ -147,7 +147,13 @@ function validItems(): Record<string, unknown> {
   return {
     'shape-id': {
       id: 'shape-id',
-      property: { variableId: 'tag-1' },
+      property: {
+        variableId: 'tag-1',
+        ranges: [
+          { color: '#00ff07ff' },
+          { color: '#f80000ff' },
+        ],
+      },
     },
     'label-id': { id: 'label-id', name: 'tc_1_label' },
     'title-id': { id: 'title-id', name: 'fuxa_floor_section_title' },
@@ -194,6 +200,34 @@ describe('validateGeneratedView', () => {
     )).toThrow('連結到不存在的 Tag：missing-tag')
   })
 
+  it('rejects a label or palette that differs from the editor model', () => {
+    const parser = parserFor(validDocument())
+    const component = managedComponent()
+    const items = validItems()
+    expect(() => validateGeneratedView(
+      makeView(items),
+      makeModel([{ ...component, label: 'Changed' }]),
+      { Parser: parser, tags: { 'tag-1': { floor: '1F' } } },
+    )).toThrow('文字標籤未正確寫入 SVG。')
+
+    const wrongPaletteItems = validItems()
+    wrongPaletteItems['shape-id'] = {
+      id: 'shape-id',
+      property: {
+        variableId: 'tag-1',
+        ranges: [
+          { color: '#ff0000ff' },
+          { color: '#00ff07ff' },
+        ],
+      },
+    }
+    expect(() => validateGeneratedView(
+      makeView(wrongPaletteItems),
+      makeModel([component]),
+      { Parser: parser, tags: { 'tag-1': { floor: '1F' } } },
+    )).toThrow('顏色狀態未正確寫入。')
+  })
+
   it('rejects an icon pair that is not colocated or has an incomplete visibility rule', () => {
     const root = new TestElement('svg')
     const layer = root.appendChild(new TestElement('g'))
@@ -225,6 +259,59 @@ describe('validateGeneratedView', () => {
       makeModel([component]),
       { Parser: parserFor(root), tags: { 'tag-1': { floor: '1F' } } },
     )).toThrow('正常／告警圖示未輸出為同層且重疊的獨立圖片。')
+  })
+
+  it('requires Boolean Tags for icon pairs and validates the generated label', () => {
+    const root = new TestElement('svg')
+    const layer = root.appendChild(new TestElement('g'))
+    layer.appendChild(new TestElement('image', {
+      id: 'shape-id',
+      x: '1',
+      y: '2',
+      width: '40',
+      height: '40',
+    }))
+    layer.appendChild(new TestElement('image', {
+      id: 'alarm-id',
+      x: '1',
+      y: '2',
+      width: '40',
+      height: '40',
+    }))
+    layer.appendChild(new TestElement('text', { id: 'label-id' }, 'Pump'))
+    layer.appendChild(new TestElement(
+      'text',
+      { id: 'title-id', 'data-floor-group': '1F' },
+      '1F',
+    ))
+    layer.appendChild(new TestElement(
+      'g',
+      { id: 'frame-id', 'data-floor-group': '1F' },
+    ))
+    const component = {
+      ...managedComponent(),
+      template: 'icon-pair' as const,
+      alarmShapeId: 'alarm-id',
+    }
+    const items = validItems()
+    const actions = (showAt: number) => [0, 1].map((value) => ({
+      variableId: 'tag-1',
+      range: { min: value, max: value },
+      type: value === showAt ? 'show' : 'hide',
+    }))
+    items['shape-id'] = { id: 'shape-id', property: { actions: actions(0) } }
+    items['alarm-id'] = { id: 'alarm-id', property: { actions: actions(1) } }
+
+    expect(() => validateGeneratedView(
+      makeView(items),
+      makeModel([component]),
+      { Parser: parserFor(root), tags: { 'tag-1': { floor: '1F', type: 'Boolean' } } },
+    )).not.toThrow()
+    expect(() => validateGeneratedView(
+      makeView(items),
+      makeModel([component]),
+      { Parser: parserFor(root), tags: { 'tag-1': { floor: '1F', type: 'String' } } },
+    )).toThrow('正常／告警圖示顯示條件需要 Boolean Tag。')
   })
 
   it('rejects deleted managed components that remain in the SVG and items', () => {

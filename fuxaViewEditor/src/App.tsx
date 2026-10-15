@@ -6,7 +6,9 @@ import {
   ConfigProvider,
   Descriptions,
   Empty,
+  Input,
   Layout,
+  Select,
   Space,
   Statistic,
   Tag,
@@ -25,6 +27,7 @@ import { buildTagIndex } from './domain/tags/index'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
 import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
+import type { IndexedTag } from './domain/tags/index'
 import './App.css'
 
 const { Header, Sider, Content } = Layout
@@ -95,6 +98,10 @@ function App() {
     [config, selectedViewId],
   )
   const selectedModel = selectedView ? models.get(selectedView.id) : undefined
+  const tags = useMemo(
+    () => config ? [...buildTagIndex(config.rawConfig).values()] : [],
+    [config],
+  )
   const tagCount = config ? countTags(config.devices) : 0
 
   async function loadFile(file: File) {
@@ -193,6 +200,48 @@ function App() {
     })
     setModels(nextModels)
     setModifiedViewIds((current) => new Set(current).add(viewId))
+  }
+
+  function handleUpdateComponent(
+    viewId: string,
+    key: string,
+    update: Partial<Pick<FloorLayoutComponent, 'label' | 'tagId' | 'palette'>>,
+  ) {
+    const model = models.get(viewId)
+    if (!model) return
+    const component = model.components.find((item) => item.key === key)
+    if (!component || component.managed === false) return
+
+    const nextModels = new Map(models)
+    nextModels.set(viewId, {
+      ...model,
+      components: model.components.map((item) => (
+        item.key === key ? { ...item, ...update } : item
+      )),
+    })
+    setModels(nextModels)
+    setModifiedViewIds((current) => new Set(current).add(viewId))
+  }
+
+  function tagLabel(tag: IndexedTag): string {
+    return `${tag.deviceName} / ${tag.name} (${tag.type || '未設定型別'})`
+  }
+
+  function tagOptions(component: FloorLayoutComponent) {
+    const options = tags.map((tag) => ({
+      value: tag.id,
+      label: tagLabel(tag),
+      disabled: component.template === 'icon-pair'
+        && !['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()),
+    }))
+    if (component.tagId && !tags.some((tag) => tag.id === component.tagId)) {
+      options.unshift({
+        value: component.tagId,
+        label: `Tag 不存在（${component.tagId}）`,
+        disabled: true,
+      })
+    }
+    return options
   }
 
   return (
@@ -356,10 +405,45 @@ function App() {
                               .map((component: FloorLayoutComponent) => (
                                 <div className="component-row" key={component.key}>
                                   <div className="component-meta">
-                                    <Text strong>{component.label || '未命名元件'}</Text>
-                                    <Text type="secondary">
-                                      Tag：{component.tagId} · {component.template ?? '元件'}
-                                    </Text>
+                                    <Input
+                                      aria-label="元件標籤"
+                                      value={component.label ?? ''}
+                                      placeholder="元件標籤"
+                                      maxLength={120}
+                                      onChange={(event) => handleUpdateComponent(
+                                        selectedView.id,
+                                        component.key,
+                                        { label: event.target.value },
+                                      )}
+                                    />
+                                    <Select
+                                      aria-label="綁定 Tag"
+                                      showSearch
+                                      optionFilterProp="label"
+                                      value={component.tagId || undefined}
+                                      placeholder="選擇 Tag"
+                                      options={tagOptions(component)}
+                                      onChange={(tagId: string) => handleUpdateComponent(
+                                        selectedView.id,
+                                        component.key,
+                                        { tagId },
+                                      )}
+                                    />
+                                    {component.template !== 'icon-pair' && (
+                                      <Select
+                                        aria-label="顏色狀態"
+                                        value={component.palette === 'alarm' ? 'alarm' : 'normal'}
+                                        options={[
+                                          { value: 'normal', label: '一般狀態配色' },
+                                          { value: 'alarm', label: '告警狀態配色' },
+                                        ]}
+                                        onChange={(palette: 'normal' | 'alarm') => handleUpdateComponent(
+                                          selectedView.id,
+                                          component.key,
+                                          { palette },
+                                        )}
+                                      />
+                                    )}
                                   </div>
                                   <Button
                                     danger

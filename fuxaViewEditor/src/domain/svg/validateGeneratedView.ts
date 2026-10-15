@@ -54,6 +54,13 @@ function tagExists(tags: Map<string, FloorTag> | Record<string, FloorTag>, id: s
   return tags instanceof Map ? tags.has(id) : Object.prototype.hasOwnProperty.call(tags, id)
 }
 
+function tagFor(
+  tags: Map<string, FloorTag> | Record<string, FloorTag>,
+  id: string,
+): FloorTag | undefined {
+  return tags instanceof Map ? tags.get(id) : tags[id]
+}
+
 function tagProperty(item: unknown): Record<string, unknown> {
   return isRecord(item) && isRecord(item.property) ? item.property : {}
 }
@@ -155,6 +162,12 @@ function validateManagedComponent(
     throw new Error(`View「${viewLabel(view)}」缺少元件或 Label 的 items 記錄。`)
   }
 
+  if (!component.tagId || !tagExists(tags, component.tagId)) {
+    throw new Error(
+      `元件 ${component.shapeId} 連結到不存在的 Tag：${component.tagId || '(空白)'}`,
+    )
+  }
+
   if (component.template === 'icon-pair') {
     const normalActions = tagProperty(items[component.shapeId]).actions
     const alarmActions = component.alarmShapeId
@@ -165,15 +178,31 @@ function validateManagedComponent(
         || !hasVisibilityRule(alarmActions, component.tagId, 1 - normalVisibleValue)) {
       throw new Error(`元件 ${component.shapeId} 的正常／告警圖示可見條件未正確寫入。`)
     }
+    const tag = tagFor(tags, component.tagId)
+    if (!tag || !['bool', 'boolean'].includes(String(tag.type ?? '').toLocaleLowerCase())) {
+      throw new Error(`元件 ${component.shapeId} 的正常／告警圖示顯示條件需要 Boolean Tag。`)
+    }
   } else if (tagProperty(items[component.shapeId]).variableId !== component.tagId) {
     throw new Error(`元件 ${component.shapeId} 的 Tag 連結與清單不一致。`)
   }
 
-  if (!component.tagId || !tagExists(tags, component.tagId)) {
-    throw new Error(
-      `元件 ${component.shapeId} 連結到不存在的 Tag：${component.tagId || '(空白)'}`,
-    )
+  if ((labelNode.textContent || '') !== component.label) {
+    throw new Error(`元件 ${component.shapeId} 的文字標籤未正確寫入 SVG。`)
   }
+
+  if (component.template !== 'icon-pair') {
+    const expectedColors = component.palette === 'alarm'
+      ? ['#ff0000ff', '#00ff07ff']
+      : ['#00ff07ff', '#f80000ff']
+    const ranges = tagProperty(items[component.shapeId]).ranges
+    if (!Array.isArray(ranges)
+        || ranges.length !== expectedColors.length
+        || ranges.some((range, index) =>
+          !isRecord(range) || range.color !== expectedColors[index])) {
+      throw new Error(`元件 ${component.shapeId} 的顏色狀態未正確寫入。`)
+    }
+  }
+
 }
 
 function validateFloorArtifacts(
