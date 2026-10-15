@@ -1,10 +1,24 @@
 # FUXA View 元件批次工具
 
-本工具在本機瀏覽器中讀取 FUXA 配置 JSON，讓你選擇 View、管理 Tag 元件清單，批次連接既有 Tag、設定 Label，並依 Grid 自動排列。產生的 JSON 另存為新檔，原始檔不會被覆蓋。預覽不可拖曳；細部位置與互動請在 FUXA 編輯器中調整。
+本專案包含兩個版本的 FUXA 配置工具。新版 React 工作台已涵蓋主要 View、Tag、ModbusTCP、圖示庫與樓層管理功能；原生版仍可直接使用，並保留為回退及行為參考。兩版都在本機瀏覽器讀取配置，輸出另存為新檔，不會覆寫原始檔。
 
-> React 重構版本位於 [`fuxaViewEditor/`](./fuxaViewEditor/)，目前可載入配置、檢視 View，並原樣另存未修改的 JSON；尚未取代下方可完整使用的原生版。開發說明見 [`fuxaViewEditor/README.md`](./fuxaViewEditor/README.md)。
+## React 新版
+
+新版位於 [`fuxaViewEditor/`](./fuxaViewEditor/)，使用 React、TypeScript、Ant Design 與 Vite。可在工作台管理 View、Tag 樓層、ModbusTCP 設備、圖示及樓層 Group 樣式，編輯受管理元件與 Grid、預覽 SVG，並透過 Undo/Redo 復原變更。詳細功能、開發指令及尚未完成的驗收項目見[新版 README](./fuxaViewEditor/README.md)。
+
+快速啟動（需安裝 Node.js 與 Yarn）：
+
+```powershell
+cd fuxaViewEditor
+yarn install
+yarn dev
+```
+
+開啟 Vite 顯示的本機網址，再載入 FUXA JSON。新版目前需經本機開發伺服器或靜態 HTTP 伺服器使用；直接以 `file://` 開啟尚未驗證。黃金檔逐位元組比較、E2E 及實際 FUXA 匯入驗證仍待完成。
 
 ## 開始使用
+
+以下為原生版使用方式，無需安裝 Node.js／Yarn：
 
 1. 在 Windows 檔案總管中開啟本資料夾。
 2. 雙擊 `index.html`，建議使用最新版 Microsoft Edge 或 Google Chrome。

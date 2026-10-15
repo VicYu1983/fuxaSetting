@@ -1,6 +1,6 @@
 # FUXA View Editor
 
-新版 FUXA 配置編輯工具，使用 React、TypeScript、Ant Design 與 Vite。此專案目前處於分階段遷移初期；既有原生版仍保留在上一層目錄，作為行為與輸出格式的參考。
+新版 FUXA 配置編輯工具，使用 React、TypeScript、Ant Design 與 Vite。階段 5 所列的 View、Tag、ModbusTCP、圖示庫與樓層管理切片已接入工作台；舊版原生工具仍保留在上一層目錄，供比對與回退使用。
 
 ## 目前功能
 
@@ -22,16 +22,37 @@
 - 保留原始配置物件與輸入文字，未修改時可依原始位元組另存。
 - 修改配置時的 JSON 序列化工具會保留來源換行格式與結尾換行策略。
 
-其他設備通訊類型與進階 Tag 維護功能及完整應用 Store 尚未遷移；已遷移的配置變更均支援 Undo/Redo。
+## 使用方式
 
-## 開發
-
-使用 Yarn（專案已提交 `yarn.lock`）：
+需要 Node.js 與 Yarn。從此目錄安裝依賴並啟動開發伺服器：
 
 ```powershell
 yarn install
 yarn dev
 ```
+
+Vite 會顯示本機網址；在瀏覽器開啟後，使用「開啟 JSON」選擇配置。編輯及匯出都在瀏覽器本機完成，配置不會上傳。匯出會下載新 JSON，不會覆寫來源檔。
+
+正式建置及本機預覽：
+
+```powershell
+yarn build
+yarn preview
+```
+
+建置輸出位於 `dist/`。目前應透過 Vite 或其他靜態 HTTP 伺服器開啟；尚未驗證直接以 `file://` 開啟或單檔 HTML 部署。
+
+## 範圍與注意事項
+
+- 階段 5 列出的管理功能已可在新版工作台使用；其他設備通訊類型及進階 Tag 維護尚未遷移。
+- 編輯歷程使用 reducer 管理並支援 Undo/Redo，但完整應用 Store 尚未依設計文件的完整架構拆分。
+- 新舊版本輸出尚未完成黃金檔逐位元組比對；產生的配置仍需在目標 FUXA 環境驗證。
+- E2E、完整鍵盤／無障礙檢查，以及離線網路請求驗證仍待補齊。
+- 未修改的配置會沿用原始 JSON 文字；有修改時會套用變更、驗證並另存為新檔。
+
+## 開發
+
+使用 Yarn（專案已提交 `yarn.lock`）。上述開發指令需在 `fuxaViewEditor/` 目錄執行。
 
 ## 驗證與建置
 
@@ -42,4 +63,4 @@ yarn typecheck
 yarn build
 ```
 
-建置輸出位於 `dist/`。Vite 使用相對資產路徑，部署方式及直接以 `file://` 開啟的支援狀況仍待確認。
+Vite 使用相對資產路徑；建置目前會顯示 JavaScript chunk 大於 500 kB 的提醒，不影響建置成功。
