@@ -16,11 +16,13 @@ export interface Bounds {
 }
 
 export interface CompanionShape {
+  id?: string
   bounds?: Bounds
 }
 
 export interface FloorLayoutComponent extends LayoutComponent {
   tagId: string
+  shapeId?: string
   label?: string
   seq?: number
   managed?: boolean
