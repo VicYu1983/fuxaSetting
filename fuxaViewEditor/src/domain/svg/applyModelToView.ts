@@ -19,7 +19,7 @@ import type { SvgParserConstructor } from './parseSvg'
 import { removeManagedFromView } from './removeManagedFromView'
 
 export interface ApplyModelComponent extends FloorLayoutComponent {
-  template?: SvgComponent['template']
+  template?: string
   iconId?: string
   normalIconId?: string
   alarmIconId?: string

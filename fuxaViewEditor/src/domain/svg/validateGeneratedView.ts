@@ -11,7 +11,7 @@ const FLOOR_TITLE_NAME = 'fuxa_floor_section_title'
 const FLOOR_FRAME_NAME = 'fuxa_floor_section_frame'
 
 export interface GeneratedComponent extends FloorLayoutComponent {
-  template?: 'rect' | 'cylinder' | 'icon' | 'icon-pair'
+  template?: string
   palette?: 'normal' | 'alarm'
   shapeId: string
   labelId?: string

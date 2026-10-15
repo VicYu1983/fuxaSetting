@@ -78,7 +78,16 @@ function reserveExistingIds(
     if (isRecord(view.items)) {
       for (const id of Object.keys(view.items)) ids.add(id)
     }
-    const doc = parseSvg(view.svgcontent, Parser)
+    let doc: XMLDocument
+    try {
+      doc = parseSvg(view.svgcontent, Parser)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      const label = typeof view.name === 'string' && view.name ? view.name : view.id
+      throw new Error(`無法檢查 View「${label}」的 SVG ID，無法安全匯出修改：${detail}`, {
+        cause: error,
+      })
+    }
     for (const node of Array.from(doc.getElementsByTagName('*'))) {
       const id = node.getAttribute('id')
       if (id) ids.add(id)

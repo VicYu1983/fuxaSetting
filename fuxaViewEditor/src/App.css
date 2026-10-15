@@ -198,6 +198,36 @@
   box-shadow: 0 2px 8px rgb(28 52 64 / 3%);
 }
 
+.view-panels,
+.view-panels > .ant-space-item {
+  width: 100%;
+}
+
+.component-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.component-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.component-row:last-child {
+  border-bottom: 0;
+}
+
+.component-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .next-step-card .ant-card-body {
   display: flex;
   flex-direction: column;

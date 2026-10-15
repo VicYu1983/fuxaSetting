@@ -266,4 +266,30 @@ describe('prepareFuxaConfigExport', () => {
     expect(result.modifiedViewIds.size).toBe(0)
     expect(JSON.parse(result.text).hmi.views).toHaveLength(2)
   })
+
+  it('surfaces malformed existing SVG when it prevents safe ID allocation', () => {
+    class Parser {
+      parseFromString(): XMLDocument {
+        return {
+          documentElement: { localName: 'html' },
+          getElementsByTagName: () => [],
+        } as unknown as XMLDocument
+      }
+    }
+    const source = config()
+    const dependencies = createFuxaConfigExportDependencies(source, {
+      Parser,
+      serialize: () => '<svg/>',
+      crypto: {
+        getRandomValues(bytes) {
+          return bytes
+        },
+      },
+    })
+    const targetView = source.hmi.views[1] as Record<string, unknown>
+    const targetModel = model('view-2')
+
+    expect(() => dependencies.applyView?.(targetView, targetModel, [targetModel]))
+      .toThrow('無法檢查 View「Main」的 SVG ID，無法安全匯出修改：View 的 svgcontent 無法解析。')
+  })
 })

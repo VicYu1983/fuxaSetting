@@ -15,6 +15,8 @@ import type { GeneratedViewModel } from '../svg/validateGeneratedView'
 
 export interface ExportViewModel extends GeneratedViewModel {
   floorFrameShapeIds: Record<string, string>
+  originalFloorTitleIds?: Record<string, string[]>
+  originalFloorFrameIds?: Record<string, string[]>
 }
 
 export interface PrepareFuxaConfigExportInput {

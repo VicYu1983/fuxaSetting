@@ -19,7 +19,12 @@ import {
 } from './domain/config/parseFuxaConfig'
 import { generatedFileName } from './domain/config/serialization'
 import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
+import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
+import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
+import { buildTagIndex } from './domain/tags/index'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
+import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
+import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
 import './App.css'
 
 const { Header, Sider, Content } = Layout
@@ -43,6 +48,36 @@ function getSelectedView(
   return views.find((view) => view.key === selectedViewId)
 }
 
+function measureSvgBounds(doc: XMLDocument, id: string): Bounds {
+  const node = Array.from(doc.getElementsByTagName('*'))
+    .find((element) => element.getAttribute('id') === id)
+  if (!node) throw new Error('找不到對應的 SVG 元件。')
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  const sourceRoot = doc.documentElement
+  svg.setAttribute('viewBox', sourceRoot.getAttribute('viewBox') || '0 0 1000 1000')
+  svg.setAttribute('preserveAspectRatio', 'none')
+  svg.setAttribute('width', '1000')
+  svg.setAttribute('height', '1000')
+  svg.setAttribute('visibility', 'hidden')
+  const clone = node.cloneNode(true) as SVGGraphicsElement
+  if (clone.getAttribute('data-fuxa-floor-layout') === 'floor-layout-v1') {
+    clone.removeAttribute('transform')
+  }
+  svg.append(clone)
+  document.body.append(svg)
+  try {
+    const bounds = clone.getBBox()
+    if (![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)
+        || bounds.width <= 0 || bounds.height <= 0) {
+      throw new Error('無法取得有效的 SVG 外框。')
+    }
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+  } finally {
+    svg.remove()
+  }
+}
+
 function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [messageApi, contextHolder] = message.useMessage()
@@ -50,23 +85,29 @@ function App() {
   const [fileName, setFileName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [models, setModels] = useState<Map<string, ExportViewModel>>(new Map())
+  const [modelErrors, setModelErrors] = useState<Map<string, string>>(new Map())
+  const [unsupported, setUnsupported] = useState<Map<string, string[]>>(new Map())
+  const [modifiedViewIds, setModifiedViewIds] = useState<Set<string>>(new Set())
 
   const selectedView = useMemo(
     () => config ? getSelectedView(config.views, selectedViewId) : undefined,
     [config, selectedViewId],
   )
+  const selectedModel = selectedView ? models.get(selectedView.id) : undefined
   const tagCount = config ? countTags(config.devices) : 0
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-
+  async function loadFile(file: File) {
     setIsLoading(true)
     try {
       const text = await file.text()
       const parsed = parseFuxaConfig(text)
+      const editorModels = buildViewEditorModels(parsed.rawConfig, DOMParser, measureSvgBounds)
       setConfig(parsed)
+      setModels(editorModels.models)
+      setModelErrors(editorModels.errors)
+      setUnsupported(editorModels.unsupported)
+      setModifiedViewIds(new Set())
       setFileName(file.name)
       setSelectedViewId(parsed.views[0]?.key ?? '')
       messageApi.success(`已載入 ${file.name}`)
@@ -78,16 +119,37 @@ function App() {
     }
   }
 
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    if (modifiedViewIds.size > 0) {
+      if (!window.confirm('有尚未匯出的修改。載入新配置會捨棄目前修改，確定繼續嗎？')) return
+    }
+    void loadFile(file)
+  }
+
   function handleSave() {
     if (!config) return
 
     try {
+      const dependencies = modifiedViewIds.size > 0
+        ? createFuxaConfigExportDependencies(config.rawConfig, {
+          Parser: DOMParser,
+          serialize: (doc) => new XMLSerializer().serializeToString(doc),
+          crypto: window.crypto,
+        })
+        : undefined
       const prepared = prepareFuxaConfigExport({
         config: config.rawConfig,
         originalText: config.originalText,
         sourceFormat: config.sourceFormat,
-        dirty: false,
-      })
+        dirty: modifiedViewIds.size > 0,
+        models: [...models.values()],
+        modifiedViewIds,
+        tags: buildTagIndex(config.rawConfig),
+      }, dependencies)
       const blob = new Blob([prepared.text], { type: 'application/json;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -98,11 +160,39 @@ function App() {
       link.click()
       link.remove()
       window.setTimeout(() => URL.revokeObjectURL(url), 0)
-      messageApi.success('已另存配置 JSON。')
+      if (prepared.dirty) {
+        const savedModels = new Map<string, ExportViewModel>()
+        for (const model of prepared.models) {
+          savedModels.set(model.viewId, {
+            ...model,
+            originalComponents: structuredClone(model.components),
+            originalFloorTitleIds: structuredClone(model.floorTitleIds),
+            originalFloorFrameIds: structuredClone(model.floorFrameIds),
+          })
+        }
+        setConfig(parseFuxaConfig(prepared.text))
+        setModels(savedModels)
+        setModifiedViewIds(new Set())
+      }
+      messageApi.success(prepared.dirty ? '已匯出修改後的配置 JSON。' : '已另存配置 JSON。')
     } catch (error) {
       const detail = error instanceof Error ? error.message : '未知錯誤'
       messageApi.error(`匯出失敗：${detail}`)
     }
+  }
+
+  function handleRemoveComponent(viewId: string, key: string) {
+    const model = models.get(viewId)
+    if (!model) return
+    const component = model.components.find((item) => item.key === key)
+    if (!component || component.managed === false) return
+    const nextModels = new Map(models)
+    nextModels.set(viewId, {
+      ...model,
+      components: model.components.filter((item) => item.key !== key),
+    })
+    setModels(nextModels)
+    setModifiedViewIds((current) => new Set(current).add(viewId))
   }
 
   return (
@@ -145,7 +235,7 @@ function App() {
               開啟 JSON
             </Button>
             <Button disabled={!config} onClick={handleSave}>
-              另存新 JSON
+              {modifiedViewIds.size ? '匯出修改' : '另存新 JSON'}
             </Button>
           </Space>
         </Header>
@@ -211,7 +301,9 @@ function App() {
                     <Text className="eyebrow">CONFIGURATION</Text>
                     <Title level={3}>{selectedView?.name ?? 'View'}</Title>
                   </div>
-                  <Tag color="blue">唯讀載入階段</Tag>
+                  <Tag color={modifiedViewIds.has(selectedView?.id ?? '') ? 'orange' : 'blue'}>
+                    {modifiedViewIds.has(selectedView?.id ?? '') ? '有未匯出修改' : 'View 元件管理'}
+                  </Tag>
                 </div>
 
                 <Space className="summary-cards" size="middle" wrap>
@@ -221,20 +313,85 @@ function App() {
                 </Space>
 
                 {selectedView ? (
-                  <Card title="View 資訊" className="view-details">
-                    <Descriptions column={{ xs: 1, sm: 2 }}>
-                      <Descriptions.Item label="名稱">{selectedView.name}</Descriptions.Item>
-                      <Descriptions.Item label="View ID">{selectedView.id || '—'}</Descriptions.Item>
-                      <Descriptions.Item label="畫布尺寸">
-                        {selectedView.width && selectedView.height
-                          ? `${selectedView.width} × ${selectedView.height}`
-                          : '未提供'}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="元件數">
-                        {selectedView.itemCount ?? '未提供'}
-                      </Descriptions.Item>
-                    </Descriptions>
-                  </Card>
+                  <Space className="view-panels" orientation="vertical" size="middle">
+                    <Card title="View 資訊" className="view-details">
+                      <Descriptions column={{ xs: 1, sm: 2 }}>
+                        <Descriptions.Item label="名稱">{selectedView.name}</Descriptions.Item>
+                        <Descriptions.Item label="View ID">{selectedView.id || '—'}</Descriptions.Item>
+                        <Descriptions.Item label="畫布尺寸">
+                          {selectedView.width && selectedView.height
+                            ? `${selectedView.width} × ${selectedView.height}`
+                            : '未提供'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="元件數">
+                          {selectedView.itemCount ?? '未提供'}
+                        </Descriptions.Item>
+                      </Descriptions>
+                    </Card>
+                    {modelErrors.has(selectedView.id) ? (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        message="此 View 無法編輯"
+                        description={modelErrors.get(selectedView.id)}
+                      />
+                    ) : (
+                      <Card
+                        title="已管理元件"
+                        extra={(
+                          <Tag>
+                            {selectedModel?.components.filter(
+                              (component) => component.managed !== false,
+                            ).length ?? 0}
+                          </Tag>
+                        )}
+                        className="view-details"
+                      >
+                        {selectedModel && selectedModel.components.some(
+                          (component) => component.managed !== false,
+                        ) ? (
+                          <div className="component-list">
+                            {selectedModel.components
+                              .filter((component) => component.managed !== false)
+                              .map((component: FloorLayoutComponent) => (
+                                <div className="component-row" key={component.key}>
+                                  <div className="component-meta">
+                                    <Text strong>{component.label || '未命名元件'}</Text>
+                                    <Text type="secondary">
+                                      Tag：{component.tagId} · {component.template ?? '元件'}
+                                    </Text>
+                                  </div>
+                                  <Button
+                                    danger
+                                    type="link"
+                                    onClick={() => {
+                                      if (window.confirm('刪除此元件？匯出時會從 View 的 SVG 和 items 一併移除。')) {
+                                        handleRemoveComponent(selectedView.id, component.key)
+                                      }
+                                    }}
+                                  >
+                                    刪除
+                                  </Button>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description="此 View 沒有可管理的元件。"
+                          />
+                        )}
+                      </Card>
+                    )}
+                    {(unsupported.get(selectedView.id)?.length ?? 0) > 0 && (
+                      <Alert
+                        type="info"
+                        showIcon
+                        message="部分既有 SVG 元件不會自動移動"
+                        description={unsupported.get(selectedView.id)?.join('；')}
+                      />
+                    )}
+                  </Space>
                 ) : (
                   <Alert type="info" showIcon message="此配置沒有可選取的 View。" />
                 )}
@@ -242,7 +399,7 @@ function App() {
                 <Card className="next-step-card">
                   <Text strong>目前進度</Text>
                   <Text type="secondary">
-                    已完成應用程式外框與本機配置載入。接續將遷移 domain 資料規則及 View 元件編輯流程。
+                    可刪除已管理元件並匯出修改後配置；編輯僅在本機進行。
                   </Text>
                 </Card>
               </div>
