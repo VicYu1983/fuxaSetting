@@ -13,9 +13,11 @@ import {
   ConfigProvider,
   Descriptions,
   Empty,
+  Form,
   Input,
   InputNumber,
   Layout,
+  Modal,
   Select,
   Space,
   Statistic,
@@ -31,8 +33,13 @@ import { generatedFileName } from './domain/config/serialization'
 import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
+import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
 import { buildTagIndex } from './domain/tags/index'
+import { DEFAULT_GRID } from './domain/layout/gridSettings'
+import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
+import { findSvgElementById, parseSvg } from './domain/svg/parseSvg'
 import { prepareViewPreview } from './features/preview/prepareViewPreview'
+import { createBlankView } from './features/views/createBlankView'
 import type { FuxaViewSummary, ParsedFuxaConfig } from './domain/config/types'
 import type { ExportViewModel } from './domain/config/prepareFuxaConfigExport'
 import type { Bounds, FloorLayoutComponent } from './domain/layout/floorLayout'
@@ -70,7 +77,19 @@ function getSelectedView(
   views: FuxaViewSummary[],
   selectedViewId: string,
 ): FuxaViewSummary | undefined {
-  return views.find((view) => view.key === selectedViewId)
+  return views.find((view) => (view.id || view.key) === selectedViewId) ?? views[0]
+}
+
+function parseUpdatedConfig(
+  rawConfig: ParsedFuxaConfig['rawConfig'],
+  source: ParsedFuxaConfig,
+): ParsedFuxaConfig {
+  const parsed = parseFuxaConfig(JSON.stringify(rawConfig))
+  return {
+    ...parsed,
+    originalText: source.originalText,
+    sourceFormat: source.sourceFormat,
+  }
 }
 
 function measureSvgBounds(doc: XMLDocument, id: string): Bounds {
@@ -105,21 +124,25 @@ function measureSvgBounds(doc: XMLDocument, id: string): Bounds {
 
 function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [viewNameForm] = Form.useForm<{ name: string }>()
   const [messageApi, contextHolder] = message.useMessage()
-  const [config, setConfig] = useState<ParsedFuxaConfig | null>(null)
   const [fileName, setFileName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
+  const [viewDialogMode, setViewDialogMode] = useState<'create' | 'rename' | null>(null)
+  const [viewDialogTargetId, setViewDialogTargetId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [editor, dispatchEditor] = useReducer(
-    editorHistoryReducer<ExportViewModel>,
-    createEditorHistoryState<ExportViewModel>(),
+    editorHistoryReducer<ExportViewModel, ParsedFuxaConfig>,
+    createEditorHistoryState<ExportViewModel, ParsedFuxaConfig>(),
   )
   const [modelErrors, setModelErrors] = useState<Map<string, string>>(new Map())
   const [unsupported, setUnsupported] = useState<Map<string, string[]>>(new Map())
   const { models, modifiedViewIds } = editor
+  const config = editor.document
+  const isDirty = editor.configurationDirty || modifiedViewIds.size > 0
 
   useEffect(() => {
-    if (modifiedViewIds.size === 0) return
+    if (!isDirty) return
 
     function preventDataLoss(event: BeforeUnloadEvent) {
       event.preventDefault()
@@ -128,7 +151,7 @@ function App() {
 
     window.addEventListener('beforeunload', preventDataLoss)
     return () => window.removeEventListener('beforeunload', preventDataLoss)
-  }, [modifiedViewIds.size])
+  }, [isDirty])
 
   const selectedView = useMemo(
     () => config ? getSelectedView(config.views, selectedViewId) : undefined,
@@ -164,12 +187,16 @@ function App() {
       const text = await file.text()
       const parsed = parseFuxaConfig(text)
       const editorModels = buildViewEditorModels(parsed.rawConfig, DOMParser, measureSvgBounds)
-      setConfig(parsed)
-      dispatchEditor({ type: 'reset', models: editorModels.models })
+      dispatchEditor({
+        type: 'reset',
+        models: editorModels.models,
+        document: parsed,
+      })
       setModelErrors(editorModels.errors)
       setUnsupported(editorModels.unsupported)
       setFileName(file.name)
-      setSelectedViewId(parsed.views[0]?.key ?? '')
+      const firstView = parsed.views[0]
+      setSelectedViewId(firstView ? firstView.id || firstView.key : '')
       messageApi.success(`已載入 ${file.name}`)
     } catch (error) {
       const detail = error instanceof Error ? error.message : '未知錯誤'
@@ -184,7 +211,7 @@ function App() {
     event.target.value = ''
     if (!file) return
 
-    if (modifiedViewIds.size > 0) {
+    if (isDirty) {
       if (!window.confirm('有尚未匯出的修改。載入新配置會捨棄目前修改，確定繼續嗎？')) return
     }
     void loadFile(file)
@@ -194,7 +221,7 @@ function App() {
     if (!config) return
 
     try {
-      const dependencies = modifiedViewIds.size > 0
+      const dependencies = isDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
           Parser: DOMParser,
           serialize: (doc) => new XMLSerializer().serializeToString(doc),
@@ -205,7 +232,7 @@ function App() {
         config: config.rawConfig,
         originalText: config.originalText,
         sourceFormat: config.sourceFormat,
-        dirty: modifiedViewIds.size > 0,
+        dirty: isDirty,
         models: [...models.values()],
         modifiedViewIds,
         tags: buildTagIndex(config.rawConfig),
@@ -231,15 +258,177 @@ function App() {
             originalFloorFrameIds: structuredClone(model.floorFrameIds),
           })
         }
-        setConfig(parseFuxaConfig(prepared.text))
         modelsToReset = savedModels
       }
-      dispatchEditor({ type: 'reset', models: modelsToReset })
+      const savedConfig = prepared.dirty
+        ? parseFuxaConfig(prepared.text)
+        : config
+      dispatchEditor({
+        type: 'reset',
+        models: modelsToReset,
+        document: savedConfig,
+      })
       messageApi.success(prepared.dirty ? '已匯出修改後的配置 JSON。' : '已另存配置 JSON。')
     } catch (error) {
       const detail = error instanceof Error ? error.message : '未知錯誤'
       messageApi.error(`匯出失敗：${detail}`)
     }
+  }
+
+  function openViewDialog(mode: 'create' | 'rename') {
+    if (!config) return
+    const targetId = mode === 'rename' ? selectedView?.id ?? '' : ''
+    if (mode === 'rename' && !targetId) return
+    setViewDialogMode(mode)
+    setViewDialogTargetId(targetId)
+    viewNameForm.setFieldsValue({
+      name: mode === 'rename' ? selectedView?.name ?? '' : '',
+    })
+  }
+
+  function handleViewNameSubmit(values: { name: string }) {
+    if (!config || !viewDialogMode) return
+    const validation = validateViewName(
+      config.rawConfig.hmi.views,
+      values.name,
+      viewDialogMode === 'rename' ? viewDialogTargetId : undefined,
+    )
+    if (!validation.valid) {
+      const message = validation.reason === 'empty'
+        ? 'View 名稱不可空白。'
+        : validation.reason === 'duplicate'
+          ? `View「${values.name.trim()}」已存在，請使用不同名稱。`
+          : '找不到要修改的 View。'
+      messageApi.error(message)
+      return
+    }
+
+    try {
+      const nextRaw = structuredClone(config.rawConfig)
+      const nextModels = new Map(models)
+      let selectedId = selectedView ? selectedView.id || selectedView.key : ''
+      if (viewDialogMode === 'create') {
+        const { view } = createBlankView(
+          nextRaw,
+          validation.name,
+          selectedView?.id ?? '',
+          {
+            Parser: DOMParser,
+            serialize: (doc) => new XMLSerializer().serializeToString(doc),
+            crypto: window.crypto,
+          },
+        )
+        const viewId = view.id
+        if (typeof viewId !== 'string') throw new Error('新增 View 缺少有效 ID。')
+        nextRaw.hmi.views.push(view)
+        nextModels.set(viewId, {
+          viewId,
+          components: [],
+          originalComponents: [],
+          grid: { ...DEFAULT_GRID },
+          floorGroupFrame: getFloorGroupFrameSettings(nextRaw),
+          floorTitles: {},
+          floorTitleIds: {},
+          floorFrames: {},
+          floorFrameIds: {},
+          floorFrameShapeIds: {},
+        })
+        selectedId = viewId
+      } else {
+        const result = renameView(nextRaw.hmi.views, viewDialogTargetId, validation.name)
+        if (!result.renamed) throw new Error('找不到要修改的 View。')
+        if (!result.changed) {
+          setViewDialogMode(null)
+          return
+        }
+        const titleEntry = Object.entries(isRecord(result.view.items) ? result.view.items : {})
+          .find(([, item]) => isRecord(item) && item.name === 'view_title')
+        if (titleEntry && typeof result.view.svgcontent === 'string') {
+          const doc = parseSvg(result.view.svgcontent, DOMParser)
+          const titleNode = findSvgElementById(doc, titleEntry[0])
+          if (titleNode) {
+            titleNode.textContent = validation.name
+            result.view.svgcontent = new XMLSerializer().serializeToString(doc)
+          }
+        }
+      }
+
+      const document = parseUpdatedConfig(nextRaw, config)
+      dispatchEditor({
+        type: 'document-edit',
+        document,
+        models: nextModels,
+      })
+      setSelectedViewId(selectedId)
+      setViewDialogMode(null)
+      messageApi.success(viewDialogMode === 'create'
+        ? `已新增空白 View「${validation.name}」。`
+        : `已將 View 名稱修改為「${validation.name}」。`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`View 操作失敗：${detail}`)
+    }
+  }
+
+  function handleDeleteSelectedView() {
+    if (!config || !selectedView || config.views.length <= 1 || !selectedView.id) return
+
+    const previewConfig = structuredClone(config.rawConfig)
+    const previewResult = deleteView(previewConfig, selectedView.id)
+    if (!previewResult.deleted) {
+      messageApi.error(previewResult.reason === 'last-view'
+        ? '至少必須保留一個 View。'
+        : '找不到要刪除的 View。')
+      return
+    }
+    const fallbackId = previewResult.fallbackView?.id
+    if (typeof fallbackId !== 'string' || !fallbackId) {
+      messageApi.error('找不到可切換的替代 View。')
+      return
+    }
+    const layout = isRecord(config.rawConfig.hmi.layout)
+      ? config.rawConfig.hmi.layout
+      : undefined
+    const startWasDeleted = layout?.start === selectedView.id
+    const referenceCount = previewResult.referenceCount ?? 0
+    const referenceMessage = referenceCount > 0
+      ? `將自動移除 ${referenceCount - (startWasDeleted ? 1 : 0)} 個導覽引用，${startWasDeleted ? `並將起始頁改為「${previewResult.fallbackView?.name || fallbackId}」。` : ''}`
+      : '此 View 沒有導覽引用。'
+
+    Modal.confirm({
+      title: `確定刪除「${selectedView.name || selectedView.id}」？`,
+      content: `${referenceMessage} 無法還原的 JSON 輸出前仍可使用復原功能。`,
+      okText: '刪除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk() {
+        try {
+          const nextRaw = structuredClone(config.rawConfig)
+          const result = deleteView(nextRaw, selectedView.id)
+          if (!result.deleted) {
+            throw new Error(result.reason === 'last-view'
+              ? '至少必須保留一個 View。'
+              : '找不到要刪除的 View。')
+          }
+          const nextModels = new Map(models)
+          nextModels.delete(selectedView.id)
+          const nextModifiedIds = new Set(modifiedViewIds)
+          nextModifiedIds.delete(selectedView.id)
+          const document = parseUpdatedConfig(nextRaw, config)
+          dispatchEditor({
+            type: 'document-edit',
+            document,
+            models: nextModels,
+            modifiedViewIds: nextModifiedIds,
+          })
+          setSelectedViewId(fallbackId)
+          messageApi.success('已刪除 View，並處理其起始頁／導覽引用。')
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error)
+          messageApi.error(`刪除 View 失敗：${detail}`)
+        }
+      },
+    })
   }
 
   function handleRemoveComponent(viewId: string, key: string) {
@@ -359,6 +548,50 @@ function App() {
       }}
     >
       {contextHolder}
+      <Modal
+        open={viewDialogMode !== null}
+        title={viewDialogMode === 'rename' ? '修改 View 名稱' : '新增空白 View'}
+        okText={viewDialogMode === 'rename' ? '儲存名稱' : '建立 View'}
+        cancelText="取消"
+        onCancel={() => setViewDialogMode(null)}
+        onOk={() => viewNameForm.submit()}
+        destroyOnHidden
+      >
+        <Text type="secondary">
+          {viewDialogMode === 'rename'
+            ? '修改名稱不會變更 View ID 或其導覽連結。'
+            : '建立空白畫布，之後可新增 Tag 元件。'}
+        </Text>
+        <Form
+          form={viewNameForm}
+          layout="vertical"
+          onFinish={handleViewNameSubmit}
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            label="View 名稱"
+            name="name"
+            rules={[
+              { required: true, whitespace: true, message: 'View 名稱不可空白。' },
+              {
+                validator: async (_, value: unknown) => {
+                  if (!config) throw new Error('請先載入配置。')
+                  const validation = validateViewName(
+                    config.rawConfig.hmi.views,
+                    value,
+                    viewDialogMode === 'rename' ? viewDialogTargetId : undefined,
+                  )
+                  if (!validation.valid && validation.reason === 'duplicate') {
+                    throw new Error('此 View 名稱已存在，請使用不同名稱。')
+                  }
+                },
+              },
+            ]}
+          >
+            <Input autoFocus maxLength={120} />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Layout className="editor-shell">
         <Header className="editor-header">
           <div className="brand">
@@ -399,7 +632,7 @@ function App() {
               開啟 JSON
             </Button>
             <Button disabled={!config} onClick={handleSave}>
-              {modifiedViewIds.size ? '匯出修改' : '另存新 JSON'}
+              {isDirty ? '匯出修改' : '另存新 JSON'}
             </Button>
           </Space>
         </Header>
@@ -407,8 +640,37 @@ function App() {
         <Layout className="editor-body">
           <Sider width={260} theme="light" className="view-sidebar">
             <div className="sidebar-heading">
-              <Text strong>Views</Text>
-              <Tag>{config?.views.length ?? 0}</Tag>
+              <div className="sidebar-title">
+                <Text strong>Views</Text>
+                <Tag>{config?.views.length ?? 0}</Tag>
+              </div>
+              <Space size={4} wrap>
+                <Button
+                  size="small"
+                  onClick={() => openViewDialog('create')}
+                  disabled={!config}
+                  aria-label="新增 View"
+                >
+                  新增
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => openViewDialog('rename')}
+                  disabled={!selectedView?.id}
+                  aria-label="修改 View 名稱"
+                >
+                  改名
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  onClick={handleDeleteSelectedView}
+                  disabled={!selectedView?.id || (config?.views.length ?? 0) <= 1}
+                  aria-label="刪除 View"
+                >
+                  刪除
+                </Button>
+              </Space>
             </div>
             {config ? (
               config.views.length > 0 ? (
@@ -418,9 +680,9 @@ function App() {
                       key={view.key}
                       type="text"
                       block
-                      className={view.key === selectedViewId ? 'view-item selected' : 'view-item'}
-                      aria-current={view.key === selectedViewId ? 'page' : undefined}
-                      onClick={() => setSelectedViewId(view.key)}
+                      className={(view.id || view.key) === (selectedView?.id || selectedView?.key) ? 'view-item selected' : 'view-item'}
+                      aria-current={(view.id || view.key) === (selectedView?.id || selectedView?.key) ? 'page' : undefined}
+                      onClick={() => setSelectedViewId(view.id || view.key)}
                     >
                       <Text ellipsis title={view.name}>{view.name}</Text>
                       <Text className="view-id" ellipsis title={view.id}>{view.id || '無 ID'}</Text>
@@ -465,8 +727,8 @@ function App() {
                     <Text className="eyebrow">CONFIGURATION</Text>
                     <Title level={3}>{selectedView?.name ?? 'View'}</Title>
                   </div>
-                  <Tag color={modifiedViewIds.has(selectedView?.id ?? '') ? 'orange' : 'blue'}>
-                    {modifiedViewIds.has(selectedView?.id ?? '') ? '有未匯出修改' : 'View 元件管理'}
+                  <Tag color={isDirty ? 'orange' : 'blue'}>
+                    {isDirty ? '有未匯出修改' : 'View 元件管理'}
                   </Tag>
                 </div>
 
@@ -724,7 +986,7 @@ function App() {
                 <Card className="next-step-card">
                   <Text strong>目前進度</Text>
                   <Text type="secondary">
-                    可調整 View 的 Grid 排版、編輯或刪除已管理元件，並匯出修改後配置；編輯僅在本機進行。
+                    可管理 View、調整 Grid 排版、編輯或刪除已管理元件，並查看唯讀預覽；修改僅在本機進行。
                   </Text>
                 </Card>
               </div>

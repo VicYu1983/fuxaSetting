@@ -73,4 +73,30 @@ describe('editorHistoryReducer', () => {
       model,
     })).toBe(state)
   })
+
+  it('restores document edits and their model collection through undo and redo', () => {
+    const firstDocument = { views: ['first'] }
+    const secondDocument = { views: ['first', 'second'] }
+    const firstModels = new Map([['first', { label: 'First' }]])
+    const secondModels = new Map([
+      ['first', { label: 'First' }],
+      ['second', { label: 'Second' }],
+    ])
+    const initial = createEditorHistoryState(firstModels, firstDocument)
+    const edited = editorHistoryReducer(initial, {
+      type: 'document-edit',
+      document: secondDocument,
+      models: secondModels,
+    })
+    const undone = editorHistoryReducer(edited, { type: 'undo' })
+    const redone = editorHistoryReducer(undone, { type: 'redo' })
+
+    expect(edited.configurationDirty).toBe(true)
+    expect(undone.document).toBe(firstDocument)
+    expect(undone.models).toBe(firstModels)
+    expect(undone.configurationDirty).toBe(false)
+    expect(redone.document).toBe(secondDocument)
+    expect(redone.models).toBe(secondModels)
+    expect(redone.configurationDirty).toBe(true)
+  })
 })

@@ -79,9 +79,17 @@
 
 .sidebar-heading {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 12px 14px;
+}
+
+.sidebar-title {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 18px 14px;
 }
 
 .view-list {
@@ -322,10 +330,10 @@
   }
 
   .view-sidebar {
-    width: 160px !important;
-    min-width: 160px !important;
-    max-width: 160px !important;
-    flex: 0 0 160px !important;
+    width: 190px !important;
+    min-width: 190px !important;
+    max-width: 190px !important;
+    flex: 0 0 190px !important;
   }
 
   .workspace {
