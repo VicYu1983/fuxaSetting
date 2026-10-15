@@ -308,7 +308,8 @@ interface AppState {
 - **已完成切片**：`layout/floorGroupFrame` 的底框設定正規化、讀取與保存；`layout/floorLayout` 的樓層排序分組、區段排版、底框 bounds 與既有 Tag companion bounds。
 - **已完成切片**：`ids` 的唯一 ID 產生與碰撞重試；`devices/modbusTcp` 的設備建立／更新、位址補位規劃與執行、位址位移及範圍檢查；`tags/batch` 的批次輸入解析、樓層正規化、Tag 建立與下一位址計算。
 - **已完成切片**：`devices/deviceManagement` 的 FuxaServer 連線狀態 Tag 建立／改名同步，以及移除設備時清理其連線狀態 Tag。
-- 新版以 Vitest 覆蓋已遷移函式；目前新版 30 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
+- **已完成切片**：`tags/index` 的全域 Tag 索引（含設備與樓層資訊）；`views/view` 的 View 結構驗證，以及刪除 View 時遞迴清理導覽參照並替換起始 View。
+- 新版以 Vitest 覆蓋已遷移函式；目前新版 35 項測試及舊版 28 項回歸測試均通過。舊版測試仍保留作為行為參考，尚未整批搬遷。
 - 把 `tests/domain.test.cjs` 的測試改寫為 Vitest TS，**不修改斷言內容**；有改動必須在 PR 描述說明原因。
 - **驗收**：全部測試通過；`domain/` 無 `react`／`antd` import；型別檢查無錯。
 
