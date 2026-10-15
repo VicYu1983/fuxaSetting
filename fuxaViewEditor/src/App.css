@@ -314,9 +314,68 @@
   margin-top: 28px;
 }
 
+.floor-manager-toolbar,
+.floor-bulk-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.floor-bulk-toolbar {
+  justify-content: flex-start;
+}
+
+.floor-tag-list {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  max-height: min(56vh, 520px);
+  overflow: auto;
+  padding: 8px 12px;
+}
+
+.floor-tag-group + .floor-tag-group {
+  border-top: 1px solid #e8edf0;
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.floor-tag-group-title {
+  color: #53656e;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 0;
+}
+
+.floor-tag-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 28px minmax(100px, 1fr) minmax(120px, 0.8fr) minmax(150px, 0.8fr);
+  padding: 6px 0;
+}
+
+.floor-tag-name,
+.floor-tag-device {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .device-manager-form {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .floor-tag-row {
+    gap: 6px;
+    grid-template-columns: 28px minmax(90px, 1fr) minmax(120px, 0.8fr);
+  }
+
+  .floor-tag-device {
+    display: none;
   }
 }
 
