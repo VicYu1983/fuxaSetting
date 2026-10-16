@@ -552,6 +552,135 @@
   gap: 6px;
 }
 
+.workspace {
+  padding: 18px clamp(16px, 2vw, 28px);
+}
+
+.workspace-content {
+  max-width: 1440px;
+}
+
+.workspace-title {
+  margin-bottom: 10px;
+}
+
+.workspace-title h3.ant-typography {
+  font-size: 22px;
+  margin-top: 2px;
+}
+
+.workspace-content .eyebrow {
+  font-size: 10px;
+}
+
+.summary-cards {
+  gap: 10px !important;
+  margin-bottom: 10px;
+}
+
+.summary-cards .ant-space-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.summary-card {
+  max-width: none;
+  width: 100%;
+}
+
+.summary-card .ant-card-body {
+  padding: 10px 14px;
+}
+
+.summary-card .ant-statistic-title {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.summary-card .ant-statistic-content {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.view-panels.ant-space-vertical {
+  gap: 10px !important;
+}
+
+.view-details,
+.next-step-card {
+  margin-top: 10px;
+}
+
+.workspace-content .view-details > .ant-card-head {
+  min-height: 40px;
+  padding-inline: 14px;
+}
+
+.workspace-content .view-details > .ant-card-head .ant-card-head-title,
+.workspace-content .view-details > .ant-card-head .ant-card-extra {
+  font-size: 14px;
+  padding-block: 8px;
+}
+
+.workspace-content .view-details > .ant-card-body {
+  padding: 12px 14px;
+}
+
+.workspace-content .view-details .ant-descriptions .ant-descriptions-item-label,
+.workspace-content .view-details .ant-descriptions .ant-descriptions-item-content {
+  font-size: 12px;
+  padding-bottom: 4px;
+}
+
+.editor-columns {
+  gap: 12px;
+}
+
+.editor-controls > * + * {
+  margin-top: 10px;
+}
+
+.grid-settings {
+  gap: 9px 12px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.grid-settings label {
+  gap: 3px;
+}
+
+.workspace-content .grid-settings label > .ant-typography {
+  color: #64727a;
+  font-size: 12px;
+}
+
+.component-row {
+  gap: 10px;
+  padding-block: 6px;
+}
+
+.svg-preview {
+  max-height: calc(100vh - 210px);
+  min-height: 260px;
+}
+
+.sidebar-heading {
+  gap: 8px;
+  padding: 12px 10px 10px;
+}
+
+.view-list {
+  padding: 0 8px 12px;
+}
+
+.view-item {
+  padding: 7px 9px !important;
+}
+
+.view-item .view-id {
+  margin-top: 1px;
+}
+
 @media (max-width: 720px) {
   .editor-header {
     height: auto;
