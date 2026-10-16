@@ -944,8 +944,10 @@ function App() {
         addedToViewCount = createdTags.length
       }
       dispatchEditor({ type: 'document-edit', document, models: nextModels })
-      setTagCreateDialogOpen(false)
       setTagCreateInput('')
+      setTagCreateStartAddress(
+        getNextAvailableAddress(result.config.devices[tagCreateDeviceId], tagCreateMemaddress),
+      )
       const autoFillMessage = result.autoFilled.length
         ? `，並自動補齊 ${result.autoFilled.length} 個地址`
         : ''
