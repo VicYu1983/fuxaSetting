@@ -254,6 +254,22 @@
 .component-list {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.managed-component-floor {
+  display: flex;
+  flex-direction: column;
+}
+
+.managed-component-floor-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.component-order-controls {
+  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 .batch-tag-toolbar {

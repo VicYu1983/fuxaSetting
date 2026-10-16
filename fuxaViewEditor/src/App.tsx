@@ -57,6 +57,7 @@ import {
 } from './features/devices/manageDeviceTags'
 import type { DeviceTagUpdate } from './features/devices/manageDeviceTags'
 import { DEFAULT_GRID } from './domain/layout/gridSettings'
+import { groupComponentsByFloor } from './domain/layout/floorLayout'
 import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
 import type { FloorGroupFrameSettings } from './domain/config/types'
 import { findSvgElementById, parseSvg } from './domain/svg/parseSvg'
@@ -68,6 +69,7 @@ import { createTagsForDevice } from './features/tags/createTagsForDevice'
 import { getNextAvailableAddress, parseTagBatchInput } from './domain/tags/batch'
 import type { TagBatchSpec } from './domain/tags/batch'
 import { createBlankView } from './features/views/createBlankView'
+import { moveManagedComponent } from './features/views/moveManagedComponent'
 import {
   addMultiStateIconState,
   addIconLibraryEntry,
@@ -296,6 +298,23 @@ function App() {
     () => config ? [...buildTagIndex(config.rawConfig).values()] : [],
     [config],
   )
+  const managedComponentGroups = useMemo(() => {
+    if (!selectedModel) return []
+    const components = selectedModel.components.filter(
+      (component): component is GeneratedComponent => component.managed !== false,
+    )
+    const componentsByKey = new Map(components.map((component) => [component.key, component]))
+    return groupComponentsByFloor(
+      components,
+      new Map(tags.map((tag) => [tag.id, tag] as const)),
+    ).map((group) => ({
+      ...group,
+      items: group.items.flatMap((component) => {
+        const managed = componentsByKey.get(component.key)
+        return managed ? [managed] : []
+      }),
+    }))
+  }, [selectedModel, tags])
   const iconLibrary = useMemo(
     () => config ? getIconLibrary(config.rawConfig) : [],
     [config],
@@ -754,6 +773,23 @@ function App() {
         ...model,
         components: model.components.filter((item) => item.key !== key),
       },
+    })
+  }
+
+  function handleMoveComponent(viewId: string, key: string, direction: -1 | 1) {
+    const model = models.get(viewId)
+    if (!model) return
+    const nextComponents = moveManagedComponent(
+      model.components,
+      key,
+      direction,
+      new Map(tags.map((tag) => [tag.id, tag] as const)),
+    )
+    if (nextComponents.every((component, index) => component === model.components[index])) return
+    dispatchEditor({
+      type: 'edit',
+      viewId,
+      model: { ...model, components: nextComponents },
     })
   }
 
@@ -3103,15 +3139,47 @@ function App() {
                           (component) => component.managed !== false,
                         ) ? (
                           <div className="component-list">
-                            {selectedModel.components
-                              .filter((component) => component.managed !== false)
-                              .map((component: GeneratedComponent) => (
+                            <Text type="secondary">
+                              使用箭頭調整同一樓層內的元件順序；排序會同步套用至預覽與匯出。
+                            </Text>
+                            {managedComponentGroups.map((group) => (
+                              <section className="managed-component-floor" key={group.floor}>
+                                <Text className="managed-component-floor-title" type="secondary">
+                                  {group.title}
+                                </Text>
+                                {group.items.map((component, index) => (
                                 <div
                                   className={`component-row${
                                     component.template === 'icon-multi' ? ' component-row-multi' : ''
                                   }`}
                                   key={component.key}
                                 >
+                                  <Space className="component-order-controls" size={0}>
+                                    <Button
+                                      size="small"
+                                      type="text"
+                                      aria-label={`上移 ${component.label || '元件'}`}
+                                      title="在此樓層上移"
+                                      disabled={index === 0}
+                                      onClick={() => handleMoveComponent(
+                                        selectedView.id,
+                                        component.key,
+                                        -1,
+                                      )}
+                                    >↑</Button>
+                                    <Button
+                                      size="small"
+                                      type="text"
+                                      aria-label={`下移 ${component.label || '元件'}`}
+                                      title="在此樓層下移"
+                                      disabled={index === group.items.length - 1}
+                                      onClick={() => handleMoveComponent(
+                                        selectedView.id,
+                                        component.key,
+                                        1,
+                                      )}
+                                    >↓</Button>
+                                  </Space>
                                   <div className="component-meta">
                                     <Input
                                       aria-label="元件標籤"
@@ -3290,7 +3358,9 @@ function App() {
                                     刪除
                                   </Button>
                                 </div>
-                              ))}
+                                ))}
+                              </section>
+                            ))}
                           </div>
                         ) : (
                           <Empty
