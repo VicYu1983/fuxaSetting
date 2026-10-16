@@ -1830,8 +1830,8 @@ function App() {
         <Space orientation="vertical" size="middle" className="icon-library-manager">
           <Space wrap>
             <Input
-              aria-label="圖示名稱"
-              placeholder="圖示名稱"
+              aria-label="圖示名稱（必填）"
+              placeholder="圖示名稱（必填）"
               maxLength={120}
               value={iconName}
               onChange={(event) => setIconName(event.target.value)}
@@ -1847,6 +1847,9 @@ function App() {
               ]}
             />
           </Space>
+          {!iconName.trim() && (
+            <Text type="secondary">請先輸入圖示名稱，才能新增至圖示庫。</Text>
+          )}
           {iconType === 'single' ? (
             <label className="icon-file-field">
               一般圖示圖片
