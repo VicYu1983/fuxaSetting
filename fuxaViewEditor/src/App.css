@@ -336,6 +336,52 @@
   flex: 1 1 280px;
 }
 
+.tag-create-manager {
+  width: 100%;
+}
+
+.tag-create-settings {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tag-create-settings label {
+  display: grid;
+  gap: 6px;
+}
+
+.tag-create-preview-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.tag-create-preview {
+  max-height: 260px;
+  overflow: auto;
+  width: 100%;
+}
+
+.tag-create-preview table {
+  border-collapse: collapse;
+  min-width: 720px;
+  width: 100%;
+}
+
+.tag-create-preview th,
+.tag-create-preview td {
+  border-bottom: 1px solid #e8edf0;
+  padding: 7px;
+  text-align: left;
+}
+
+.tag-create-preview th {
+  background: #f6f8fa;
+  position: sticky;
+  top: 0;
+}
+
 .device-manager-summary {
   align-items: flex-start;
   border-block: 1px solid #e8edf0;
@@ -405,6 +451,10 @@
 }
 
 @media (max-width: 640px) {
+  .tag-create-settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .floor-frame-form {
     grid-template-columns: minmax(0, 1fr);
   }
