@@ -34,6 +34,29 @@ class TestParser implements SvgParser {
 }
 
 describe('createBlankView', () => {
+  it('allows creating a view when the current blank view has empty SVG content', () => {
+    const config: FuxaConfig = {
+      devices: {},
+      hmi: {
+        views: [{
+          id: 'v_01010101-010101010101',
+          name: 'MainView',
+          profile: { width: 1024, height: 768 },
+          items: {},
+          svgcontent: '',
+        }],
+      },
+    }
+
+    const result = createBlankView(config, 'SecondView', 'v_01010101-010101010101', {
+      Parser: TestParser,
+      serialize: () => '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+      crypto: { getRandomValues: (bytes) => bytes },
+    })
+
+    expect(result.view.name).toBe('SecondView')
+  })
+
   it('uses unique IDs, copies canvas dimensions, and escapes the title as SVG text', () => {
     const config: FuxaConfig = {
       devices: {},

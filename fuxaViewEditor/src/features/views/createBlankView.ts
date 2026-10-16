@@ -20,7 +20,7 @@ function collectUsedIds(config: FuxaConfig, Parser: SvgParserConstructor): Set<s
     if (isRecord(view.items)) {
       for (const id of Object.keys(view.items)) usedIds.add(id)
     }
-    if (typeof view.svgcontent !== 'string') continue
+    if (typeof view.svgcontent !== 'string' || !view.svgcontent.trim()) continue
 
     try {
       const doc = parseSvg(view.svgcontent, Parser)
