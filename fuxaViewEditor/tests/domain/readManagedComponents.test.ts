@@ -104,7 +104,7 @@ describe('readManagedComponents', () => {
     expect(result.consumed).toEqual(new Set(['switch-shape', 'switch-label']))
   })
 
-  it('loads managed shapes and labels, preserving palette and inner SVG IDs', () => {
+  it('loads managed shapes in SVG order, preserving palette and inner SVG IDs', () => {
     const root = new TestElement('svg', {}, '', [
       new TestElement('g', { id: 'shape-2' }, '', [
         new TestElement('rect', { id: 'inner-shape' }),
@@ -138,18 +138,6 @@ describe('readManagedComponents', () => {
 
     expect(result.records).toEqual([
       {
-        key: 'loaded-1',
-        seq: 1,
-        tagId: 'tag-fan',
-        label: 'Fan',
-        template: 'rect',
-        palette: 'normal',
-        shapeId: 'shape-1',
-        labelId: 'label-1',
-        shapeInnerIds: [],
-        managed: true,
-      },
-      {
         key: 'loaded-2',
         seq: 2,
         tagId: 'tag-pump',
@@ -159,6 +147,18 @@ describe('readManagedComponents', () => {
         shapeId: 'shape-2',
         labelId: 'label-2',
         shapeInnerIds: ['inner-shape'],
+        managed: true,
+      },
+      {
+        key: 'loaded-1',
+        seq: 1,
+        tagId: 'tag-fan',
+        label: 'Fan',
+        template: 'rect',
+        palette: 'normal',
+        shapeId: 'shape-1',
+        labelId: 'label-1',
+        shapeInnerIds: [],
         managed: true,
       },
     ])

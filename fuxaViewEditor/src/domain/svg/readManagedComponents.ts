@@ -173,6 +173,13 @@ export function readManagedComponents(
   const records: ManagedComponentRecord[] = []
   const consumed = new Set(alreadyConsumed)
   const itemIds = Object.keys(items)
+  const svgOrder = new Map(
+    Array.from(doc.getElementsByTagName('*'))
+      .flatMap((node, index) => {
+        const id = node.getAttribute('id')
+        return id ? [[id, index] as const] : []
+      }),
+  )
 
   for (const [shapeId, shapeItem] of Object.entries(items)) {
     if (consumed.has(shapeId)) continue
@@ -307,7 +314,11 @@ export function readManagedComponents(
     consumed.add(labelId)
   }
 
-  records.sort((left, right) => left.seq - right.seq)
+  records.sort((left, right) => (
+    (svgOrder.get(left.shapeId) ?? Number.MAX_SAFE_INTEGER)
+      - (svgOrder.get(right.shapeId) ?? Number.MAX_SAFE_INTEGER)
+    || left.seq - right.seq
+  ))
   return { records, consumed }
 }
 
