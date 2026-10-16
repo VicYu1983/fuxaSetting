@@ -5,7 +5,7 @@
 ## 目前功能
 
 - 在瀏覽器本機開啟 FUXA JSON，不上傳配置。
-- 可按「清空專案」以內建空白 FUXA 範本建立新工作區；已有載入專案時會先確認，未匯出的修改將被捨棄，但不會修改原始檔。建立後可另存為 `fuxa-project.generated.json`。
+- 可按「清空專案」以內建空白 FUXA 範本建立新工作區；初始 View 使用既有 FUXA JSON 的 SVG 根節點與 `Layer 1` 圖層結構。已有載入專案時會先確認，未匯出的修改將被捨棄，但不會修改原始檔。建立後可另存為 `fuxa-project.generated.json`。
 - 驗證配置需包含 `devices` 與 `hmi.views`。
 - 顯示 View 清單及選取 View 的基本資訊。
 - 新增空白 View、重新命名及刪除 View；刪除時會清理起始頁與導覽引用，並保留至少一個 View。

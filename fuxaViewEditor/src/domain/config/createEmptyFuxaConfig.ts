@@ -1,5 +1,9 @@
 import type { FuxaConfig } from './types'
 
+function createInitialSvg(width: number, height: number): string {
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">\n <g>\n  <title>Layer 1</title>\n </g>\n</svg>`
+}
+
 export function createEmptyFuxaConfig(): FuxaConfig {
   return {
     devices: {
@@ -28,7 +32,7 @@ export function createEmptyFuxaConfig(): FuxaConfig {
         },
         items: {},
         variables: {},
-        svgcontent: '',
+        svgcontent: createInitialSvg(1024, 768),
         type: 'svg',
       }],
       layout: {

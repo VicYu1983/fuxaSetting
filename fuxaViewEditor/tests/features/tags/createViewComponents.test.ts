@@ -71,6 +71,46 @@ const tag: IndexedTag = {
 }
 
 describe('createViewComponents', () => {
+  it('allows adding components when an empty project view has empty SVG content', () => {
+    const config: FuxaConfig = {
+      devices: {
+        device: {
+          name: 'Device',
+          tags: { 'tag-1': { id: 'tag-1', name: 'Pump', type: 'Bool' } },
+        },
+      },
+      hmi: {
+        views: [{
+          id: 'view-1',
+          name: 'MainView',
+          items: {},
+          svgcontent: '',
+        }],
+      },
+    }
+    const initial = model()
+    let random = 1
+
+    const result = createViewComponents(
+      config,
+      initial,
+      new Map([['view-1', initial]]),
+      [tag],
+      {
+        Parser: TestParser,
+        crypto: {
+          getRandomValues(bytes) {
+            bytes.fill(random++)
+            return bytes
+          },
+        },
+      },
+    )
+
+    expect(result.components).toHaveLength(1)
+    expect(result.components[0]?.tagId).toBe('tag-1')
+  })
+
   it('creates managed rect components with unique IDs and sequential ordering', () => {
     const config: FuxaConfig = {
       devices: {

@@ -9,16 +9,29 @@ import {
 } from '../../src/domain/config/serialization'
 
 describe('parseFuxaConfig', () => {
-  it('creates an independent empty project matching the shared FUXA template', () => {
+  it('creates an independent empty project with an initialized FUXA SVG layer', () => {
     const template = JSON.parse(
       readFileSync(resolve(process.cwd(), '..', 'fuxa-project.json'), 'utf8'),
     )
     const config = createEmptyFuxaConfig()
+    const secondConfig = createEmptyFuxaConfig()
+    const configView = config.hmi.views[0] as Record<string, unknown>
+    const secondConfigView = secondConfig.hmi.views[0] as Record<string, unknown>
+    const configWithoutInitializedSvg = structuredClone(config)
+    const emptyView = configWithoutInitializedSvg.hmi.views[0] as Record<string, unknown>
+    emptyView.svgcontent = ''
 
-    expect(config).toEqual(template)
+    expect(configWithoutInitializedSvg).toEqual(template)
+    expect(configView).toMatchObject({
+      items: {},
+      svgcontent: expect.stringMatching(
+        /^<svg width="1024" height="768" xmlns="http:\/\/www\.w3\.org\/2000\/svg" xmlns:svg="http:\/\/www\.w3\.org\/2000\/svg" xmlns:xlink="http:\/\/www\.w3\.org\/1999\/xlink">[\s\S]*<title>Layer 1<\/title>[\s\S]*<\/svg>$/,
+      ),
+    })
     expect(parseFuxaConfig(JSON.stringify(config)).views).toHaveLength(1)
-    config.hmi.views[0] = {}
-    expect(createEmptyFuxaConfig()).toEqual(template)
+    expect(secondConfigView.svgcontent).toBe(configView.svgcontent)
+    configView.svgcontent = ''
+    expect(secondConfigView.svgcontent).not.toBe('')
   })
 
   it('summarizes FUXA views while retaining the original configuration', () => {
