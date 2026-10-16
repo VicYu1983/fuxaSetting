@@ -50,6 +50,11 @@ import {
   saveModbusDevice,
   shiftModbusDeviceTags,
 } from './features/devices/manageModbusDevice'
+import {
+  deleteModbusDeviceTag,
+  updateModbusDeviceTag,
+} from './features/devices/manageDeviceTags'
+import type { DeviceTagUpdate } from './features/devices/manageDeviceTags'
 import { DEFAULT_GRID } from './domain/layout/gridSettings'
 import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
 import type { FloorGroupFrameSettings } from './domain/config/types'
@@ -119,6 +124,8 @@ interface ModbusDeviceFormValues {
   enabled: boolean
   polling: number
 }
+
+type ModbusTagFormValues = DeviceTagUpdate
 
 interface FloorGroupFrameFormValues extends Omit<FloorGroupFrameSettings, 'fillOpacity'> {
   fillOpacityPercent: number
@@ -208,6 +215,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [viewNameForm] = Form.useForm<{ name: string }>()
   const [deviceManagerForm] = Form.useForm<ModbusDeviceFormValues>()
+  const [deviceTagForm] = Form.useForm<ModbusTagFormValues>()
   const [floorFrameForm] = Form.useForm<FloorGroupFrameFormValues>()
   const [messageApi, contextHolder] = message.useMessage()
   const [fileName, setFileName] = useState('')
@@ -250,6 +258,9 @@ function App() {
   const [floorFrameDialogOpen, setFloorFrameDialogOpen] = useState(false)
   const [deviceManagerMode, setDeviceManagerMode] = useState<'create' | 'edit'>('edit')
   const [managedDeviceId, setManagedDeviceId] = useState('')
+  const [deviceTagSearch, setDeviceTagSearch] = useState('')
+  const [editingDeviceTagId, setEditingDeviceTagId] = useState('')
+  const [deviceTagDialogOpen, setDeviceTagDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [editor, dispatchEditor] = useReducer(
     editorHistoryReducer<ExportViewModel, ParsedFuxaConfig>,
@@ -296,9 +307,32 @@ function App() {
       : []
   ), [config])
   const managedDevice = modbusDevices.find((device) => device.id === managedDeviceId)
-  const managedDeviceTags = managedDevice && isRecord(managedDevice.record.tags)
-    ? Object.values(managedDevice.record.tags).filter(isRecord)
-    : []
+  const managedDeviceTags = useMemo(() => (
+    managedDevice && isRecord(managedDevice.record.tags)
+      ? Object.entries(managedDevice.record.tags)
+        .filter((entry): entry is [string, Record<string, unknown>] => isRecord(entry[1]))
+        .map(([key, record]) => ({
+          id: typeof record.id === 'string' ? record.id : key,
+          name: typeof record.name === 'string' ? record.name : key,
+          type: typeof record.type === 'string' ? record.type : '',
+          address: record.address,
+          memaddress: typeof record.memaddress === 'string' ? record.memaddress : '',
+          description: typeof record.description === 'string' ? record.description : '',
+          floor: isRecord(record.extra) && typeof record.extra.floor === 'string'
+            ? record.extra.floor
+            : '',
+          record,
+        }))
+      : []
+  ), [managedDevice])
+  const filteredManagedDeviceTags = useMemo(() => {
+    const query = deviceTagSearch.trim().toLocaleLowerCase()
+    return managedDeviceTags.filter((tag) => (
+      `${tag.name} ${tag.type} ${String(tag.address ?? '')} ${tag.memaddress} ${tag.floor}`
+        .toLocaleLowerCase()
+        .includes(query)
+    ))
+  }, [deviceTagSearch, managedDeviceTags])
   const addressFillState = useMemo(() => {
     if (!config || !managedDevice || deviceManagerMode !== 'edit') return null
     try {
@@ -971,6 +1005,7 @@ function App() {
   }
 
   function openDeviceManager() {
+    setDeviceTagSearch('')
     const firstDevice = modbusDevices[0]
     if (firstDevice) {
       setDeviceManagerMode('edit')
@@ -1006,6 +1041,7 @@ function App() {
     if (!device) return
     setDeviceManagerMode('edit')
     setManagedDeviceId(device.id)
+    setDeviceTagSearch('')
     deviceManagerForm.setFieldsValue({
       name: typeof device.record.name === 'string' ? device.record.name : '',
       address: isRecord(device.record.property)
@@ -1017,6 +1053,112 @@ function App() {
         : 0,
       enabled: Boolean(device.record.enabled),
       polling: Number(device.record.polling) || 200,
+    })
+  }
+
+  function openDeviceTagEditor(tagId: string) {
+    const tag = managedDeviceTags.find((candidate) => candidate.id === tagId)
+    if (!tag) {
+      messageApi.error('找不到要修改的 Tag。')
+      return
+    }
+    const address = Number(tag.address)
+    setEditingDeviceTagId(tagId)
+    deviceTagForm.setFieldsValue({
+      name: tag.name,
+      address: Number.isSafeInteger(address) && address >= 0 && address <= 65535
+        ? address
+        : undefined,
+      type: tag.type || 'Bool',
+      memaddress: tag.memaddress,
+      description: tag.description,
+      floor: tag.floor,
+    })
+    setDeviceTagDialogOpen(true)
+  }
+
+  function handleUpdateDeviceTag(values: ModbusTagFormValues) {
+    if (!config) return
+    try {
+      const nextConfig = updateModbusDeviceTag(
+        config.rawConfig,
+        managedDeviceId,
+        editingDeviceTagId,
+        values,
+      )
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(nextConfig, config),
+        models,
+      })
+      setDeviceTagDialogOpen(false)
+      messageApi.success(`已更新 Tag「${values.name.trim()}」。`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`Tag 更新失敗：${detail}`)
+    }
+  }
+
+  function handleDeleteDeviceTag(tagId: string) {
+    if (!config || !managedDevice) return
+    const referencedModels = [...models.entries()].flatMap(([viewId, model]) => {
+      const components = model.components.filter((component) => (
+        component.tagId === tagId
+        || component.multiStateBindings?.some((binding) => binding.tagId === tagId)
+      ))
+      return components.length ? [{ viewId, model, components }] : []
+    })
+    const readonlyReferences = referencedModels.flatMap(({ viewId, components }) => {
+      const count = components.filter((component) => component.managed === false).length
+      if (!count) return []
+      const view = config.views.find((candidate) => candidate.id === viewId)
+      return [`${view?.name || viewId} (${count} 個唯讀元件)`]
+    })
+    if (readonlyReferences.length) {
+      messageApi.error(
+        `無法刪除此 Tag：以下 View 有無法安全修改的唯讀元件引用：${readonlyReferences.join('、')}`,
+      )
+      return
+    }
+
+    const managedReferenceCount = referencedModels.reduce(
+      (count, entry) => count + entry.components.length,
+      0,
+    )
+    const tag = managedDeviceTags.find((candidate) => candidate.id === tagId)
+    Modal.confirm({
+      title: `確定刪除 Tag「${tag?.name || tagId}」？`,
+      content: managedReferenceCount
+        ? `此 Tag 被 ${managedReferenceCount} 個受管理元件使用；刪除時會一併移除這些元件。`
+        : '此操作無法復原。',
+      okText: '刪除 Tag',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk() {
+        try {
+          const nextConfig = deleteModbusDeviceTag(config.rawConfig, managedDeviceId, tagId)
+          const nextModels = new Map(models)
+          for (const { viewId, model, components } of referencedModels) {
+            const removeKeys = new Set(components.map((component) => component.key))
+            nextModels.set(viewId, {
+              ...model,
+              components: model.components.filter((component) => !removeKeys.has(component.key)),
+            })
+          }
+          dispatchEditor({
+            type: 'document-edit',
+            document: parseUpdatedConfig(nextConfig, config),
+            models: nextModels,
+          })
+          messageApi.success(
+            `已刪除 Tag「${tag?.name || tagId}」。`
+            + (managedReferenceCount ? `並移除 ${managedReferenceCount} 個相關元件。` : ''),
+          )
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error)
+          messageApi.error(`Tag 刪除失敗：${detail}`)
+        }
+      },
     })
   }
 
@@ -2005,6 +2147,59 @@ function App() {
             </Space>
           </div>
         )}
+        {deviceManagerMode === 'edit' && managedDevice && (
+          <section className="device-tag-manager" aria-label="所選設備的 Tag 清單">
+            <div className="device-tag-manager-heading">
+              <Text strong>設備 Tag</Text>
+              <Text type="secondary">
+                {filteredManagedDeviceTags.length} / {managedDeviceTags.length} 個
+              </Text>
+            </div>
+            <Input
+              aria-label="搜尋設備 Tag"
+              allowClear
+              placeholder="搜尋 Tag 名稱、位址、型別或樓層"
+              value={deviceTagSearch}
+              onChange={(event) => setDeviceTagSearch(event.target.value)}
+              className="device-tag-search"
+            />
+            <div className="device-tag-list">
+              {filteredManagedDeviceTags.length ? filteredManagedDeviceTags.map((tag) => (
+                <div className="device-tag-row" key={tag.id}>
+                  <div className="device-tag-info">
+                    <Text strong ellipsis title={tag.name}>{tag.name}</Text>
+                    <Text type="secondary" ellipsis title={`${tag.type} · ${tag.memaddress}`}>
+                      {tag.type || '未設定型別'} · {tag.memaddress || '未設定區段'}
+                    </Text>
+                    <Text type="secondary">
+                      位址 {tag.address === undefined || tag.address === null || tag.address === ''
+                        ? '—'
+                        : String(tag.address)}
+                      {tag.floor ? ` · ${tag.floor}` : ''}
+                    </Text>
+                  </div>
+                  <Space size={4}>
+                    <Button size="small" onClick={() => openDeviceTagEditor(tag.id)}>
+                      修改
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() => handleDeleteDeviceTag(tag.id)}
+                    >
+                      刪除
+                    </Button>
+                  </Space>
+                </div>
+              )) : (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={managedDeviceTags.length ? '沒有符合搜尋條件的 Tag。' : '此設備尚無 Tag。'}
+                />
+              )}
+            </div>
+          </section>
+        )}
         <Form
           form={deviceManagerForm}
           layout="vertical"
@@ -2050,6 +2245,68 @@ function App() {
         <Text type="secondary">
           儲存 addressCount 時會以目前最小有效位址為起點，複製其 Tag 範本補齊相同 memaddress 區段的缺漏；位址 +1/-1 會先檢查整台設備的所有 Tag，超出 0–65535 時整批取消。
         </Text>
+      </Modal>
+      <Modal
+        open={deviceTagDialogOpen}
+        title="修改 Tag"
+        okText="儲存 Tag"
+        cancelText="取消"
+        onCancel={() => setDeviceTagDialogOpen(false)}
+        onOk={() => deviceTagForm.submit()}
+        destroyOnHidden
+      >
+        <Form
+          form={deviceTagForm}
+          layout="vertical"
+          onFinish={handleUpdateDeviceTag}
+        >
+          <Form.Item
+            name="name"
+            label="Tag 名稱"
+            rules={[
+              { required: true, whitespace: true, message: 'Tag 名稱不可空白。' },
+              { max: 120, message: 'Tag 名稱不可超過 120 個字元。' },
+            ]}
+          >
+            <Input maxLength={120} />
+          </Form.Item>
+          <Form.Item
+            name="address"
+            label="位址 (address)"
+            rules={[
+              {
+                validator: async (_, value: unknown) => {
+                  if (value === undefined || value === null || value === '') return
+                  if (!Number.isSafeInteger(Number(value)) || Number(value) < 0 || Number(value) > 65535) {
+                    throw new Error('位址必須是 0 到 65535 之間的整數。')
+                  }
+                },
+              },
+            ]}
+          >
+            <InputNumber min={0} max={65535} precision={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="type"
+            label="資料型別"
+            rules={[{ required: true, whitespace: true, message: 'Tag 型別不可空白。' }]}
+          >
+            <Input placeholder="例如 Bool、number、string" />
+          </Form.Item>
+          <Form.Item
+            name="memaddress"
+            label="記憶體區段 (memaddress)"
+            rules={[{ required: true, whitespace: true, message: '記憶體區段不可空白。' }]}
+          >
+            <Input placeholder="例如 000000" />
+          </Form.Item>
+          <Form.Item name="description" label="備註">
+            <Input />
+          </Form.Item>
+          <Form.Item name="floor" label="樓層">
+            <Input placeholder="例如 4F" />
+          </Form.Item>
+        </Form>
       </Modal>
       <Modal
         open={tagCreateDialogOpen}

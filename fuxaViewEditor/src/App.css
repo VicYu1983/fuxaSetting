@@ -389,6 +389,53 @@
   padding: 12px 0;
 }
 
+.device-tag-manager {
+  border: 1px solid #e8edf0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 10px;
+}
+
+.device-tag-manager-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.device-tag-search {
+  margin-bottom: 8px;
+}
+
+.device-tag-list {
+  max-height: min(30vh, 260px);
+  overflow: auto;
+}
+
+.device-tag-row {
+  align-items: center;
+  border-bottom: 1px solid #edf0f2;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 6px 4px;
+}
+
+.device-tag-row:last-child {
+  border-bottom: 0;
+}
+
+.device-tag-row:nth-child(even) {
+  background: #f7f9fa;
+}
+
+.device-tag-info {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
 .device-manager-form {
   display: grid;
   gap: 0 16px;
