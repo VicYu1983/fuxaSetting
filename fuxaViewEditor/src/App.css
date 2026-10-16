@@ -656,7 +656,21 @@
 
 .component-row {
   gap: 10px;
-  padding-block: 6px;
+  margin-inline: -14px;
+  padding: 8px 14px;
+  transition: background-color 120ms ease;
+}
+
+.component-row:nth-child(odd) {
+  background: #e2f3ff;
+}
+
+.component-row:nth-child(even) {
+  background: #fff;
+}
+
+.component-row:hover {
+  background: #eaf2f5;
 }
 
 .svg-preview {
