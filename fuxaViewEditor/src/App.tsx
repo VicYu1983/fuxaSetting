@@ -3029,7 +3029,12 @@ function App() {
                             {selectedModel.components
                               .filter((component) => component.managed !== false)
                               .map((component: GeneratedComponent) => (
-                                <div className="component-row" key={component.key}>
+                                <div
+                                  className={`component-row${
+                                    component.template === 'icon-multi' ? ' component-row-multi' : ''
+                                  }`}
+                                  key={component.key}
+                                >
                                   <div className="component-meta">
                                     <Input
                                       aria-label="元件標籤"
@@ -3042,21 +3047,33 @@ function App() {
                                         { label: event.target.value },
                                       )}
                                     />
-                                    {component.template !== 'icon-multi' && (
-                                      <Select
-                                        aria-label="綁定 Tag"
-                                        showSearch
-                                        optionFilterProp="label"
-                                        value={component.tagId || undefined}
-                                        placeholder="選擇 Tag"
-                                        options={tagOptions(component)}
-                                        onChange={(tagId: string) => handleUpdateComponent(
+                                    <Select
+                                      aria-label="綁定 Tag"
+                                      showSearch
+                                      optionFilterProp="label"
+                                      value={component.tagId || undefined}
+                                      placeholder="選擇 Tag"
+                                      options={tagOptions(component)}
+                                      onChange={(tagId: string) => {
+                                        if (component.template === 'icon-multi') {
+                                          const primaryBinding = component.multiStateBindings?.[0]
+                                          if (primaryBinding) {
+                                            handleUpdateMultiStateBinding(
+                                              selectedView.id,
+                                              component,
+                                              primaryBinding.stateKey,
+                                              tagId,
+                                            )
+                                            return
+                                          }
+                                        }
+                                        handleUpdateComponent(
                                           selectedView.id,
                                           component.key,
                                           { tagId },
-                                        )}
-                                      />
-                                    )}
+                                        )
+                                      }}
+                                    />
                                     <Select
                                       aria-label="圖形"
                                       value={selectedComponentGraphic(component, iconLibrary)}

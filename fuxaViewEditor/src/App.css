@@ -533,6 +533,12 @@
   border-bottom: 0;
 }
 
+.component-row-multi {
+  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .component-meta {
   display: flex;
   min-width: 0;
@@ -551,8 +557,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1 0 100%;
+  grid-column: 1;
   margin-inline-start: 8px;
+  min-width: 0;
+}
+
+.component-row-multi > .ant-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .multi-state-binding-row {
