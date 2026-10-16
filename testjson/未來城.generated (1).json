@@ -1,0 +1,3592 @@
+{
+    "devices": {
+        "0": {
+            "id": "0",
+            "name": "FUXA",
+            "enabled": true,
+            "property": {
+                "delay": 10
+            },
+            "type": "FuxaServer",
+            "polling": 1000,
+            "tags": {
+                "t_f705e7b4-8ff0fc61": {
+                    "id": "t_f705e7b4-8ff0fc61",
+                    "name": "modbus Connection Status",
+                    "label": "modbus Connection Status",
+                    "type": "number",
+                    "memaddress": "d_0dfd0dee-74892882",
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "init": "",
+                    "sysType": 1,
+                    "timestamp": 1791891330315
+                }
+            }
+        },
+        "d_0dfd0dee-74892882": {
+            "id": "d_0dfd0dee-74892882",
+            "name": "modbus",
+            "enabled": true,
+            "property": {
+                "address": "127.0.0.1:502",
+                "port": null,
+                "slot": null,
+                "rack": null,
+                "slaveid": "1",
+                "baudrate": 9600,
+                "databits": 8,
+                "stopbits": 1,
+                "parity": "None",
+                "connectionOption": "TcpPort",
+                "delay": 10,
+                "forceFC16": false,
+                "timeout": 2000
+            },
+            "type": "ModbusTCP",
+            "polling": 200,
+            "tags": {
+                "t_45fe99a7-5fc74101": {
+                    "id": "t_45fe99a7-5fc74101",
+                    "name": "2_B3F-PS2_33_廢水泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 1,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f959f6f7-2fc94654": {
+                    "id": "t_f959f6f7-2fc94654",
+                    "name": "2_B3F-PS2_34_廢水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 2,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_109ad0ed-b6cdfb3d": {
+                    "id": "t_109ad0ed-b6cdfb3d",
+                    "name": "2_B3F-PS2_35_廢水泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 3,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_318a481c-97c91f82": {
+                    "id": "t_318a481c-97c91f82",
+                    "name": "2_B3F-PS2_36_廢水泵二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 4,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_c326885e-59588c28": {
+                    "id": "t_c326885e-59588c28",
+                    "name": "4_汙水盤_65_調整槽汙水泵A運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 5,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_8e4df7d3-7549fe62": {
+                    "id": "t_8e4df7d3-7549fe62",
+                    "name": "4_汙水盤_66_調整槽汙水泵B運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 6,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_b0c38b67-3d68b501": {
+                    "id": "t_b0c38b67-3d68b501",
+                    "name": "4_汙水盤_67_沉澱槽汙泥泵A運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 7,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_21dfccf7-f4a84b50": {
+                    "id": "t_21dfccf7-f4a84b50",
+                    "name": "4_汙水盤_68_沉澱槽汙泥泵B運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 8,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_eef489b9-7f7cacb3": {
+                    "id": "t_eef489b9-7f7cacb3",
+                    "name": "4_汙水盤_69_放流汙水泵A運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 9,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_4f1bcf99-b9424be9": {
+                    "id": "t_4f1bcf99-b9424be9",
+                    "name": "4_汙水盤_70_放流汙水泵B運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 10,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f2b8c287-56350104": {
+                    "id": "t_f2b8c287-56350104",
+                    "name": "4_汙水盤_71_調整槽鼓風機A運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 11,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_0c7f350b-040c1c6f": {
+                    "id": "t_0c7f350b-040c1c6f",
+                    "name": "4_汙水盤_72_調整槽鼓風機B運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 12,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_aaf23030-47b4219c": {
+                    "id": "t_aaf23030-47b4219c",
+                    "name": "5_汙水盤_81_曝氣槽鼓風機A運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 13,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_322709a1-bccdc1da": {
+                    "id": "t_322709a1-bccdc1da",
+                    "name": "5_汙水盤_82_曝氣槽鼓風機B運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 14,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_b26b44f9-0dbbdceb": {
+                    "id": "t_b26b44f9-0dbbdceb",
+                    "name": "5_汙水盤_83_透浦式排風機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 15,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f0b011e3-4af8f045": {
+                    "id": "t_f0b011e3-4af8f045",
+                    "name": "5_汙水盤_84_調整槽汙水泵A過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 16,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_65d5c218-0fbabace": {
+                    "id": "t_65d5c218-0fbabace",
+                    "name": "5_汙水盤_85_調整槽汙水泵B過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 17,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_6d0242ce-da50983f": {
+                    "id": "t_6d0242ce-da50983f",
+                    "name": "5_汙水盤_86_沉澱槽汙泥泵A過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 18,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_811e3205-711990c5": {
+                    "id": "t_811e3205-711990c5",
+                    "name": "5_汙水盤_87_沉澱槽汙泥泵B過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 19,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_c1cb0d40-cf65ac85": {
+                    "id": "t_c1cb0d40-cf65ac85",
+                    "name": "5_汙水盤_88_放流汙水泵A過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 20,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_2f77a967-95440380": {
+                    "id": "t_2f77a967-95440380",
+                    "name": "6_汙水盤_97_放流汙水泵B過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 21,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_3aea6959-a422948d": {
+                    "id": "t_3aea6959-a422948d",
+                    "name": "6_汙水盤_98_調整槽鼓風機A過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 22,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_b4194283-ae91e925": {
+                    "id": "t_b4194283-ae91e925",
+                    "name": "6_汙水盤_99_調整槽鼓風機B過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 23,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_7fbf7aae-51355e12": {
+                    "id": "t_7fbf7aae-51355e12",
+                    "name": "6_汙水盤_100_曝氣槽鼓風機A過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 24,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_fcc649ea-e7081628": {
+                    "id": "t_fcc649ea-e7081628",
+                    "name": "6_汙水盤_101_曝氣槽鼓風機B過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 25,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_49b51add-6ba77b03": {
+                    "id": "t_49b51add-6ba77b03",
+                    "name": "6_汙水盤_102_透浦式排風機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 26,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_e095fee0-512a7cfc": {
+                    "id": "t_e095fee0-512a7cfc",
+                    "name": "6_汙水盤_103_汙水池超高液位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 27,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_bce2c2cf-4f2d1f87": {
+                    "id": "t_bce2c2cf-4f2d1f87",
+                    "name": "8_B B3F SA箱_133_廢水泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 28,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_15c946d6-d142de44": {
+                    "id": "t_15c946d6-d142de44",
+                    "name": "8_B B3F SA箱_134_廢水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 29,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_d78670a7-ac79d172": {
+                    "id": "t_d78670a7-ac79d172",
+                    "name": "8_B B3F SA箱_135_廢水泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 30,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_da89ec59-f303ab42": {
+                    "id": "t_da89ec59-f303ab42",
+                    "name": "8_B B3F SA箱_136_廢水泵二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 31,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_2d3561c4-7fba2fb8": {
+                    "id": "t_2d3561c4-7fba2fb8",
+                    "name": "21_A B3F SA箱_337_廢水泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 32,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_7114a988-2c0adddd": {
+                    "id": "t_7114a988-2c0adddd",
+                    "name": "21_A B3F SA箱_338_廢水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 33,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_67247094-1083aab5": {
+                    "id": "t_67247094-1083aab5",
+                    "name": "21_A B3F SA箱_339_廢水泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 34,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_3b3dd60e-828c0320": {
+                    "id": "t_3b3dd60e-828c0320",
+                    "name": "21_A B3F SA箱_340_廢水泵二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 35,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_13e13387-14fa6f28": {
+                    "id": "t_13e13387-14fa6f28",
+                    "name": "7_B B3F SA箱_113_雨水滯洪泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 36,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_c3d650a4-b4586a2a": {
+                    "id": "t_c3d650a4-b4586a2a",
+                    "name": "7_B B3F SA箱_114_雨水滯洪泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 37,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_e50bf520-3eb0c9c0": {
+                    "id": "t_e50bf520-3eb0c9c0",
+                    "name": "7_B B3F SA箱_115_雨水滯洪泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 38,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_1dc2ae1b-56b65a6d": {
+                    "id": "t_1dc2ae1b-56b65a6d",
+                    "name": "7_B B3F SA箱_116_雨水滯洪泵二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 39,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_5a1b76d2-2f38bb40": {
+                    "id": "t_5a1b76d2-2f38bb40",
+                    "name": "7_B B3F SA箱_117_雨水滯洪泵三過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 40,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_fa4472c0-31754b13": {
+                    "id": "t_fa4472c0-31754b13",
+                    "name": "7_B B3F SA箱_118_雨水滯洪泵三運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 41,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_cca595bf-3b5b4e6a": {
+                    "id": "t_cca595bf-3b5b4e6a",
+                    "name": "7_B B3F SA箱_119_雨水滯洪泵四過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 42,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_9addcd71-1a52063f": {
+                    "id": "t_9addcd71-1a52063f",
+                    "name": "7_B B3F SA箱_120_雨水滯洪泵四運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 43,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_155a3a73-84270ae1": {
+                    "id": "t_155a3a73-84270ae1",
+                    "name": "8_B B3F SA箱_129_雨水滯洪泵五過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 44,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_b58df65e-2ff35fd7": {
+                    "id": "t_b58df65e-2ff35fd7",
+                    "name": "8_B B3F SA箱_130_雨水滯洪泵五運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 45,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_61da0396-0750f46c": {
+                    "id": "t_61da0396-0750f46c",
+                    "name": "8_B B3F SA箱_131_雨水滯洪泵六過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 46,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_c39f5684-30bbe327": {
+                    "id": "t_c39f5684-30bbe327",
+                    "name": "8_B B3F SA箱_132_雨水滯洪泵六運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 47,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_ee76a721-3eab4ce2": {
+                    "id": "t_ee76a721-3eab4ce2",
+                    "name": "10_B3F PSR2_161_雨水洩洪泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 48,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_c1b61909-3be89e95": {
+                    "id": "t_c1b61909-3be89e95",
+                    "name": "10_B3F PSR2_162_雨水洩洪泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 49,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f51b0d3f-7266eea6": {
+                    "id": "t_f51b0d3f-7266eea6",
+                    "name": "10_B3F PSR2_163_雨水洩洪泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 50,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_1692eae2-f8cfd396": {
+                    "id": "t_1692eae2-f8cfd396",
+                    "name": "10_B3F PSR2_164_雨水洩洪泵二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 51,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_7c0b1987-4997692c": {
+                    "id": "t_7c0b1987-4997692c",
+                    "name": "10_B3F PSR2_165_雨水洩洪泵三過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 52,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_aeb1d9b3-1c50bca7": {
+                    "id": "t_aeb1d9b3-1c50bca7",
+                    "name": "10_B3F PSR2_166_雨水洩洪泵三運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 53,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_4ac9a620-a5449393": {
+                    "id": "t_4ac9a620-a5449393",
+                    "name": "3_B3F-PWC_49_揚水泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 54,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_53f84888-42d99cc4": {
+                    "id": "t_53f84888-42d99cc4",
+                    "name": "3_B3F-PWC_50_揚水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 55,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_80031207-d7192b3b": {
+                    "id": "t_80031207-d7192b3b",
+                    "name": "3_B3F-PWC_51_揚水泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 56,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_1f5a37b8-b6145d04": {
+                    "id": "t_1f5a37b8-b6145d04",
+                    "name": "3_B3F-PWC_52_揚水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 57,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f66c3a5c-adff8cfd": {
+                    "id": "t_f66c3a5c-adff8cfd",
+                    "name": "3_B3F-PWC_53_B3F水箱蓋 NC",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 58,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_72c5c6ad-0234c8a5": {
+                    "id": "t_72c5c6ad-0234c8a5",
+                    "name": "3_B3F-PWC_54_R3F水箱高水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 59,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_3ec8e0bb-ebba94bd": {
+                    "id": "t_3ec8e0bb-ebba94bd",
+                    "name": "3_B3F-PWC_55_R3F水箱低水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 60,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_b008878c-835595a4": {
+                    "id": "t_b008878c-835595a4",
+                    "name": "3_B3F-PWC_56_B3F水箱高水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 61,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_ed6565dc-205fa278": {
+                    "id": "t_ed6565dc-205fa278",
+                    "name": "9_B B3F SA箱_145_揚水泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 62,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_cadd62ad-1a8c2936": {
+                    "id": "t_cadd62ad-1a8c2936",
+                    "name": "9_B B3F SA箱_146_揚水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 63,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_2a2338f8-cfd7468a": {
+                    "id": "t_2a2338f8-cfd7468a",
+                    "name": "9_B B3F SA箱_147_揚水泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 64,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_71fcd78e-ffc1d7a5": {
+                    "id": "t_71fcd78e-ffc1d7a5",
+                    "name": "9_B B3F SA箱_148_揚水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 65,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_8ad8a031-408028a9": {
+                    "id": "t_8ad8a031-408028a9",
+                    "name": "9_B B3F SA箱_149_B3F水箱蓋 NC",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 66,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_07f1e87e-84971b42": {
+                    "id": "t_07f1e87e-84971b42",
+                    "name": "9_B B3F SA箱_150_R3F水箱高水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 67,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_a7f40bb4-ecb3a5c5": {
+                    "id": "t_a7f40bb4-ecb3a5c5",
+                    "name": "9_B B3F SA箱_151_R3F水箱低水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 68,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_1ea760c2-ff3f6774": {
+                    "id": "t_1ea760c2-ff3f6774",
+                    "name": "9_B B3F SA箱_152_B3F水箱高水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 69,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_1c9630b2-51c9a8d0": {
+                    "id": "t_1c9630b2-51c9a8d0",
+                    "name": "20_A B3F SA箱_321_揚水泵一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 70,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_867f921d-ef0d00be": {
+                    "id": "t_867f921d-ef0d00be",
+                    "name": "20_A B3F SA箱_322_揚水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 71,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_80706b25-8499d6b0": {
+                    "id": "t_80706b25-8499d6b0",
+                    "name": "20_A B3F SA箱_323_揚水泵二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 72,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_11b41b5b-b9d00902": {
+                    "id": "t_11b41b5b-b9d00902",
+                    "name": "20_A B3F SA箱_324_揚水泵一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 73,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_c60e4fda-5352d0ea": {
+                    "id": "t_c60e4fda-5352d0ea",
+                    "name": "20_A B3F SA箱_325_B3F水箱蓋 NC",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 74,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_9d6da292-f6cb0d50": {
+                    "id": "t_9d6da292-f6cb0d50",
+                    "name": "20_A B3F SA箱_326_R3F水箱高水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 75,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_e2ddb8a6-19621dea": {
+                    "id": "t_e2ddb8a6-19621dea",
+                    "name": "20_A B3F SA箱_327_R3F水箱低水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 76,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f8c4a8f2-4b1cdb76": {
+                    "id": "t_f8c4a8f2-4b1cdb76",
+                    "name": "20_A B3F SA箱_328_B3F水箱高水位",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 77,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_bfc2d32b-ddcd7b13": {
+                    "id": "t_bfc2d32b-ddcd7b13",
+                    "name": "14_B1F PB_225_排風機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 78,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_e229e4ae-86fa7dd4": {
+                    "id": "t_e229e4ae-86fa7dd4",
+                    "name": "14_B1F PB_226_排風機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 79,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_82398784-e44853bd": {
+                    "id": "t_82398784-e44853bd",
+                    "name": "14_B1F PB_227_進風機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 80,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_0c6d364d-7ff66ef0": {
+                    "id": "t_0c6d364d-7ff66ef0",
+                    "name": "14_B1F PB_228_進風機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 81,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_fb3d9496-acc0ec0a": {
+                    "id": "t_fb3d9496-acc0ec0a",
+                    "name": "14_B1F PB_229_導流風機一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 82,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_e070bc04-7a5e7742": {
+                    "id": "t_e070bc04-7a5e7742",
+                    "name": "14_B1F PB_230_導流風機一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 83,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_0bb3e198-df7c8121": {
+                    "id": "t_0bb3e198-df7c8121",
+                    "name": "14_B1F PB_231_導流風機二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 84,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_988fb298-17649171": {
+                    "id": "t_988fb298-17649171",
+                    "name": "14_B1F PB_232_導流風機二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 85,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_61b5a036-b6717862": {
+                    "id": "t_61b5a036-b6717862",
+                    "name": "15_B1F PB_241_導流風機三過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 86,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_755d0d45-9ef61c92": {
+                    "id": "t_755d0d45-9ef61c92",
+                    "name": "15_B1F PB_242_導流風機三運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 87,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_63a48a18-42ce63c6": {
+                    "id": "t_63a48a18-42ce63c6",
+                    "name": "15_B1F PB_243_導流風機四過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 88,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_87867576-3c28b72a": {
+                    "id": "t_87867576-3c28b72a",
+                    "name": "15_B1F PB_244_導流風機四運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 89,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_362c1992-eff87462": {
+                    "id": "t_362c1992-eff87462",
+                    "name": "16_B2F PB_257_排風機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 90,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_1f920f41-0082522c": {
+                    "id": "t_1f920f41-0082522c",
+                    "name": "16_B2F PB_258_排風機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 91,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_5b5f3616-367c1400": {
+                    "id": "t_5b5f3616-367c1400",
+                    "name": "16_B2F PB_259_進風機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 92,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_00c20f5a-c22b546d": {
+                    "id": "t_00c20f5a-c22b546d",
+                    "name": "16_B2F PB_260_進風機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 93,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_2a6f4070-044344b6": {
+                    "id": "t_2a6f4070-044344b6",
+                    "name": "16_B2F PB_261_導流風機一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 94,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_93317ff2-17e83a29": {
+                    "id": "t_93317ff2-17e83a29",
+                    "name": "16_B2F PB_262_導流風機一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 95,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_8bfde28f-d109a15b": {
+                    "id": "t_8bfde28f-d109a15b",
+                    "name": "16_B2F PB_263_導流風機二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 96,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_0821ab74-a84e892b": {
+                    "id": "t_0821ab74-a84e892b",
+                    "name": "16_B2F PB_264_導流風機二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 97,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_3c007319-0922e77b": {
+                    "id": "t_3c007319-0922e77b",
+                    "name": "17_B2F PB_273_導流風機三過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 98,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_483a876c-1e0e255b": {
+                    "id": "t_483a876c-1e0e255b",
+                    "name": "17_B2F PB_274_導流風機三運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 99,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_73422e07-5bbd9b07": {
+                    "id": "t_73422e07-5bbd9b07",
+                    "name": "17_B2F PB_275_導流風機四過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 100,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_4d80d600-7d924cdd": {
+                    "id": "t_4d80d600-7d924cdd",
+                    "name": "17_B2F PB_276_導流風機四運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 101,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_62e9cf2b-29b928af": {
+                    "id": "t_62e9cf2b-29b928af",
+                    "name": "18_B3F PB_289_排風機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 102,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_fd1e03ad-8732eaea": {
+                    "id": "t_fd1e03ad-8732eaea",
+                    "name": "18_B3F PB_290_排風機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 103,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_3cb72eb1-4997e8e8": {
+                    "id": "t_3cb72eb1-4997e8e8",
+                    "name": "18_B3F PB_291_進風機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 104,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_2c306e5e-752bef05": {
+                    "id": "t_2c306e5e-752bef05",
+                    "name": "18_B3F PB_292_進風機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 105,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_e5199bfc-f27ce389": {
+                    "id": "t_e5199bfc-f27ce389",
+                    "name": "18_B3F PB_293_導流風機一過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 106,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_4bf86a4c-b59365af": {
+                    "id": "t_4bf86a4c-b59365af",
+                    "name": "18_B3F PB_294_導流風機一運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 107,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_44099835-b0eb2280": {
+                    "id": "t_44099835-b0eb2280",
+                    "name": "18_B3F PB_295_導流風機二過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 108,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_005e9cb6-d2d8676c": {
+                    "id": "t_005e9cb6-d2d8676c",
+                    "name": "18_B3F PB_296_導流風機二運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 109,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_b8797db8-acc5e837": {
+                    "id": "t_b8797db8-acc5e837",
+                    "name": "19_B3F PB_305_導流風機三過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 110,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_b7117237-a0064768": {
+                    "id": "t_b7117237-a0064768",
+                    "name": "19_B3F PB_306_導流風機三運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 111,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f88fcdf3-085e3571": {
+                    "id": "t_f88fcdf3-085e3571",
+                    "name": "19_B3F PB_307_導流風機四過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 112,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_39ff81a2-839b2de0": {
+                    "id": "t_39ff81a2-839b2de0",
+                    "name": "19_B3F PB_308_導流風機四運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 113,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_ceb488f5-5b82c96b": {
+                    "id": "t_ceb488f5-5b82c96b",
+                    "name": "11_消防機房_177_消防泵運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 114,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_89906e7a-872420e3": {
+                    "id": "t_89906e7a-872420e3",
+                    "name": "11_消防機房_178_消防泵異常",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 115,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_179ed0d7-e9d5edff": {
+                    "id": "t_179ed0d7-e9d5edff",
+                    "name": "11_消防機房_179_灑水泵運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 116,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_49835af1-0387f4ad": {
+                    "id": "t_49835af1-0387f4ad",
+                    "name": "11_消防機房_180_灑水泵異常",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 117,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_0d6ca6fc-bf1cb234": {
+                    "id": "t_0d6ca6fc-bf1cb234",
+                    "name": "11_消防機房_181_泡沫泵運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 118,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f011b5a0-3355fd52": {
+                    "id": "t_f011b5a0-3355fd52",
+                    "name": "11_消防機房_182_泡沫泵異常",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 119,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_343d0167-89f5f4a5": {
+                    "id": "t_343d0167-89f5f4a5",
+                    "name": "11_消防機房_183_中繼泵運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 120,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_76a5835a-79324a78": {
+                    "id": "t_76a5835a-79324a78",
+                    "name": "11_消防機房_184_中繼泵異常",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 121,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_ad49545c-be0d5c67": {
+                    "id": "t_ad49545c-be0d5c67",
+                    "name": "1_1F機櫃_17_C棟RF水箱蓋 NC",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 122,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_360a9890-1be4bb85": {
+                    "id": "t_360a9890-1be4bb85",
+                    "name": "1_1F機櫃_18_B棟RF水箱蓋 NC",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 123,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_4a9df7a7-a8be6b8a": {
+                    "id": "t_4a9df7a7-a8be6b8a",
+                    "name": "12_A 1F SA箱_193_A棟RF水箱蓋 NC",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 124,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f8dcd263-5556467d": {
+                    "id": "t_f8dcd263-5556467d",
+                    "name": "12_A 1F SA箱_194_會館廁所SOS",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 125,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f71c08b7-af6f8d97": {
+                    "id": "t_f71c08b7-af6f8d97",
+                    "name": "13_A B1F SA箱_209_發電機運轉",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 126,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_f7a1e8b4-bcb3b3b3": {
+                    "id": "t_f7a1e8b4-bcb3b3b3",
+                    "name": "13_A B1F SA箱_210_發電機過載",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 127,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_311619cf-a6bc1f0e": {
+                    "id": "t_311619cf-a6bc1f0e",
+                    "name": "13_A B1F SA箱_211_發電機低油位 NC",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 128,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_05eb8dff-37932138": {
+                    "id": "t_05eb8dff-37932138",
+                    "name": "2_B3F-PS2_43（DO3）C棟廢水盤",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 129,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_abd4cb93-f91d5c73": {
+                    "id": "t_abd4cb93-f91d5c73",
+                    "name": "3_B3F-PWC_59（DO3）C棟揚水盤",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 130,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_e4335afc-40a6bda0": {
+                    "id": "t_e4335afc-40a6bda0",
+                    "name": "8_B B3F SA箱_139（DO3）B棟廢水盤",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 131,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_1848da98-dd450dbd": {
+                    "id": "t_1848da98-dd450dbd",
+                    "name": "9_B B3F SA箱_155（DO3）B棟揚水盤",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 132,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_6d911450-ffd06e4a": {
+                    "id": "t_6d911450-ffd06e4a",
+                    "name": "20_A B3F SA箱_331（DO3）A棟揚水盤",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 133,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                },
+                "t_51963e44-475e7935": {
+                    "id": "t_51963e44-475e7935",
+                    "name": "21_A B3F SA箱_347（DO3）A棟廢水盤",
+                    "type": "Bool",
+                    "memaddress": "000000",
+                    "address": 134,
+                    "divisor": null,
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "description": null,
+                    "timestamp": 1791891719358
+                }
+            }
+        }
+    },
+    "hmi": {
+        "views": [
+            {
+                "id": "v_50104ab7-104a6",
+                "name": "MainView",
+                "profile": {
+                    "width": 1024,
+                    "height": 768,
+                    "bkcolor": "#ffffffff",
+                    "margin": 10,
+                    "align": "topCenter",
+                    "gridType": "fixed",
+                    "viewRenderDelay": 0
+                },
+                "items": {},
+                "variables": {},
+                "svgcontent": "",
+                "type": "svg"
+            },
+            {
+                "id": "v_45bccbb9-50401f83",
+                "name": "污水與廢水設備",
+                "profile": {
+                    "width": 1024,
+                    "height": 768,
+                    "bkcolor": "#ffffffff",
+                    "margin": 10,
+                    "align": "topCenter",
+                    "gridType": "fixed",
+                    "viewRenderDelay": 0
+                },
+                "items": {
+                    "svg_46bb0f58-722d6828": {
+                        "id": "svg_46bb0f58-722d6828",
+                        "type": "svg-ext-shapes-text",
+                        "name": "view_title",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_afc5e707-f3c417db": {
+                        "id": "SHE_afc5e707-f3c417db",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_1",
+                        "property": {
+                            "variableId": "t_45fe99a7-5fc74101",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_229c54af-208715b4": {
+                        "id": "svg_229c54af-208715b4",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_1_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_7530a65f-214794c7": {
+                        "id": "SHE_7530a65f-214794c7",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_2",
+                        "property": {
+                            "variableId": "t_f959f6f7-2fc94654",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_50967067-1740a30a": {
+                        "id": "svg_50967067-1740a30a",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_2_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_cc200947-18074074": {
+                        "id": "SHE_cc200947-18074074",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_3",
+                        "property": {
+                            "variableId": "t_109ad0ed-b6cdfb3d",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_84e650cc-79b20aaf": {
+                        "id": "svg_84e650cc-79b20aaf",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_3_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_02811688-d579fadf": {
+                        "id": "SHE_02811688-d579fadf",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_4",
+                        "property": {
+                            "variableId": "t_318a481c-97c91f82",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_bd5270a6-27378d84": {
+                        "id": "svg_bd5270a6-27378d84",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_4_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_951edb0a-3c256376": {
+                        "id": "SHE_951edb0a-3c256376",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_5",
+                        "property": {
+                            "variableId": "t_bce2c2cf-4f2d1f87",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_c7baa9f7-97c62f04": {
+                        "id": "svg_c7baa9f7-97c62f04",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_5_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_88e01636-8d7bde34": {
+                        "id": "SHE_88e01636-8d7bde34",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_6",
+                        "property": {
+                            "variableId": "t_15c946d6-d142de44",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_fa280bbd-a3ee8d2e": {
+                        "id": "svg_fa280bbd-a3ee8d2e",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_6_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_bdfecd49-39fcb313": {
+                        "id": "SHE_bdfecd49-39fcb313",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_7",
+                        "property": {
+                            "variableId": "t_d78670a7-ac79d172",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_541e4afe-ce51eb6f": {
+                        "id": "svg_541e4afe-ce51eb6f",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_7_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_8fd97ab6-b4b68ac5": {
+                        "id": "SHE_8fd97ab6-b4b68ac5",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_8",
+                        "property": {
+                            "variableId": "t_da89ec59-f303ab42",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_6b40c355-6482c51e": {
+                        "id": "svg_6b40c355-6482c51e",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_8_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_15ac1c0c-3390dd5a": {
+                        "id": "SHE_15ac1c0c-3390dd5a",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_9",
+                        "property": {
+                            "variableId": "t_2d3561c4-7fba2fb8",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_f490020d-08f8b122": {
+                        "id": "svg_f490020d-08f8b122",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_9_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_de5bfd7b-144069b9": {
+                        "id": "SHE_de5bfd7b-144069b9",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_10",
+                        "property": {
+                            "variableId": "t_7114a988-2c0adddd",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_04a1db8f-4c68a840": {
+                        "id": "svg_04a1db8f-4c68a840",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_10_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_a8d77162-ffcad6cb": {
+                        "id": "SHE_a8d77162-ffcad6cb",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_11",
+                        "property": {
+                            "variableId": "t_67247094-1083aab5",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_49585d5d-e714114e": {
+                        "id": "svg_49585d5d-e714114e",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_11_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_44dfc39d-528af65b": {
+                        "id": "SHE_44dfc39d-528af65b",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_12",
+                        "property": {
+                            "variableId": "t_3b3dd60e-828c0320",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_3d634f68-1d865f60": {
+                        "id": "svg_3d634f68-1d865f60",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_12_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_ded8c586-688b5a91": {
+                        "id": "SHE_ded8c586-688b5a91",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_13",
+                        "property": {
+                            "variableId": "t_c326885e-59588c28",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_21dfad71-a53dc3cd": {
+                        "id": "svg_21dfad71-a53dc3cd",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_13_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_616836d1-dad47ebd": {
+                        "id": "SHE_616836d1-dad47ebd",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_14",
+                        "property": {
+                            "variableId": "t_8e4df7d3-7549fe62",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_9d36b007-edbac6ab": {
+                        "id": "svg_9d36b007-edbac6ab",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_14_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_5ba050bd-0f8d6426": {
+                        "id": "SHE_5ba050bd-0f8d6426",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_15",
+                        "property": {
+                            "variableId": "t_eef489b9-7f7cacb3",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_a43d449c-1265f46e": {
+                        "id": "svg_a43d449c-1265f46e",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_15_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_c3075862-66090540": {
+                        "id": "SHE_c3075862-66090540",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_16",
+                        "property": {
+                            "variableId": "t_4f1bcf99-b9424be9",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_4890fede-626bd18f": {
+                        "id": "svg_4890fede-626bd18f",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_16_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_7feb88d4-a9c57ace": {
+                        "id": "SHE_7feb88d4-a9c57ace",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_17",
+                        "property": {
+                            "variableId": "t_f0b011e3-4af8f045",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_20fac235-0f8c14b6": {
+                        "id": "svg_20fac235-0f8c14b6",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_17_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_6e7f08b1-50c78128": {
+                        "id": "SHE_6e7f08b1-50c78128",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_18",
+                        "property": {
+                            "variableId": "t_65d5c218-0fbabace",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_ad31e7d6-b4acf893": {
+                        "id": "svg_ad31e7d6-b4acf893",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_18_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_fc6e8a9c-ee5ebd57": {
+                        "id": "SHE_fc6e8a9c-ee5ebd57",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_19",
+                        "property": {
+                            "variableId": "t_2f77a967-95440380",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_cfdb57b7-7dc1b472": {
+                        "id": "svg_cfdb57b7-7dc1b472",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_19_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_7c8235a1-bd8a1ed1": {
+                        "id": "SHE_7c8235a1-bd8a1ed1",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_20",
+                        "property": {
+                            "variableId": "t_c1cb0d40-cf65ac85",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_7cd3cef0-28d2b6c0": {
+                        "id": "svg_7cd3cef0-28d2b6c0",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_20_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_f1ebde01-e46e8ae7": {
+                        "id": "SHE_f1ebde01-e46e8ae7",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_21",
+                        "property": {
+                            "variableId": "t_b0c38b67-3d68b501",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_f2756254-ad882dc5": {
+                        "id": "svg_f2756254-ad882dc5",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_21_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_fe9c4fc8-6e48ab87": {
+                        "id": "SHE_fe9c4fc8-6e48ab87",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_22",
+                        "property": {
+                            "variableId": "t_21dfccf7-f4a84b50",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_d7300081-25abf398": {
+                        "id": "svg_d7300081-25abf398",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_22_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_02bf17b4-d20b233e": {
+                        "id": "SHE_02bf17b4-d20b233e",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_23",
+                        "property": {
+                            "variableId": "t_6d0242ce-da50983f",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_28addee0-cfe4aeb3": {
+                        "id": "svg_28addee0-cfe4aeb3",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_23_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_dab7ea60-e4770477": {
+                        "id": "SHE_dab7ea60-e4770477",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_24",
+                        "property": {
+                            "variableId": "t_811e3205-711990c5",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_0b7e9983-3105c64b": {
+                        "id": "svg_0b7e9983-3105c64b",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_24_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_db87198f-f397cb05": {
+                        "id": "SHE_db87198f-f397cb05",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_25",
+                        "property": {
+                            "variableId": "t_f2b8c287-56350104",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_1f7db5ac-4ecc38e8": {
+                        "id": "svg_1f7db5ac-4ecc38e8",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_25_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_2deeff76-b5656010": {
+                        "id": "SHE_2deeff76-b5656010",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_26",
+                        "property": {
+                            "variableId": "t_0c7f350b-040c1c6f",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_a9d2ed58-66c63728": {
+                        "id": "svg_a9d2ed58-66c63728",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_26_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_8d706b06-b9b13635": {
+                        "id": "SHE_8d706b06-b9b13635",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_27",
+                        "property": {
+                            "variableId": "t_aaf23030-47b4219c",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_35a89055-d26358e9": {
+                        "id": "svg_35a89055-d26358e9",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_27_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_265fe658-ddc28f3f": {
+                        "id": "SHE_265fe658-ddc28f3f",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_28",
+                        "property": {
+                            "variableId": "t_322709a1-bccdc1da",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_ddd7db7a-8746c47a": {
+                        "id": "svg_ddd7db7a-8746c47a",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_28_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_a20521e1-83587db3": {
+                        "id": "SHE_a20521e1-83587db3",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_29",
+                        "property": {
+                            "variableId": "t_b4194283-ae91e925",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_b2014edb-fc9e2f44": {
+                        "id": "svg_b2014edb-fc9e2f44",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_29_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_0a786507-5c3141b7": {
+                        "id": "SHE_0a786507-5c3141b7",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_30",
+                        "property": {
+                            "variableId": "t_3aea6959-a422948d",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_78c479a4-862d26d2": {
+                        "id": "svg_78c479a4-862d26d2",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_30_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_57bbe8e8-af4d0e3d": {
+                        "id": "SHE_57bbe8e8-af4d0e3d",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_31",
+                        "property": {
+                            "variableId": "t_7fbf7aae-51355e12",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_7feabf0a-d59053a2": {
+                        "id": "svg_7feabf0a-d59053a2",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_31_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_a28324d2-1598ba76": {
+                        "id": "SHE_a28324d2-1598ba76",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_32",
+                        "property": {
+                            "variableId": "t_fcc649ea-e7081628",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_c0546b6b-750df458": {
+                        "id": "svg_c0546b6b-750df458",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_32_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_effeb5ed-5279aeb7": {
+                        "id": "SHE_effeb5ed-5279aeb7",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_33",
+                        "property": {
+                            "variableId": "t_49b51add-6ba77b03",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_019f3156-a1651671": {
+                        "id": "svg_019f3156-a1651671",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_33_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_f0110565-a754100f": {
+                        "id": "SHE_f0110565-a754100f",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "tc_34",
+                        "property": {
+                            "variableId": "t_e095fee0-512a7cfc",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#00ff07ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#f80000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_89951c1a-f177deb4": {
+                        "id": "svg_89951c1a-f177deb4",
+                        "type": "svg-ext-shapes-text",
+                        "name": "tc_34_label",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    }
+                },
+                "variables": {},
+                "svgcontent": "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:svg=\"http://www.w3.org/2000/svg\" width=\"1024\" height=\"768\"><g><title>Layer 1</title><text data-name=\"view_title\" id=\"svg_46bb0f58-722d6828\" x=\"20\" y=\"36\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"24\" font-family=\"sans-serif\" text-anchor=\"start\" xml:space=\"preserve\">污水與廢水設備</text><g data-name=\"tc_1\" id=\"SHE_afc5e707-f3c417db\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_8586e4fc-69895954\" x=\"100\" y=\"80\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_1_label\" id=\"svg_229c54af-208715b4\" x=\"120\" y=\"70\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">2_B3F-PS2_33_廢水泵一過載</text><g data-name=\"tc_2\" id=\"SHE_7530a65f-214794c7\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_415a2ea5-bc38aad2\" x=\"290\" y=\"80\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_2_label\" id=\"svg_50967067-1740a30a\" x=\"310\" y=\"70\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">2_B3F-PS2_34_廢水泵一運轉</text><g data-name=\"tc_3\" id=\"SHE_cc200947-18074074\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_569409b2-d9721485\" x=\"480\" y=\"80\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_3_label\" id=\"svg_84e650cc-79b20aaf\" x=\"500\" y=\"70\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">2_B3F-PS2_35_廢水泵二過載</text><g data-name=\"tc_4\" id=\"SHE_02811688-d579fadf\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_42aee2f7-d4385bbc\" x=\"670\" y=\"80\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_4_label\" id=\"svg_bd5270a6-27378d84\" x=\"690\" y=\"70\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">2_B3F-PS2_36_廢水泵二運轉</text><g data-name=\"tc_5\" id=\"SHE_951edb0a-3c256376\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_cde6299f-25a6a26e\" x=\"860\" y=\"80\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_5_label\" id=\"svg_c7baa9f7-97c62f04\" x=\"880\" y=\"70\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">8_B B3F SA箱_133_廢水泵一過載</text><g data-name=\"tc_6\" id=\"SHE_88e01636-8d7bde34\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_86907c55-6bf2107d\" x=\"100\" y=\"184\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_6_label\" id=\"svg_fa280bbd-a3ee8d2e\" x=\"120\" y=\"174\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">8_B B3F SA箱_134_廢水泵一運轉</text><g data-name=\"tc_7\" id=\"SHE_bdfecd49-39fcb313\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_d5eb25c6-879efee1\" x=\"290\" y=\"184\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_7_label\" id=\"svg_541e4afe-ce51eb6f\" x=\"310\" y=\"174\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">8_B B3F SA箱_135_廢水泵二過載</text><g data-name=\"tc_8\" id=\"SHE_8fd97ab6-b4b68ac5\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_3f790c81-a00ebd10\" x=\"480\" y=\"184\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_8_label\" id=\"svg_6b40c355-6482c51e\" x=\"500\" y=\"174\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">8_B B3F SA箱_136_廢水泵二運轉</text><g data-name=\"tc_9\" id=\"SHE_15ac1c0c-3390dd5a\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_3fad9a0d-28a927ba\" x=\"670\" y=\"184\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_9_label\" id=\"svg_f490020d-08f8b122\" x=\"690\" y=\"174\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">21_A B3F SA箱_337_廢水泵一過載</text><g data-name=\"tc_10\" id=\"SHE_de5bfd7b-144069b9\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_9639055e-e3e5e667\" x=\"860\" y=\"184\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_10_label\" id=\"svg_04a1db8f-4c68a840\" x=\"880\" y=\"174\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">21_A B3F SA箱_338_廢水泵一運轉</text><g data-name=\"tc_11\" id=\"SHE_a8d77162-ffcad6cb\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_498491ec-24aefee6\" x=\"100\" y=\"288\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_11_label\" id=\"svg_49585d5d-e714114e\" x=\"120\" y=\"278\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">21_A B3F SA箱_339_廢水泵二過載</text><g data-name=\"tc_12\" id=\"SHE_44dfc39d-528af65b\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_1f82e11d-8f2355e0\" x=\"290\" y=\"288\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_12_label\" id=\"svg_3d634f68-1d865f60\" x=\"310\" y=\"278\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">21_A B3F SA箱_340_廢水泵二運轉</text><g data-name=\"tc_13\" id=\"SHE_ded8c586-688b5a91\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_037f15d5-badc3279\" x=\"480\" y=\"288\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_13_label\" id=\"svg_21dfad71-a53dc3cd\" x=\"500\" y=\"278\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_65_調整槽汙水泵A運轉</text><g data-name=\"tc_14\" id=\"SHE_616836d1-dad47ebd\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_ef833da4-8681c2e3\" x=\"670\" y=\"288\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_14_label\" id=\"svg_9d36b007-edbac6ab\" x=\"690\" y=\"278\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_66_調整槽汙水泵B運轉</text><g data-name=\"tc_15\" id=\"SHE_5ba050bd-0f8d6426\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_2cb08636-5cf02320\" x=\"860\" y=\"288\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_15_label\" id=\"svg_a43d449c-1265f46e\" x=\"880\" y=\"278\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_69_放流汙水泵A運轉</text><g data-name=\"tc_16\" id=\"SHE_c3075862-66090540\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_5b46f3b2-2fc0a4ce\" x=\"100\" y=\"392\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_16_label\" id=\"svg_4890fede-626bd18f\" x=\"120\" y=\"382\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_70_放流汙水泵B運轉</text><g data-name=\"tc_17\" id=\"SHE_7feb88d4-a9c57ace\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_dc6ef1b5-f544d5bd\" x=\"290\" y=\"392\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_17_label\" id=\"svg_20fac235-0f8c14b6\" x=\"310\" y=\"382\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">5_汙水盤_84_調整槽汙水泵A過載</text><g data-name=\"tc_18\" id=\"SHE_6e7f08b1-50c78128\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_f8a1c54e-57bc4951\" x=\"480\" y=\"392\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_18_label\" id=\"svg_ad31e7d6-b4acf893\" x=\"500\" y=\"382\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">5_汙水盤_85_調整槽汙水泵B過載</text><g data-name=\"tc_19\" id=\"SHE_fc6e8a9c-ee5ebd57\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_e3d89063-7cfb6759\" x=\"670\" y=\"392\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_19_label\" id=\"svg_cfdb57b7-7dc1b472\" x=\"690\" y=\"382\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">6_汙水盤_97_放流汙水泵B過載</text><g data-name=\"tc_20\" id=\"SHE_7c8235a1-bd8a1ed1\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_a1c4a29a-5a654526\" x=\"860\" y=\"392\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_20_label\" id=\"svg_7cd3cef0-28d2b6c0\" x=\"880\" y=\"382\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">5_汙水盤_88_放流汙水泵A過載</text><g data-name=\"tc_21\" id=\"SHE_f1ebde01-e46e8ae7\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_1e29c834-49bb95ff\" x=\"100\" y=\"496\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_21_label\" id=\"svg_f2756254-ad882dc5\" x=\"120\" y=\"486\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_67_沉澱槽汙泥泵A運轉</text><g data-name=\"tc_22\" id=\"SHE_fe9c4fc8-6e48ab87\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_2bef1714-305c2f1c\" x=\"290\" y=\"496\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_22_label\" id=\"svg_d7300081-25abf398\" x=\"310\" y=\"486\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_68_沉澱槽汙泥泵B運轉</text><g data-name=\"tc_23\" id=\"SHE_02bf17b4-d20b233e\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_9490d172-9ad03bf2\" x=\"480\" y=\"496\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_23_label\" id=\"svg_28addee0-cfe4aeb3\" x=\"500\" y=\"486\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">5_汙水盤_86_沉澱槽汙泥泵A過載</text><g data-name=\"tc_24\" id=\"SHE_dab7ea60-e4770477\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_e635184c-a9faa773\" x=\"670\" y=\"496\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_24_label\" id=\"svg_0b7e9983-3105c64b\" x=\"690\" y=\"486\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">5_汙水盤_87_沉澱槽汙泥泵B過載</text><g data-name=\"tc_25\" id=\"SHE_db87198f-f397cb05\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_0d114188-972297a2\" x=\"860\" y=\"496\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_25_label\" id=\"svg_1f7db5ac-4ecc38e8\" x=\"880\" y=\"486\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_71_調整槽鼓風機A運轉</text><g data-name=\"tc_26\" id=\"SHE_2deeff76-b5656010\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_aabe8366-55ed1b53\" x=\"100\" y=\"600\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_26_label\" id=\"svg_a9d2ed58-66c63728\" x=\"120\" y=\"590\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">4_汙水盤_72_調整槽鼓風機B運轉</text><g data-name=\"tc_27\" id=\"SHE_8d706b06-b9b13635\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_4bbf4837-a75e84a0\" x=\"290\" y=\"600\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_27_label\" id=\"svg_35a89055-d26358e9\" x=\"310\" y=\"590\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">5_汙水盤_81_曝氣槽鼓風機A運轉</text><g data-name=\"tc_28\" id=\"SHE_265fe658-ddc28f3f\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_6d619fda-853abbbf\" x=\"480\" y=\"600\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_28_label\" id=\"svg_ddd7db7a-8746c47a\" x=\"500\" y=\"590\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">5_汙水盤_82_曝氣槽鼓風機B運轉</text><g data-name=\"tc_29\" id=\"SHE_a20521e1-83587db3\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_c17caa30-dec42a95\" x=\"670\" y=\"600\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_29_label\" id=\"svg_b2014edb-fc9e2f44\" x=\"690\" y=\"590\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">6_汙水盤_99_調整槽鼓風機B過載</text><g data-name=\"tc_30\" id=\"SHE_0a786507-5c3141b7\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_2a162d81-4bcc1fbb\" x=\"860\" y=\"600\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_30_label\" id=\"svg_78c479a4-862d26d2\" x=\"880\" y=\"590\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">6_汙水盤_98_調整槽鼓風機A過載</text><g data-name=\"tc_31\" id=\"SHE_57bbe8e8-af4d0e3d\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_16b8b6b8-8cd9801d\" x=\"100\" y=\"704\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_31_label\" id=\"svg_7feabf0a-d59053a2\" x=\"120\" y=\"694\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">6_汙水盤_100_曝氣槽鼓風機A過載</text><g data-name=\"tc_32\" id=\"SHE_a28324d2-1598ba76\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_0ee8fa15-f15c7931\" x=\"290\" y=\"704\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_32_label\" id=\"svg_c0546b6b-750df458\" x=\"310\" y=\"694\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">6_汙水盤_101_曝氣槽鼓風機B過載</text><g data-name=\"tc_33\" id=\"SHE_effeb5ed-5279aeb7\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_de998957-0373ce33\" x=\"480\" y=\"704\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_33_label\" id=\"svg_019f3156-a1651671\" x=\"500\" y=\"694\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">6_汙水盤_102_透浦式排風機過載</text><g data-name=\"tc_34\" id=\"SHE_f0110565-a754100f\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\"><rect id=\"SHE_52052dc2-c51896af\" x=\"670\" y=\"704\" width=\"40\" height=\"40\"/></g><text data-name=\"tc_34_label\" id=\"svg_89951c1a-f177deb4\" x=\"690\" y=\"694\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">6_汙水盤_103_汙水池超高液位</text></g></svg>",
+                "type": "svg"
+            }
+        ],
+        "layout": {
+            "autoresize": false,
+            "start": "v_50104ab7-104a6",
+            "navigation": {
+                "mode": "over",
+                "type": "block",
+                "bkcolor": "#F4F5F7",
+                "fgcolor": "#1D1D1D",
+                "logo": false
+            },
+            "header": {
+                "bkcolor": "#ffffff",
+                "fgcolor": "#000000",
+                "height": 46,
+                "buttonHeight": 36,
+                "fontSize": 13,
+                "itemsAnchor": "left"
+            },
+            "showdev": true,
+            "inputdialog": "false",
+            "hidenavigation": false,
+            "theme": "",
+            "loginonstart": false,
+            "loginoverlaycolor": "none",
+            "show_connection_error": true,
+            "customStyles": ""
+        }
+    },
+    "ar": {
+        "enabled": false,
+        "markers": []
+    },
+    "version": "1.01",
+    "charts": [],
+    "graphs": [],
+    "languages": {
+        "options": []
+    },
+    "plugin": [],
+    "clientAccess": {
+        "scriptSystemFunctions": []
+    },
+    "name": "未來城",
+    "server": {
+        "id": "0",
+        "name": "FUXA",
+        "enabled": true,
+        "property": {
+            "delay": 10
+        },
+        "type": "FuxaServer",
+        "polling": 1000
+    }
+}
