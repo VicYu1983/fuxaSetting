@@ -4,7 +4,6 @@ import type { ComponentPlacement } from '../layout/gridLayout'
 import type { ManagedComponentRecord } from './readManagedComponents'
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
-const XHTML_NAMESPACE = 'http://www.w3.org/1999/xhtml'
 const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink'
 const RECT_SIZE = { width: 40, height: 40 }
 const CYLINDER_SIZE = { width: 60, height: 64 }
@@ -273,18 +272,6 @@ function buildShapeNode(
   return group
 }
 
-function createHtmlNode(
-  doc: XMLDocument,
-  name: string,
-  attributes: Record<string, string>,
-): Element {
-  const node = doc.createElementNS(XHTML_NAMESPACE, name)
-  for (const [attribute, value] of Object.entries(attributes)) {
-    node.setAttribute(attribute, value)
-  }
-  return node
-}
-
 function buildSwitchNode(
   doc: XMLDocument,
   component: SvgComponent,
@@ -315,24 +302,24 @@ function buildSwitchNode(
     width: SWITCH_SIZE.width,
     height: SWITCH_SIZE.height,
   })
-  const label = createHtmlNode(doc, 'label', {
+  const label = createSvgNode(doc, 'LABEL', {
     id: htmlLabelId ?? '',
     class: 'md-switch',
-    style: 'width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;margin:3px;',
+    style: 'width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;margin: 3px 3px 3px 3px;',
   })
-  const ngxSwitch = createHtmlNode(doc, 'ngx-switch', { class: 'ng-star-inserted' })
-  const switchLabel = createHtmlNode(doc, 'label', {
+  const ngxSwitch = createSvgNode(doc, 'NGX-SWITCH', { class: 'ng-star-inserted' })
+  const switchLabel = createSvgNode(doc, 'LABEL', {
     class: 'md-switch',
-    style: 'border-radius:0px;',
+    style: 'border-radius: 0px;',
   })
-  const toggle = createHtmlNode(doc, 'div', {
+  const toggle = createSvgNode(doc, 'DIV', {
     class: 'toggle-button',
-    style: 'background-color:rgb(204,204,204);opacity:1;pointer-events:auto;',
+    style: 'background-color: rgb(204, 204, 204); opacity: 1; pointer-events: auto;',
   })
-  const input = createHtmlNode(doc, 'input', { type: 'checkbox' })
-  const slider = createHtmlNode(doc, 'div', {
+  const input = createSvgNode(doc, 'INPUT', { type: 'checkbox' })
+  const slider = createSvgNode(doc, 'DIV', {
     class: 'inner-circle',
-    style: 'text-align:center;line-height:22px;font-size:12px;background-color:rgb(255,255,255);color:rgb(0,0,0);',
+    style: 'text-align: center; line-height: 22px; font-size: 12px; background-color: rgb(255, 255, 255); color: rgb(0, 0, 0);',
   })
   appendChild(toggle, input)
   appendChild(toggle, slider)

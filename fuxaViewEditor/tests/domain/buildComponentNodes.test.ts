@@ -7,12 +7,14 @@ import type { SvgComponent } from '../../src/domain/svg/buildComponentNodes'
 
 class TestElement {
   readonly localName: string
+  readonly namespaceURI: string
   readonly attributes: Record<string, string> = {}
   readonly children: TestElement[] = []
   textContent = ''
 
-  constructor(localName: string) {
+  constructor(localName: string, namespaceURI = '') {
     this.localName = localName
+    this.namespaceURI = namespaceURI
   }
 
   setAttribute(name: string, value: string): void {
@@ -30,8 +32,8 @@ class TestElement {
 }
 
 const doc = {
-  createElementNS(_namespace: string, name: string) {
-    return new TestElement(name)
+  createElementNS(namespace: string, name: string) {
+    return new TestElement(name, namespace)
   },
 } as unknown as XMLDocument
 
@@ -184,8 +186,14 @@ describe('buildComponentNodes', () => {
       width: '50',
       height: '28',
     })
-    expect(foreignObject?.children[0]?.localName).toBe('label')
-    expect(foreignObject?.children[0]?.children[0]?.localName).toBe('ngx-switch')
+    expect(foreignObject?.children[0]?.localName).toBe('LABEL')
+    expect(foreignObject?.children[0]?.children[0]?.localName).toBe('NGX-SWITCH')
+    expect(foreignObject?.children[0]?.children[0]?.children[0]?.localName).toBe('LABEL')
+    expect(foreignObject?.children[0]?.children[0]?.children[0]?.children[0]?.localName)
+      .toBe('DIV')
+    expect(foreignObject?.children[0]?.namespaceURI).toBe('http://www.w3.org/2000/svg')
+    expect(foreignObject?.children[0]?.children[0]?.namespaceURI)
+      .toBe('http://www.w3.org/2000/svg')
     expect(model.shapeInnerIds).toEqual(['SHE-hitbox', 'SHE-foreign', 'SHE-html-label'])
     expect(result.labelNode.textContent).toBe('Pump')
   })
