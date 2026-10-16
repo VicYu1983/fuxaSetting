@@ -17,8 +17,17 @@ export function serializeFuxaConfig(
   return text
 }
 
-export function generatedFileName(fileName: string): string {
-  const extensionIndex = fileName.lastIndexOf('.')
-  const baseName = extensionIndex > 0 ? fileName.slice(0, extensionIndex) : fileName
-  return `${baseName}.generated.json`
+export function projectFileName(projectName: string): string {
+  const name = projectName.trim().replace(/\.json$/i, '')
+  if (!name) throw new Error('專案名稱不可空白。')
+  const hasControlCharacter = [...name].some((character) => (
+    character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
+  ))
+  if (/[<>:"/\\|?*]/.test(name) || hasControlCharacter || /[. ]$/.test(name)) {
+    throw new Error('專案名稱不可包含檔名不支援的字元，且不可用句點或空白結尾。')
+  }
+  if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(name)) {
+    throw new Error('此專案名稱為 Windows 保留名稱，請使用其他名稱。')
+  }
+  return `${name}.json`
 }

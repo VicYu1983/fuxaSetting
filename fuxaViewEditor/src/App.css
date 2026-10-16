@@ -53,9 +53,9 @@
   font-size: 12px;
 }
 
-.file-indicator {
-  max-width: min(28vw, 320px);
-  color: #65757c;
+.project-name-input {
+  width: 200px;
+  flex: 0 0 200px;
 }
 
 .visually-hidden {
@@ -768,8 +768,9 @@
     justify-content: space-between;
   }
 
-  .file-indicator {
-    display: none;
+  .project-name-input {
+    width: 160px;
+    flex-basis: 160px;
   }
 
   .editor-body {

@@ -4,7 +4,7 @@
 
 ## React 新版
 
-新版位於 [`fuxaViewEditor/`](./fuxaViewEditor/)，使用 React、TypeScript、Ant Design 與 Vite。可在工作台管理 View、Tag 樓層、ModbusTCP 設備、圖示及樓層 Group 樣式，編輯受管理元件與 Grid、預覽 SVG，並透過 Undo/Redo 復原變更。詳細功能、開發指令及尚未完成的驗收項目見[新版 README](./fuxaViewEditor/README.md)。
+新版位於 [`fuxaViewEditor/`](./fuxaViewEditor/)，使用 React、TypeScript、Ant Design 與 Vite。可在工作台管理專案名稱、View、Tag 樓層、ModbusTCP 設備、圖示及樓層 Group 樣式，編輯受管理元件與 Grid、預覽 SVG，並透過 Undo/Redo 復原變更。匯入只替換配置資料，匯出 JSON 檔名依專案名稱產生。詳細功能、開發指令及尚未完成的驗收項目見[新版 README](./fuxaViewEditor/README.md)。
 
 快速啟動（需安裝 Node.js 與 Yarn）：
 

@@ -34,7 +34,7 @@ import {
   parseFuxaConfig,
 } from './domain/config/parseFuxaConfig'
 import { createEmptyFuxaConfig } from './domain/config/createEmptyFuxaConfig'
-import { generatedFileName } from './domain/config/serialization'
+import { projectFileName } from './domain/config/serialization'
 import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
@@ -219,7 +219,7 @@ function App() {
   const [deviceTagForm] = Form.useForm<ModbusTagFormValues>()
   const [floorFrameForm] = Form.useForm<FloorGroupFrameFormValues>()
   const [messageApi, contextHolder] = message.useMessage()
-  const [fileName, setFileName] = useState('')
+  const [projectName, setProjectName] = useState('新專案')
   const [selectedViewId, setSelectedViewId] = useState('')
   const [previewRealtime, setPreviewRealtime] = useState(true)
   const [previewSnapshot, setPreviewSnapshot] = useState<PreviewSnapshot | null>(null)
@@ -455,8 +455,8 @@ function App() {
     try {
       const text = await file.text()
       const parsed = parseFuxaConfig(text)
-      replaceWorkspace(parsed, file.name)
-      messageApi.success(`已載入 ${file.name}`)
+      replaceWorkspace(parsed)
+      messageApi.success(`已載入 ${file.name}；專案名稱維持「${projectName}」。`)
     } catch (error) {
       const detail = error instanceof Error ? error.message : '未知錯誤'
       messageApi.error(`載入失敗：${detail}`)
@@ -465,7 +465,7 @@ function App() {
     }
   }
 
-  function replaceWorkspace(parsed: ParsedFuxaConfig, nextFileName: string) {
+  function replaceWorkspace(parsed: ParsedFuxaConfig) {
     getIconLibrary(parsed.rawConfig)
     const editorModels = buildViewEditorModels(parsed.rawConfig, DOMParser, measureSvgBounds)
     dispatchEditor({
@@ -475,7 +475,6 @@ function App() {
     })
     setModelErrors(editorModels.errors)
     setUnsupported(editorModels.unsupported)
-    setFileName(nextFileName)
     setBatchDialogOpen(false)
     setBatchSearch('')
     setBatchSelection(new Set())
@@ -487,7 +486,8 @@ function App() {
     function createProject() {
       try {
         const text = `${JSON.stringify(createEmptyFuxaConfig(), null, 4)}\n`
-        replaceWorkspace(parseFuxaConfig(text), 'fuxa-project.json')
+        replaceWorkspace(parseFuxaConfig(text))
+        setProjectName('新專案')
         messageApi.success('已建立空白 FUXA 專案，可另存新 JSON。')
       } catch (error) {
         const detail = error instanceof Error ? error.message : '未知錯誤'
@@ -527,6 +527,7 @@ function App() {
     if (!config) return
 
     try {
+      const outputFileName = projectFileName(projectName)
       const dependencies = isDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
           Parser: DOMParser,
@@ -547,7 +548,7 @@ function App() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = generatedFileName(fileName)
+      link.download = outputFileName
       link.hidden = true
       document.body.append(link)
       link.click()
@@ -2705,9 +2706,15 @@ function App() {
             </div>
           </div>
           <Space size="middle">
-            <Text className="file-indicator" ellipsis title={fileName || '尚未載入配置'}>
-              {fileName || '尚未載入配置'}
-            </Text>
+            <Input
+              className="project-name-input"
+              aria-label="專案名稱"
+              placeholder="輸入專案名稱"
+              maxLength={120}
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              title="匯入 JSON 只會取代配置資料，不會變更專案名稱。"
+            />
             <Button
               disabled={editor.past.length === 0}
               onClick={() => dispatchEditor({ type: 'undo' })}

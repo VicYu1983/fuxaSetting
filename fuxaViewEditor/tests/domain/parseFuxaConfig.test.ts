@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { parseFuxaConfig } from '../../src/domain/config/parseFuxaConfig'
 import { createEmptyFuxaConfig } from '../../src/domain/config/createEmptyFuxaConfig'
 import {
-  generatedFileName,
+  projectFileName,
   serializeFuxaConfig,
 } from '../../src/domain/config/serialization'
 
@@ -119,8 +119,15 @@ describe('FUXA config serialization', () => {
     })
   })
 
-  it('creates the established generated filename', () => {
-    expect(generatedFileName('旭峰建設.json')).toBe('旭峰建設.generated.json')
-    expect(generatedFileName('旭峰建設')).toBe('旭峰建設.generated.json')
+  it('creates the output filename from the project name', () => {
+    expect(projectFileName('旭峰建設')).toBe('旭峰建設.json')
+    expect(projectFileName('旭峰建設.json')).toBe('旭峰建設.json')
+    expect(projectFileName('  新專案  ')).toBe('新專案.json')
+  })
+
+  it('rejects project names that cannot be used as filenames', () => {
+    expect(() => projectFileName('')).toThrow('不可空白')
+    expect(() => projectFileName('project/name')).toThrow('檔名不支援')
+    expect(() => projectFileName('CON')).toThrow('保留名稱')
   })
 })
