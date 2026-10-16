@@ -167,11 +167,11 @@ describe('buildComponentNodes', () => {
     ])
   })
 
-  it('builds a FUXA HTML Switch with SVG fallback and unique inner IDs', () => {
+  it('builds a FUXA HTML Switch without duplicate SVG switch artwork', () => {
     const model = component({ template: 'switch' })
-    const result = build(model, [], ['hitbox', 'track', 'knob', 'foreign', 'html-label'])
+    const result = build(model, [], ['hitbox', 'foreign', 'html-label'])
     const shape = result.shapeNodes[0] as unknown as TestElement
-    const foreignObject = shape.children[3]
+    const foreignObject = shape.children[1]
 
     expect(shape.attributes).toMatchObject({
       id: 'shape-1',
@@ -179,20 +179,14 @@ describe('buildComponentNodes', () => {
       'data-name': 'tc_1',
     })
     expect(shape.children.map((child) => child.localName))
-      .toEqual(['rect', 'rect', 'circle', 'foreignObject'])
+      .toEqual(['rect', 'foreignObject'])
     expect(foreignObject?.attributes).toMatchObject({
       width: '50',
       height: '28',
     })
     expect(foreignObject?.children[0]?.localName).toBe('label')
     expect(foreignObject?.children[0]?.children[0]?.localName).toBe('ngx-switch')
-    expect(model.shapeInnerIds).toEqual([
-      'SHE-hitbox',
-      'SHE-track',
-      'SHE-knob',
-      'SHE-foreign',
-      'SHE-html-label',
-    ])
+    expect(model.shapeInnerIds).toEqual(['SHE-hitbox', 'SHE-foreign', 'SHE-html-label'])
     expect(result.labelNode.textContent).toBe('Pump')
   })
 

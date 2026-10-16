@@ -291,8 +291,7 @@ function buildSwitchNode(
   placement: ComponentPlacement,
   allocateId: SvgIdAllocator,
 ): Element {
-  const [hitboxId, trackId, knobId, foreignObjectId, htmlLabelId] =
-    allocateInnerIds(component, 5, allocateId)
+  const [hitboxId, foreignObjectId, htmlLabelId] = allocateInnerIds(component, 3, allocateId)
   const { x, y } = placement.shape
   const group = createSvgNode(doc, 'g', {
     'data-name': `tc_${component.seq}`,
@@ -308,24 +307,6 @@ function buildSwitchNode(
     width: SWITCH_SIZE.width,
     height: SWITCH_SIZE.height,
     'stroke-width': 0,
-  }))
-  appendChild(group, createSvgNode(doc, 'rect', {
-    id: trackId ?? '',
-    x,
-    y: y + 5,
-    width: SWITCH_SIZE.width,
-    height: 18,
-    rx: 9,
-    fill: '#cccccc',
-    stroke: 'none',
-  }))
-  appendChild(group, createSvgNode(doc, 'circle', {
-    id: knobId ?? '',
-    cx: x + 9,
-    cy: y + 14,
-    r: 8,
-    fill: '#ffffff',
-    stroke: 'none',
   }))
   const foreignObject = createSvgNode(doc, 'foreignObject', {
     id: foreignObjectId ?? '',
