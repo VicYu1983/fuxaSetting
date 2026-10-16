@@ -15,6 +15,19 @@ test("FUXA sample config is accepted and indexes tags by globally unique id", ()
   assert.equal(tags.get("t_3e02b442-c00c462b").deviceName, "B1F-03");
 });
 
+test("creates a fresh empty project matching the supplied FUXA template", () => {
+  const template = JSON.parse(fs.readFileSync(
+    path.join(__dirname, "..", "fuxa-project.json"), "utf8"
+  ));
+  const emptyConfig = D.createEmptyConfig();
+
+  assert.deepEqual(emptyConfig, template);
+  assert.equal(D.validateConfig(emptyConfig), emptyConfig);
+  assert.deepEqual(D.createEmptyConfig(), template);
+  emptyConfig.hmi.views[0].name = "Changed";
+  assert.equal(D.createEmptyConfig().hmi.views[0].name, "MainView");
+});
+
 test("normalizes floor metadata without discarding other extra fields", () => {
   const tag = { id: "t1", extra: { note: "keep", owner: "ops" } };
   assert.equal(D.getTagFloor(tag), "");

@@ -43,6 +43,83 @@
     return config;
   }
 
+  function createEmptyConfig() {
+    return {
+      devices: {
+        "0": {
+          id: "0",
+          name: "FUXA",
+          enabled: true,
+          property: { delay: 10 },
+          type: "FuxaServer",
+          polling: 1000,
+          tags: {}
+        }
+      },
+      hmi: {
+        views: [{
+          id: "v_6613124991-7b98",
+          name: "MainView",
+          profile: {
+            width: 1024,
+            height: 768,
+            bkcolor: "#ffffffff",
+            margin: 10,
+            align: "topCenter",
+            gridType: "fixed",
+            viewRenderDelay: 0
+          },
+          items: {},
+          variables: {},
+          svgcontent: "",
+          type: "svg"
+        }],
+        layout: {
+          autoresize: false,
+          start: "v_6613124991-7b98",
+          navigation: {
+            mode: "over",
+            type: "block",
+            bkcolor: "#F4F5F7",
+            fgcolor: "#1D1D1D",
+            logo: false
+          },
+          header: {
+            bkcolor: "#ffffff",
+            fgcolor: "#000000",
+            height: 46,
+            buttonHeight: 36,
+            fontSize: 13,
+            itemsAnchor: "left"
+          },
+          showdev: true,
+          inputdialog: "false",
+          hidenavigation: false,
+          theme: "",
+          loginonstart: false,
+          loginoverlaycolor: "none",
+          show_connection_error: true,
+          customStyles: ""
+        }
+      },
+      ar: { enabled: false, markers: [] },
+      version: "1.01",
+      charts: [],
+      graphs: [],
+      languages: { options: [] },
+      plugin: [],
+      clientAccess: { scriptSystemFunctions: [] },
+      server: {
+        id: "0",
+        name: "FUXA",
+        enabled: true,
+        property: { delay: 10 },
+        type: "FuxaServer",
+        polling: 1000
+      }
+    };
+  }
+
   function normalizeGridSettings(settings) {
     const grid = { ...DEFAULT_GRID };
     if (!isRecord(settings)) return grid;
@@ -1153,7 +1230,7 @@
     layoutComponents, layoutFloorComponents, groupByFloor, groupComponentsByFloor,
     normalizeFloor, compareFloors, getTagFloor, setTagFloor,
     parseSvg, readManaged, removeLayoutViewReferences,
-    serializeConfig, validateConfig,
+    serializeConfig, validateConfig, createEmptyConfig,
     createModbusTcpDevice, updateModbusTcpDevice, getNextAvailableAddress,
     getModbusTcpAddressFillPlan, getModbusTcpAddressShiftPlan,
     shiftModbusTcpAddresses, fillModbusTcpAddressGaps,

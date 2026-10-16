@@ -39,6 +39,7 @@
 
   const elements = {
     fileInput: $("#config-file"),
+    clearProject: $("#clear-project-button"),
     fileName: $("#file-name"),
     status: $("#status"),
     workspace: $("#workspace"),
@@ -464,6 +465,19 @@
     elements.workspace.hidden = false;
     renderAll();
     setStatus(`已載入 ${config.hmi.views.length} 個 View、${state.tags.size} 個 Tag。檔案資料僅在本機處理。`, "success");
+  }
+
+  function clearProject() {
+    if (state.config && !window.confirm(
+      "這會以空白 FUXA 專案取代目前工作區，尚未另存的變更將遺失。原始檔不會被修改。是否繼續？"
+    )) return;
+    try {
+      const emptyConfig = D.createEmptyConfig();
+      loadConfig(`${JSON.stringify(emptyConfig, null, 4)}\n`, "fuxa-project.json");
+      setStatus("已建立空白 FUXA 專案；原始檔未變更，可另存新 JSON。", "success");
+    } catch (error) {
+      setStatus(`無法清空專案：${error.message}`, "error");
+    }
   }
 
   function modelSnapshot() {
@@ -2107,6 +2121,7 @@
       event.target.value = "";
     }
   });
+  elements.clearProject.addEventListener("click", clearProject);
 
   function bytesToBase64(bytes) {
     let binary = "";

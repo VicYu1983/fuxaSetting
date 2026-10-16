@@ -33,6 +33,7 @@ import zhTW from 'antd/locale/zh_TW'
 import {
   parseFuxaConfig,
 } from './domain/config/parseFuxaConfig'
+import { createEmptyFuxaConfig } from './domain/config/createEmptyFuxaConfig'
 import { generatedFileName } from './domain/config/serialization'
 import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
@@ -369,21 +370,7 @@ function App() {
     try {
       const text = await file.text()
       const parsed = parseFuxaConfig(text)
-      getIconLibrary(parsed.rawConfig)
-      const editorModels = buildViewEditorModels(parsed.rawConfig, DOMParser, measureSvgBounds)
-      dispatchEditor({
-        type: 'reset',
-        models: editorModels.models,
-        document: parsed,
-      })
-      setModelErrors(editorModels.errors)
-      setUnsupported(editorModels.unsupported)
-      setFileName(file.name)
-      setBatchDialogOpen(false)
-      setBatchSearch('')
-      setBatchSelection(new Set())
-      const firstView = parsed.views[0]
-      setSelectedViewId(firstView ? firstView.id || firstView.key : '')
+      replaceWorkspace(parsed, file.name)
       messageApi.success(`已載入 ${file.name}`)
     } catch (error) {
       const detail = error instanceof Error ? error.message : '未知錯誤'
@@ -391,6 +378,53 @@ function App() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  function replaceWorkspace(parsed: ParsedFuxaConfig, nextFileName: string) {
+    getIconLibrary(parsed.rawConfig)
+    const editorModels = buildViewEditorModels(parsed.rawConfig, DOMParser, measureSvgBounds)
+    dispatchEditor({
+      type: 'reset',
+      models: editorModels.models,
+      document: parsed,
+    })
+    setModelErrors(editorModels.errors)
+    setUnsupported(editorModels.unsupported)
+    setFileName(nextFileName)
+    setBatchDialogOpen(false)
+    setBatchSearch('')
+    setBatchSelection(new Set())
+    const firstView = parsed.views[0]
+    setSelectedViewId(firstView ? firstView.id || firstView.key : '')
+  }
+
+  function handleClearProject() {
+    function createProject() {
+      try {
+        const text = `${JSON.stringify(createEmptyFuxaConfig(), null, 4)}\n`
+        replaceWorkspace(parseFuxaConfig(text), 'fuxa-project.json')
+        messageApi.success('已建立空白 FUXA 專案，可另存新 JSON。')
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : '未知錯誤'
+        messageApi.error(`建立空白專案失敗：${detail}`)
+      }
+    }
+
+    if (!config) {
+      createProject()
+      return
+    }
+
+    Modal.confirm({
+      title: '清空目前專案？',
+      content: isDirty
+        ? '目前專案尚有未匯出的修改。建立空白專案後，這些修改將無法復原；原始檔不會被修改。'
+        : '目前載入的專案將被空白 FUXA 範本取代；原始檔不會被修改。',
+      okText: '清空並建立',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: createProject,
+    })
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -2120,6 +2154,9 @@ function App() {
               onClick={() => fileInputRef.current?.click()}
             >
               開啟 JSON
+            </Button>
+            <Button danger disabled={isLoading} onClick={handleClearProject}>
+              清空專案
             </Button>
             <Button disabled={!config} onClick={handleSave}>
               {isDirty ? '匯出修改' : '另存新 JSON'}

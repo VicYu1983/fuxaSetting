@@ -2,12 +2,25 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseFuxaConfig } from '../../src/domain/config/parseFuxaConfig'
+import { createEmptyFuxaConfig } from '../../src/domain/config/createEmptyFuxaConfig'
 import {
   generatedFileName,
   serializeFuxaConfig,
 } from '../../src/domain/config/serialization'
 
 describe('parseFuxaConfig', () => {
+  it('creates an independent empty project matching the shared FUXA template', () => {
+    const template = JSON.parse(
+      readFileSync(resolve(process.cwd(), '..', 'fuxa-project.json'), 'utf8'),
+    )
+    const config = createEmptyFuxaConfig()
+
+    expect(config).toEqual(template)
+    expect(parseFuxaConfig(JSON.stringify(config)).views).toHaveLength(1)
+    config.hmi.views[0] = {}
+    expect(createEmptyFuxaConfig()).toEqual(template)
+  })
+
   it('summarizes FUXA views while retaining the original configuration', () => {
     const raw = {
       devices: {
