@@ -30,6 +30,7 @@ import {
   message,
 } from 'antd'
 import zhTW from 'antd/locale/zh_TW'
+import { DeleteOutlined, DownOutlined, UpOutlined } from '@ant-design/icons'
 import {
   parseFuxaConfig,
 } from './domain/config/parseFuxaConfig'
@@ -3320,7 +3321,11 @@ function App() {
                                       </Text>
                                     </div>
                                   )}
-                                  <Space className="component-actions" size={0}>
+                                  <Space
+                                    className="component-actions"
+                                    direction="vertical"
+                                    size={0}
+                                  >
                                     <Button
                                       size="small"
                                       type="text"
@@ -3332,7 +3337,8 @@ function App() {
                                         component.key,
                                         -1,
                                       )}
-                                    >↑</Button>
+                                      icon={<UpOutlined />}
+                                    />
                                     <Button
                                       size="small"
                                       type="text"
@@ -3344,18 +3350,21 @@ function App() {
                                         component.key,
                                         1,
                                       )}
-                                    >↓</Button>
+                                      icon={<DownOutlined />}
+                                    />
                                     <Button
                                       danger
-                                      type="link"
+                                      size="small"
+                                      type="text"
+                                      aria-label={`刪除 ${component.label || '元件'}`}
+                                      title="刪除此元件"
                                       onClick={() => {
                                         if (window.confirm('刪除此元件？匯出時會從 View 的 SVG 和 items 一併移除。')) {
                                           handleRemoveComponent(selectedView.id, component.key)
                                         }
                                       }}
-                                    >
-                                      刪除
-                                    </Button>
+                                      icon={<DeleteOutlined />}
+                                    />
                                   </Space>
                                 </div>
                                 ))}
