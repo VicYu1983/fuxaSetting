@@ -4,6 +4,7 @@ import type { SvgParserConstructor } from './parseSvg'
 import { parseSvg } from './parseSvg'
 import { readManagedComponents } from './readManagedComponents'
 import type { ManagedComponentRecord } from './readManagedComponents'
+import type { MultiStateIconSet } from '../icons/iconLibrary'
 import { readMovableTags } from './readMovableTags'
 import type { MovableTagCandidate } from './readMovableTags'
 
@@ -29,6 +30,7 @@ export function readManaged(
   Parser: SvgParserConstructor,
   floorGroupArtifacts: unknown = {},
   iconAssetIds: ReadonlyMap<string, string> = new Map(),
+  iconSets: readonly MultiStateIconSet[] = [],
 ): ReadManagedResult {
   const records: ManagedComponentRecord[] = []
   const unmanaged: MovableTagCandidate[] = []
@@ -45,7 +47,13 @@ export function readManaged(
   }
 
   const floor = readFloorArtifacts(view.items, doc, floorGroupArtifacts)
-  const managed = readManagedComponents(view.items, doc, floor.consumed, iconAssetIds)
+  const managed = readManagedComponents(
+    view.items,
+    doc,
+    floor.consumed,
+    iconAssetIds,
+    iconSets,
+  )
   const movable = readMovableTags(view.items, doc, managed.consumed)
   return {
     records: managed.records,

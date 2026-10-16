@@ -834,7 +834,16 @@ function App() {
             && updated.multiIconSetId === component.multiIconSetId
             && JSON.stringify(updated.multiStateBindings) ===
               JSON.stringify(component.multiStateBindings))) return
-      handleUpdateComponent(viewId, component.key, updated)
+      dispatchEditor({
+        type: 'edit',
+        viewId,
+        model: {
+          ...model,
+          components: model.components.map((item) => (
+            item.key === component.key ? updated : item
+          )),
+        },
+      })
     } catch (error) {
       messageApi.error(`更新元件圖形失敗：${error instanceof Error ? error.message : String(error)}`)
     }

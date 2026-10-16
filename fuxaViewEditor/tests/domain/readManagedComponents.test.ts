@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readManagedComponents } from '../../src/domain/svg/readManagedComponents'
+import type { MultiStateIconSet } from '../../src/domain/icons/iconLibrary'
 
 class TestElement {
   readonly localName: string
@@ -269,6 +270,91 @@ describe('readManagedComponents', () => {
     })
     expect(result.consumed.has('high')).toBe(true)
     expect(result.consumed.has('alarm')).toBe(true)
+  })
+
+  it('recovers multi-state components from exported FUXA SVG images and item names', () => {
+    const normalUrl = 'data:image/gif;base64,normal'
+    const alarmUrl = 'data:image/gif;base64,alarm'
+    const warningUrl = 'data:image/gif;base64,warning'
+    const root = new TestElement('svg', {}, '', [
+      new TestElement('image', {
+        id: 'normal',
+        'data-name': 'tc_8',
+        'xlink:href': normalUrl,
+      }),
+      new TestElement('image', {
+        id: 'alarm',
+        'data-name': 'tc_8_state_alarm',
+        'xlink:href': alarmUrl,
+      }),
+      new TestElement('image', {
+        id: 'warning',
+        'data-name': 'tc_8_state_warning',
+        'xlink:href': warningUrl,
+      }),
+      new TestElement('text', { id: 'label-8' }, 'Tank'),
+    ])
+    const iconSet: MultiStateIconSet = {
+      id: 'tank-set',
+      name: 'Tank',
+      type: 'multi-state',
+      normal: { id: 'tank-normal', mimeType: 'image/gif', dataUrl: normalUrl },
+      states: [
+        {
+          key: 'warning',
+          name: 'Warning',
+          asset: { id: 'tank-warning', mimeType: 'image/gif', dataUrl: warningUrl },
+        },
+        {
+          key: 'alarm',
+          name: 'Alarm',
+          asset: { id: 'tank-alarm', mimeType: 'image/gif', dataUrl: alarmUrl },
+        },
+      ],
+    }
+    const result = readManagedComponents({
+      normal: { id: 'normal', name: 'tc_8', type: 'svg-ext-shapes-select', property: {} },
+      alarm: {
+        id: 'alarm',
+        name: 'tc_8_state_alarm',
+        type: 'svg-ext-shapes-select',
+        property: { actions: [{ variableId: 'tag-alarm' }] },
+      },
+      warning: {
+        id: 'warning',
+        name: 'tc_8_state_warning',
+        type: 'svg-ext-shapes-select',
+        property: { actions: [{ variableId: 'tag-warning' }] },
+      },
+      'label-8': { id: 'label-8', name: 'tc_8_label', type: 'svg-ext-shapes-text' },
+    }, makeDocument(root), new Set(), new Map([
+      [normalUrl, iconSet.normal.id],
+      [alarmUrl, iconSet.states[1]!.asset.id],
+      [warningUrl, iconSet.states[0]!.asset.id],
+    ]), [iconSet])
+
+    expect(result.records[0]).toMatchObject({
+      template: 'icon-multi',
+      multiIconSetId: 'tank-set',
+      normalIconId: 'tank-normal',
+      tagId: 'tag-warning',
+      multiStateBindings: [
+        {
+          stateKey: 'warning',
+          iconId: 'tank-warning',
+          tagId: 'tag-warning',
+          shapeId: 'warning',
+        },
+        {
+          stateKey: 'alarm',
+          iconId: 'tank-alarm',
+          tagId: 'tag-alarm',
+          shapeId: 'alarm',
+        },
+      ],
+    })
+    expect(result.consumed).toContain('alarm')
+    expect(result.consumed).toContain('warning')
   })
 
   it('ignores incomplete managed entries, invalid labels, and previously consumed shapes', () => {

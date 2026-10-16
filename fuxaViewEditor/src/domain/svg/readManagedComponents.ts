@@ -1,4 +1,5 @@
 import { isRecord } from '../config/validateFuxaConfig'
+import type { MultiStateIconSet } from '../icons/iconLibrary'
 
 const MANAGED_NAME = /^tc_(\d+)$/
 const ALARM_PALETTE_FIRST_COLOR = '#ff0000ff'
@@ -71,11 +72,91 @@ function innerIds(node: Element): Array<string | null> {
   return Array.from(node.querySelectorAll('[id]')).map((element) => element.getAttribute('id'))
 }
 
+interface MultiStateNodeBinding {
+  stateKey: string
+  iconId: string
+  tagId: string
+  shapeId: string
+  priority: number
+}
+
+function multiStateNodesFromSvg(
+  items: Record<string, unknown>,
+  doc: XMLDocument,
+  seq: number,
+  iconSetId: string,
+  iconAssetIds: ReadonlyMap<string, string>,
+): MultiStateNodeBinding[] {
+  return Array.from(doc.getElementsByTagName('*'))
+    .filter((node) =>
+      node.getAttribute('data-fuxa-icon-set-id') === iconSetId
+      && node.getAttribute('data-name')?.startsWith(`tc_${seq}_state_`)
+      && node.getAttribute('data-fuxa-state-key')
+      && node.getAttribute('data-fuxa-state-key') !== 'normal')
+    .map((node) => {
+      const stateKey = node.getAttribute('data-fuxa-state-key') || ''
+      const id = node.getAttribute('id') || ''
+      const actions = actionsFor(items[id])
+      return {
+        stateKey,
+        iconId: findIconAssetId(node, iconAssetIds),
+        tagId: actions.map(actionVariableId)
+          .find((variableId): variableId is string => variableId !== undefined) ?? '',
+        shapeId: id,
+        priority: Number(node.getAttribute('data-fuxa-state-priority')),
+      }
+    })
+    .filter((binding) => binding.stateKey && binding.shapeId)
+    .sort((left, right) => left.priority - right.priority)
+}
+
+function recoverMultiStateIconSet(
+  shapeNode: Element,
+  items: Record<string, unknown>,
+  itemIds: readonly string[],
+  doc: XMLDocument,
+  seq: number,
+  iconAssetIds: ReadonlyMap<string, string>,
+  iconSets: readonly MultiStateIconSet[],
+): { iconSet: MultiStateIconSet; bindings: MultiStateNodeBinding[] } | undefined {
+  const normalIconId = findIconAssetId(shapeNode, iconAssetIds)
+  const iconSet = iconSets.find((candidate) => candidate.normal.id === normalIconId)
+  if (!iconSet) return undefined
+
+  const bindings: MultiStateNodeBinding[] = []
+  for (const [priority, state] of iconSet.states.entries()) {
+    const stateItemId = itemIds.find((id) => (
+      itemName(items[id]) === `tc_${seq}_state_${state.key}`
+      && isRecord(items[id])
+      && items[id].type === 'svg-ext-shapes-select'
+    ))
+    const stateNode = stateItemId ? findById(doc, stateItemId) : null
+    if (!stateItemId || !stateNode || stateNode.localName !== 'image'
+        || findIconAssetId(stateNode, iconAssetIds) !== state.asset.id) {
+      return undefined
+    }
+    const tagId = actionsFor(items[stateItemId])
+      .map(actionVariableId)
+      .find((variableId): variableId is string => variableId !== undefined)
+    if (!tagId) return undefined
+    bindings.push({
+      stateKey: state.key,
+      iconId: state.asset.id,
+      tagId,
+      shapeId: stateItemId,
+      priority,
+    })
+  }
+
+  return { iconSet, bindings }
+}
+
 export function readManagedComponents(
   items: Record<string, unknown>,
   doc: XMLDocument,
   alreadyConsumed: ReadonlySet<string> = new Set(),
   iconAssetIds: ReadonlyMap<string, string> = new Map(),
+  iconSets: readonly MultiStateIconSet[] = [],
 ): ReadManagedComponentsResult {
   const records: ManagedComponentRecord[] = []
   const consumed = new Set(alreadyConsumed)
@@ -97,31 +178,28 @@ export function readManagedComponents(
     const shapeNode = findById(doc, shapeId)
     const labelNode = findById(doc, labelId)
     if (!shapeNode || !labelNode || labelNode.localName !== 'text') continue
-    const multiIconSetId = shapeNode.getAttribute('data-fuxa-icon-set-id') || ''
-    const multiStateNodes = multiIconSetId
-      ? Array.from(doc.getElementsByTagName('*'))
-        .filter((node) =>
-          node.getAttribute('data-fuxa-icon-set-id') === multiIconSetId
-          && node.getAttribute('data-name')?.startsWith(`tc_${seq}_state_`)
-          && node.getAttribute('data-fuxa-state-key')
-          && node.getAttribute('data-fuxa-state-key') !== 'normal')
-        .map((node) => {
-          const stateKey = node.getAttribute('data-fuxa-state-key') || ''
-          const id = node.getAttribute('id') || ''
-          const item = items[id]
-          const actions = actionsFor(item)
-          return {
-            stateKey,
-            iconId: node.getAttribute('data-fuxa-icon-id') || '',
-            tagId: actions.map(actionVariableId)
-              .find((variableId): variableId is string => variableId !== undefined) ?? '',
-            shapeId: id,
-            priority: Number(node.getAttribute('data-fuxa-state-priority')),
-          }
-        })
-        .filter((binding) => binding.stateKey && binding.shapeId)
-        .sort((left, right) => left.priority - right.priority)
-      : []
+    const explicitIconSetId = shapeNode.getAttribute('data-fuxa-icon-set-id') || ''
+    const recovered = explicitIconSetId
+      ? undefined
+      : recoverMultiStateIconSet(
+        shapeNode,
+        items,
+        itemIds,
+        doc,
+        seq,
+        iconAssetIds,
+        iconSets,
+      )
+    const multiIconSetId = explicitIconSetId || recovered?.iconSet.id || ''
+    const multiStateNodes = explicitIconSetId
+      ? multiStateNodesFromSvg(
+        items,
+        doc,
+        seq,
+        explicitIconSetId,
+        iconAssetIds,
+      )
+      : recovered?.bindings ?? []
 
     const alarmItemId = itemIds.find((id) => {
       const candidate = items[id]
@@ -193,7 +271,7 @@ export function readManagedComponents(
       } : {}),
       ...(multiIconSetId ? {
         multiIconSetId,
-        normalIconId: shapeNode.getAttribute('data-fuxa-icon-id') || '',
+        normalIconId,
         multiStateBindings: multiStateNodes.map((binding) => ({
           stateKey: binding.stateKey,
           iconId: binding.iconId,

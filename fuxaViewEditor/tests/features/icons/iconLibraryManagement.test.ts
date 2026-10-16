@@ -117,6 +117,27 @@ describe('iconLibraryManagement', () => {
       expect(single).not.toHaveProperty('normalIconId')
     })
 
+    it('clears multi-state icon references when changing back to a rectangle', () => {
+      const multiState: GeneratedComponent = {
+        ...component,
+        template: 'icon-multi',
+        multiIconSetId: 'tank-set',
+        normalIconId: 'tank-normal',
+        multiStateBindings: [{
+          stateKey: 'alarm',
+          iconId: 'tank-alarm',
+          tagId: 'bool-tag',
+          shapeId: 'state-shape',
+        }],
+      }
+      const rect = updateComponentGraphic(multiState, 'rect', iconLibrary, () => 'unused')
+
+      expect(rect).toMatchObject({ template: 'rect' })
+      expect(rect).not.toHaveProperty('multiIconSetId')
+      expect(rect).not.toHaveProperty('multiStateBindings')
+      expect(rect).not.toHaveProperty('normalIconId')
+    })
+
     it('retains a legacy pair choice and disables adding pair icons to non-Boolean tags', () => {
       const legacy: GeneratedComponent = {
         ...component,
