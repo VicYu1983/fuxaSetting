@@ -3,6 +3,7 @@ import { getFloorGroupFrameSettings } from '../layout/floorGroupFrame'
 import type { FloorLayoutComponent, Bounds } from '../layout/floorLayout'
 import { getViewGridSettings } from '../layout/gridSettings'
 import { getFloorGroupArtifacts } from '../layout/floorGroupArtifacts'
+import { getIconAssets, getIconLibrary } from '../icons/iconLibrary'
 import { readManaged } from '../svg/readManaged'
 import type { SvgParserConstructor } from '../svg/parseSvg'
 import type { ExportViewModel } from '../config/prepareFuxaConfigExport'
@@ -121,6 +122,12 @@ export function buildViewEditorModels(
   const errors = new Map<string, string>()
   const unsupported = new Map<string, string[]>()
   const duplicates = new Set<string>()
+  const iconAssetIds = new Map(
+    getIconLibrary(config).flatMap((icon) => getIconAssets(icon).map((asset) => [
+      asset.dataUrl,
+      asset.id,
+    ] as const)),
+  )
   const views = config.hmi.views
 
   for (const view of views) {
@@ -141,7 +148,12 @@ export function buildViewEditorModels(
       continue
     }
 
-    const parsed = readManaged(view, Parser, getFloorGroupArtifacts(config, view.id))
+    const parsed = readManaged(
+      view,
+      Parser,
+      getFloorGroupArtifacts(config, view.id),
+      iconAssetIds,
+    )
     if (parsed.error) {
       errors.set(view.id, parsed.error)
       continue

@@ -172,6 +172,48 @@ describe('readManagedComponents', () => {
     expect(result.consumed.has('alarm-shape')).toBe(true)
   })
 
+  it('restores icon pair IDs from embedded images when FUXA strips custom SVG attributes', () => {
+    const root = new TestElement('svg', {}, '', [
+      new TestElement('image', {
+        id: 'normal-shape',
+        'xlink:href': 'data:image/png;base64,normal',
+      }),
+      new TestElement('image', {
+        id: 'alarm-shape',
+        'xlink:href': 'data:image/png;base64,alarm',
+      }),
+      new TestElement('text', { id: 'label' }, 'Fire pump'),
+    ])
+    const actions = [
+      { variableId: 'tag-fire', range: { min: 0, max: 0 }, type: 'show' },
+      { variableId: 'tag-fire', range: { min: 1, max: 1 }, type: 'hide' },
+    ]
+    const result = readManagedComponents({
+      'normal-shape': {
+        id: 'normal-shape',
+        name: 'tc_5',
+        type: 'svg-ext-shapes-select',
+        property: { actions },
+      },
+      'alarm-shape': {
+        id: 'alarm-shape',
+        name: 'tc_5_alarm',
+        type: 'svg-ext-shapes-select',
+        property: { actions },
+      },
+      label: { id: 'label', name: 'tc_5_label', type: 'svg-ext-shapes-text' },
+    }, makeDocument(root), new Set(), new Map([
+      ['data:image/png;base64,normal', 'normal-icon-id'],
+      ['data:image/png;base64,alarm', 'alarm-icon-id'],
+    ]))
+
+    expect(result.records[0]).toMatchObject({
+      template: 'icon-pair',
+      normalIconId: 'normal-icon-id',
+      alarmIconId: 'alarm-icon-id',
+    })
+  })
+
   it('loads multi-state bindings in configured priority order', () => {
     const root = new TestElement('svg', {}, '', [
       new TestElement('image', {

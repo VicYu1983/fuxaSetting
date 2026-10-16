@@ -75,6 +75,7 @@ export function readManagedComponents(
   items: Record<string, unknown>,
   doc: XMLDocument,
   alreadyConsumed: ReadonlySet<string> = new Set(),
+  iconAssetIds: ReadonlyMap<string, string> = new Map(),
 ): ReadManagedComponentsResult {
   const records: ManagedComponentRecord[] = []
   const consumed = new Set(alreadyConsumed)
@@ -153,9 +154,10 @@ export function readManagedComponents(
       && alarmActions.every((action) => actionVariableId(action) === visibilityTagId)
 
     const iconNode = shapeNode.querySelector('image[data-fuxa-icon-id]')
-    const iconId = shapeNode.getAttribute('data-fuxa-icon-id')
-      || iconNode?.getAttribute('data-fuxa-icon-id')
-      || ''
+    const iconId = findIconAssetId(shapeNode, iconAssetIds)
+      || (iconNode ? findIconAssetId(iconNode, iconAssetIds) : '')
+    const normalIconId = findIconAssetId(shapeNode, iconAssetIds)
+    const alarmIconId = alarmNode ? findIconAssetId(alarmNode, iconAssetIds) : ''
     const shapeType = multiIconSetId
       ? 'icon-multi'
       : isIconPair
@@ -184,8 +186,8 @@ export function readManagedComponents(
       template: shapeType,
       ...(iconId && !isIconPair ? { iconId } : {}),
       ...(isIconPair ? {
-        normalIconId: shapeNode.getAttribute('data-fuxa-icon-id') || '',
-        alarmIconId: alarmNode.getAttribute('data-fuxa-icon-id') || '',
+        normalIconId,
+        alarmIconId,
         alarmShapeId: alarmItemId,
         invertIconState: !normalVisibleAtZero && alarmVisibleAtZero,
       } : {}),
@@ -214,4 +216,11 @@ export function readManagedComponents(
 
   records.sort((left, right) => left.seq - right.seq)
   return { records, consumed }
+}
+
+function findIconAssetId(node: Element, iconAssetIds: ReadonlyMap<string, string>): string {
+  const explicitId = node.getAttribute('data-fuxa-icon-id')
+  if (explicitId) return explicitId
+  const imageUrl = node.getAttribute('href') || node.getAttribute('xlink:href')
+  return imageUrl ? iconAssetIds.get(imageUrl) ?? '' : ''
 }

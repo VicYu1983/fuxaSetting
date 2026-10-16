@@ -28,6 +28,7 @@ export function readManaged(
   view: unknown,
   Parser: SvgParserConstructor,
   floorGroupArtifacts: unknown = {},
+  iconAssetIds: ReadonlyMap<string, string> = new Map(),
 ): ReadManagedResult {
   const records: ManagedComponentRecord[] = []
   const unmanaged: MovableTagCandidate[] = []
@@ -44,7 +45,7 @@ export function readManaged(
   }
 
   const floor = readFloorArtifacts(view.items, doc, floorGroupArtifacts)
-  const managed = readManagedComponents(view.items, doc, floor.consumed)
+  const managed = readManagedComponents(view.items, doc, floor.consumed, iconAssetIds)
   const movable = readMovableTags(view.items, doc, managed.consumed)
   return {
     records: managed.records,
