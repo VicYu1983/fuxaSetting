@@ -34,6 +34,9 @@ export interface FloorLayoutComponent extends LayoutComponent {
 export interface FloorTag {
   floor?: unknown
   type?: unknown
+  memaddress?: unknown
+  name?: unknown
+  record?: Record<string, unknown>
 }
 
 export interface FloorLayoutEntry {

@@ -16,7 +16,7 @@ export interface ManagedComponentRecord {
   seq: number
   tagId: string
   label: string
-  template: 'icon-multi' | 'icon-pair' | 'icon' | 'cylinder' | 'rect'
+  template: 'icon-multi' | 'icon-pair' | 'icon' | 'cylinder' | 'switch' | 'rect'
   iconId?: string
   normalIconId?: string
   alarmIconId?: string
@@ -52,6 +52,18 @@ function actionsFor(item: unknown): unknown[] {
     return []
   }
   return item.property.actions
+}
+
+function switchTagId(item: unknown): string {
+  if (!isRecord(item) || !isRecord(item.property)
+      || !Array.isArray(item.property.events)) return ''
+  for (const event of item.property.events) {
+    if (!isRecord(event) || !isRecord(event.actoptions)
+        || !isRecord(event.actoptions.variable)) continue
+    const variableId = event.actoptions.variable.variableId
+    if (typeof variableId === 'string') return variableId
+  }
+  return ''
 }
 
 function actionVariableId(action: unknown): string | undefined {
@@ -236,7 +248,10 @@ export function readManagedComponents(
       || (iconNode ? findIconAssetId(iconNode, iconAssetIds) : '')
     const normalIconId = findIconAssetId(shapeNode, iconAssetIds)
     const alarmIconId = alarmNode ? findIconAssetId(alarmNode, iconAssetIds) : ''
-    const shapeType = multiIconSetId
+    const isSwitch = shapeItem.type === 'svg-ext-html_switch'
+    const shapeType = isSwitch
+      ? 'switch'
+      : multiIconSetId
       ? 'icon-multi'
       : isIconPair
       ? 'icon-pair'
@@ -259,7 +274,7 @@ export function readManagedComponents(
       seq,
       tagId: multiIconSetId
         ? multiStateNodes[0]?.tagId ?? ''
-        : isIconPair ? visibilityTagId : variableId,
+        : isIconPair ? visibilityTagId : isSwitch ? switchTagId(shapeItem) : variableId,
       label: labelNode.textContent || '',
       template: shapeType,
       ...(iconId && !isIconPair ? { iconId } : {}),

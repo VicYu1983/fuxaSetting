@@ -61,6 +61,12 @@ describe('Grid component layout', () => {
     expect(placements[1]?.shape.x).toBe(120)
     expect(placements[2]?.shape.y).toBe(85)
   })
+
+  it('reserves the standard Switch dimensions for Coil controls', () => {
+    const [placement] = layoutComponents([{ key: 'switch', template: 'switch' }], DEFAULT_GRID)
+
+    expect(placement?.shape).toMatchObject({ width: 50, height: 28 })
+  })
 })
 
 describe('SVG text measurement', () => {

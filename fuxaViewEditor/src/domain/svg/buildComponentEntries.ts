@@ -1,5 +1,6 @@
 import { isRecord } from '../config/validateFuxaConfig'
 import { buildVisibilityActions } from '../icons/iconLibrary'
+import type { FloorTag } from '../layout/floorLayout'
 import type { SvgComponent } from './buildComponentNodes'
 
 export interface ComponentItemEntries {
@@ -13,7 +14,17 @@ const PALETTES = {
 } as const
 
 function propertyOf(item: unknown): Record<string, unknown> {
-  return isRecord(item) && isRecord(item.property) ? item.property : {}
+  return isRecord(item) && isRecord(item.property) ? { ...item.property } : {}
+}
+
+function removeSwitchToggleEvent(
+  existing: unknown,
+  property: Record<string, unknown>,
+): void {
+  if (!isRecord(existing) || existing.type !== 'svg-ext-html_switch'
+      || !Array.isArray(property.events)) return
+  property.events = property.events.filter((event) =>
+    !isRecord(event) || event.action !== 'onToggleValue')
 }
 
 function preserveItem(
@@ -36,6 +47,7 @@ function buildIconPairEntry(
   const normalVisibleValue = component.invertIconState ? 1 : 0
   const visibleValue = isNormalImage ? normalVisibleValue : 1 - normalVisibleValue
   const oldProperty = propertyOf(existing)
+  removeSwitchToggleEvent(existing, oldProperty)
   const property: Record<string, unknown> = {
     ...oldProperty,
     ranges: [],
@@ -67,6 +79,7 @@ function buildMultiStateEntry(
     throw new Error(`元件「${component.label || '未命名'}」找不到狀態「${stateKey}」的 Tag 綁定。`)
   }
   const oldProperty = propertyOf(existing)
+  removeSwitchToggleEvent(existing, oldProperty)
   const property: Record<string, unknown> = {
     ...oldProperty,
     ranges: [],
@@ -91,6 +104,7 @@ function buildStandardEntry(
   shape: Element,
 ): Record<string, unknown> {
   const oldProperty = propertyOf(existing)
+  removeSwitchToggleEvent(existing, oldProperty)
   const property: Record<string, unknown> = {
     ...oldProperty,
     variableId: component.tagId,
@@ -130,6 +144,59 @@ function buildLabelEntry(
   })
 }
 
+function buildSwitchEntry(
+  existing: unknown,
+  component: SvgComponent,
+  tag: FloorTag | undefined,
+): Record<string, unknown> {
+  const variableRaw = {
+    ...(tag?.record ?? {}),
+    id: component.tagId,
+    name: typeof tag?.name === 'string' ? tag.name : component.label,
+    value: false,
+    type: 'boolean',
+  }
+  return preserveItem(existing, {
+    id: component.shapeId,
+    type: 'svg-ext-html_switch',
+    name: `tc_${component.seq}`,
+    property: {
+      variableId: null,
+      events: [{
+        type: 'click',
+        action: 'onToggleValue',
+        actoptions: {
+          variable: {
+            variableId: component.tagId,
+            variableRaw,
+            bitmask: null,
+          },
+        },
+      }],
+      actions: [],
+      options: {
+        offValue: 0,
+        onValue: 1,
+        offBackground: '#ccc',
+        onBackground: '#ccc',
+        offText: '',
+        onText: '',
+        offSliderColor: '#fff',
+        onSliderColor: '#0CC868',
+        offTextColor: '#000',
+        onTextColor: '#fff',
+        fontSize: 12,
+        fontFamily: '',
+        radius: 0,
+        height: 22,
+      },
+    },
+    label: 'HtmlSwitch',
+    hide: false,
+    lock: false,
+  })
+}
+
 export function buildComponentEntries(
   component: SvgComponent,
   shapeNodes: readonly Element[],
@@ -139,6 +206,7 @@ export function buildComponentEntries(
     states?: Record<string, unknown>
     label?: unknown
   } = {},
+  tag?: FloorTag,
 ): ComponentItemEntries {
   if (component.template === 'icon-pair') {
     const normalShape = shapeNodes[0]
@@ -175,7 +243,9 @@ export function buildComponentEntries(
   const shape = shapeNodes[0]
   if (!shape) throw new Error(`元件「${component.label || '未命名'}」缺少圖示節點。`)
   return {
-    shapeEntries: [buildStandardEntry(existing.shape, component, shape)],
+    shapeEntries: [component.template === 'switch'
+      ? buildSwitchEntry(existing.shape, component, tag)
+      : buildStandardEntry(existing.shape, component, shape)],
     labelEntry: buildLabelEntry(existing.label, component),
   }
 }

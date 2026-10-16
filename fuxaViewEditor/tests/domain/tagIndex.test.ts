@@ -33,6 +33,7 @@ describe('buildTagIndex', () => {
       id: 'tag-id',
       name: 'Pump',
       type: 'number',
+      memaddress: '',
       deviceId: 'd1',
       deviceName: 'Device One',
       floor: 'B1F',

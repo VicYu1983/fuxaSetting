@@ -66,6 +66,9 @@ export function getComponentGraphicChoices(
       label: `多狀態圖示組不存在（${component.multiIconSetId || '未知'}）`,
     })
   }
+  if (component.template === 'switch') {
+    choices.unshift({ value: 'switch', label: 'Switch（Coil）' })
+  }
   return choices
 }
 
@@ -165,6 +168,7 @@ export function updateComponentGraphic(
     return next
   }
 
+  if (value === 'switch' && component.template === 'switch') return next
   if (value !== 'rect' && value !== 'cylinder') {
     throw new Error('所選圖形無效。')
   }

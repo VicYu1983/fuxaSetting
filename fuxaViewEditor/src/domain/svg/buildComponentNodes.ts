@@ -4,16 +4,18 @@ import type { ComponentPlacement } from '../layout/gridLayout'
 import type { ManagedComponentRecord } from './readManagedComponents'
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
+const XHTML_NAMESPACE = 'http://www.w3.org/1999/xhtml'
 const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink'
 const RECT_SIZE = { width: 40, height: 40 }
 const CYLINDER_SIZE = { width: 60, height: 64 }
+const SWITCH_SIZE = { width: 50, height: 28 }
 const PALETTES = {
   normal: ['#00ff07ff', '#f80000ff'],
   alarm: ['#ff0000ff', '#00ff07ff'],
 } as const
 
 export type SvgComponent = ManagedComponentRecord & {
-  template: 'icon-multi' | 'icon-pair' | 'icon' | 'cylinder' | 'rect'
+  template: 'icon-multi' | 'icon-pair' | 'icon' | 'cylinder' | 'switch' | 'rect'
   shapeInnerIds: Array<string | null>
   normalIconId?: string
   alarmIconId?: string
@@ -271,6 +273,96 @@ function buildShapeNode(
   return group
 }
 
+function createHtmlNode(
+  doc: XMLDocument,
+  name: string,
+  attributes: Record<string, string>,
+): Element {
+  const node = doc.createElementNS(XHTML_NAMESPACE, name)
+  for (const [attribute, value] of Object.entries(attributes)) {
+    node.setAttribute(attribute, value)
+  }
+  return node
+}
+
+function buildSwitchNode(
+  doc: XMLDocument,
+  component: SvgComponent,
+  placement: ComponentPlacement,
+  allocateId: SvgIdAllocator,
+): Element {
+  const [hitboxId, trackId, knobId, foreignObjectId, htmlLabelId] =
+    allocateInnerIds(component, 5, allocateId)
+  const { x, y } = placement.shape
+  const group = createSvgNode(doc, 'g', {
+    'data-name': `tc_${component.seq}`,
+    id: component.shapeId,
+    type: 'svg-ext-html_switch',
+    fill: 'rgba(0,0,0,0)',
+    stroke: 'rgba(0,0,0,0)',
+  })
+  appendChild(group, createSvgNode(doc, 'rect', {
+    id: hitboxId ?? '',
+    x,
+    y,
+    width: SWITCH_SIZE.width,
+    height: SWITCH_SIZE.height,
+    'stroke-width': 0,
+  }))
+  appendChild(group, createSvgNode(doc, 'rect', {
+    id: trackId ?? '',
+    x,
+    y: y + 5,
+    width: SWITCH_SIZE.width,
+    height: 18,
+    rx: 9,
+    fill: '#cccccc',
+    stroke: 'none',
+  }))
+  appendChild(group, createSvgNode(doc, 'circle', {
+    id: knobId ?? '',
+    cx: x + 9,
+    cy: y + 14,
+    r: 8,
+    fill: '#ffffff',
+    stroke: 'none',
+  }))
+  const foreignObject = createSvgNode(doc, 'foreignObject', {
+    id: foreignObjectId ?? '',
+    x,
+    y,
+    width: SWITCH_SIZE.width,
+    height: SWITCH_SIZE.height,
+  })
+  const label = createHtmlNode(doc, 'label', {
+    id: htmlLabelId ?? '',
+    class: 'md-switch',
+    style: 'width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;margin:3px;',
+  })
+  const ngxSwitch = createHtmlNode(doc, 'ngx-switch', { class: 'ng-star-inserted' })
+  const switchLabel = createHtmlNode(doc, 'label', {
+    class: 'md-switch',
+    style: 'border-radius:0px;',
+  })
+  const toggle = createHtmlNode(doc, 'div', {
+    class: 'toggle-button',
+    style: 'background-color:rgb(204,204,204);opacity:1;pointer-events:auto;',
+  })
+  const input = createHtmlNode(doc, 'input', { type: 'checkbox' })
+  const slider = createHtmlNode(doc, 'div', {
+    class: 'inner-circle',
+    style: 'text-align:center;line-height:22px;font-size:12px;background-color:rgb(255,255,255);color:rgb(0,0,0);',
+  })
+  appendChild(toggle, input)
+  appendChild(toggle, slider)
+  appendChild(switchLabel, toggle)
+  appendChild(ngxSwitch, switchLabel)
+  appendChild(label, ngxSwitch)
+  appendChild(foreignObject, label)
+  appendChild(group, foreignObject)
+  return group
+}
+
 function buildLabelNode(
   doc: XMLDocument,
   component: SvgComponent,
@@ -306,7 +398,9 @@ export function buildComponentNodes(
     ? buildIconPairNodes(doc, component, placement, resolveIcon)
     : component.template === 'icon-multi'
       ? buildMultiStateNodes(doc, component, placement, resolveIcon)
-      : [buildShapeNode(doc, component, placement, resolveIcon, allocateId)]
+      : [component.template === 'switch'
+        ? buildSwitchNode(doc, component, placement, allocateId)
+        : buildShapeNode(doc, component, placement, resolveIcon, allocateId)]
   return {
     shapeNodes,
     labelNode: buildLabelNode(doc, component, placement, grid),

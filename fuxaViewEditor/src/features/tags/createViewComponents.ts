@@ -6,7 +6,7 @@ import { generateId, type RandomValuesProvider } from '../../domain/ids'
 import { parseSvg } from '../../domain/svg/parseSvg'
 import type { SvgParserConstructor } from '../../domain/svg/parseSvg'
 import type { IndexedTag } from '../../domain/tags/index'
-import { buildTagIndex } from '../../domain/tags/index'
+import { buildTagIndex, isCoilTag } from '../../domain/tags/index'
 import { updateComponentGraphic } from '../icons/componentGraphics'
 
 function collectUsedIds(
@@ -67,7 +67,15 @@ export function createViewComponents(
   runtime: CreateViewComponentsRuntime,
   graphic = 'rect',
   icons: readonly IconLibraryEntry[] = [],
+  switchTagIds: ReadonlySet<string> = new Set(),
 ): ExportViewModel {
+  for (const tagId of switchTagIds) {
+    const tag = tags.find((candidate) => candidate.id === tagId)
+    if (!tag || !isCoilTag(tag)
+        || !['bool', 'boolean'].includes(tag.type.toLocaleLowerCase())) {
+      throw new Error(`Tag「${tagId}」不是 Boolean Coil，無法建立 Switch。`)
+    }
+  }
   const usedIds = collectUsedIds(config, models, runtime.Parser)
   let sequence = model.components.reduce(
     (maximum, component) => Math.max(maximum, Number(component.seq) || 0),
@@ -80,14 +88,14 @@ export function createViewComponents(
       seq: sequence,
       tagId: tag.id,
       label: tag.name,
-      template: 'rect',
+      template: switchTagIds.has(tag.id) ? 'switch' : 'rect',
       palette: 'normal',
       shapeId: generateId('SHE', usedIds, runtime.crypto),
       labelId: generateId('svg', usedIds, runtime.crypto),
       shapeInnerIds: [generateId('SHE', usedIds, runtime.crypto)],
       managed: true,
     }
-  }).map((component) => graphic === 'rect'
+  }).map((component) => component.template === 'switch' || graphic === 'rect'
     ? component
     : updateComponentGraphic(
       component,

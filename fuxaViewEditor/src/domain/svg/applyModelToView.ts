@@ -74,6 +74,7 @@ function isManagedComponent(
     && Array.isArray(component.shapeInnerIds)
     && (component.template === 'rect'
       || component.template === 'cylinder'
+      || component.template === 'switch'
       || component.template === 'icon'
       || component.template === 'icon-pair'
       || component.template === 'icon-multi')
@@ -107,16 +108,25 @@ function existingItemItems(
   }
 }
 
+function tagFor(
+  tags: Map<string, FloorTag> | Record<string, FloorTag>,
+  tagId: string,
+): FloorTag | undefined {
+  return tags instanceof Map ? tags.get(tagId) : tags[tagId]
+}
+
 function writeComponentEntries(
   view: ApplyModelView,
   previousItems: Record<string, unknown>,
   component: SvgComponent,
   shapeNodes: Element[],
+  tag: FloorTag | undefined,
 ): void {
   const entries = buildComponentEntries(
     component,
     shapeNodes,
     existingItemItems(previousItems, component),
+    tag,
   )
   view.items[component.shapeId] = entries.shapeEntries[0]!
   if (component.template === 'icon-pair') {
@@ -223,7 +233,13 @@ function applyModelToViewInPlace(
       )
       for (const shapeNode of nodes.shapeNodes) layer.appendChild(shapeNode)
       layer.appendChild(nodes.labelNode)
-      writeComponentEntries(view, previousItems, component, nodes.shapeNodes)
+      writeComponentEntries(
+        view,
+        previousItems,
+        component,
+        nodes.shapeNodes,
+        tagFor(options.tags, component.tagId),
+      )
     }
   }
 

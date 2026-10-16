@@ -77,6 +77,15 @@ function tagProperty(item: unknown): Record<string, unknown> {
   return isRecord(item) && isRecord(item.property) ? item.property : {}
 }
 
+function hasSwitchClickBinding(property: Record<string, unknown>, tagId: string): boolean {
+  return Array.isArray(property.events) && property.events.some((event) => {
+    if (!isRecord(event) || event.type !== 'click' || event.action !== 'onToggleValue'
+        || !isRecord(event.actoptions)) return false
+    const variable = event.actoptions.variable
+    return isRecord(variable) && variable.variableId === tagId
+  })
+}
+
 function hasVisibilityRule(actions: unknown, tagId: string, visibleValue: number): boolean {
   if (!Array.isArray(actions)) return false
   return [0, 1].every((value) => actions.some((action) =>
@@ -200,6 +209,21 @@ function validateManagedComponent(
     }
   } else if (component.template === 'icon-multi') {
     validateMultiStateComponent(items, doc, normalNode, tags, component, iconLibrary)
+  } else if (component.template === 'switch') {
+    const switchItem = items[component.shapeId]
+    const property = tagProperty(switchItem)
+    const tag = tagFor(tags, component.tagId)
+    const foreignObject = normalNode.querySelector('foreignObject')
+    if (normalNode.getAttribute('type') !== 'svg-ext-html_switch'
+        || !isRecord(switchItem) || switchItem.type !== 'svg-ext-html_switch'
+        || !hasSwitchClickBinding(property, component.tagId)
+        || !tag || String(tag.memaddress ?? '').trim() !== '000000'
+        || !['bool', 'boolean'].includes(String(tag.type ?? '').toLocaleLowerCase())
+        || !foreignObject
+        || foreignObject.getAttribute('width') !== '50'
+        || foreignObject.getAttribute('height') !== '28') {
+      throw new Error(`元件「${component.label || component.shapeId}」的 Coil Switch 或 click Tag 綁定不正確。`)
+    }
   } else if (tagProperty(items[component.shapeId]).variableId !== component.tagId) {
     throw new Error(`元件 ${component.shapeId} 的 Tag 連結與清單不一致。`)
   }
@@ -208,7 +232,9 @@ function validateManagedComponent(
     throw new Error(`元件 ${component.shapeId} 的文字標籤未正確寫入 SVG。`)
   }
 
-  if (component.template !== 'icon-pair' && component.template !== 'icon-multi') {
+  if (component.template !== 'icon-pair'
+      && component.template !== 'icon-multi'
+      && component.template !== 'switch') {
     const expectedColors = component.palette === 'alarm'
       ? ['#ff0000ff', '#00ff07ff']
       : ['#00ff07ff', '#f80000ff']

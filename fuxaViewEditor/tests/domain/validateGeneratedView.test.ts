@@ -38,6 +38,15 @@ class TestElement {
     return child
   }
 
+  querySelector(selector: string): TestElement | null {
+    for (const child of this.children) {
+      if (selector === 'foreignObject' && child.localName === 'foreignObject') return child
+      const nested = child.querySelector(selector)
+      if (nested) return nested
+    }
+    return null
+  }
+
   getElementsByTagName(name: string): TestElement[] {
     const result: TestElement[] = []
     const visit = (node: TestElement): void => {
@@ -242,6 +251,42 @@ function validMultiStateArtifacts() {
 }
 
 describe('validateGeneratedView', () => {
+  it('accepts a Coil Switch only when its click event is bound to a Boolean Coil Tag', () => {
+    const doc = validDocument()
+    const shape = doc.documentElement.children[0]?.children[0]
+    if (!shape) throw new Error('Missing test shape')
+    shape.attributes.type = 'svg-ext-html_switch'
+    shape.appendChild(new TestElement('foreignObject', { width: '50', height: '28' }))
+
+    const model = makeModel([{ ...managedComponent(), template: 'switch' }])
+    const items = validItems()
+    items['shape-id'] = {
+      id: 'shape-id',
+      type: 'svg-ext-html_switch',
+      property: {
+        variableId: null,
+        events: [{
+          type: 'click',
+          action: 'onToggleValue',
+          actoptions: { variable: { variableId: 'tag-1' } },
+        }],
+      },
+    }
+    const options = {
+      Parser: parserFor(doc),
+      tags: {
+        'tag-1': { floor: '1F', type: 'Bool', memaddress: '000000' },
+      },
+    }
+
+    expect(() => validateGeneratedView(makeView(items), model, options)).not.toThrow()
+    expect(() => validateGeneratedView(
+      makeView(items),
+      model,
+      { ...options, tags: { 'tag-1': { floor: '1F', type: 'Bool', memaddress: '100000' } } },
+    )).toThrow('Coil Switch 或 click Tag 綁定不正確。')
+  })
+
   it('accepts a consistent generated component with matching floor artifacts', () => {
     expect(() => validateGeneratedView(
       makeView(validItems()),

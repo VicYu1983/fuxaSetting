@@ -6,10 +6,15 @@ export interface IndexedTag {
   id: string
   name: string
   type: string
+  memaddress: string
   deviceId: string
   deviceName: string
   floor: string
   record: FuxaTag
+}
+
+export function isCoilTag(tag: IndexedTag): boolean {
+  return tag.memaddress.trim() === '000000'
 }
 
 export function buildTagIndex(config: FuxaConfig): Map<string, IndexedTag> {
@@ -24,6 +29,7 @@ export function buildTagIndex(config: FuxaConfig): Map<string, IndexedTag> {
         id,
         name: typeof tag.name === 'string' ? tag.name : id,
         type: typeof tag.type === 'string' ? tag.type : '',
+        memaddress: typeof tag.memaddress === 'string' ? tag.memaddress : '',
         deviceId,
         deviceName,
         floor: getTagFloor(tag),

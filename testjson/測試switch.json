@@ -1,0 +1,203 @@
+{
+    "devices": {
+        "0": {
+            "id": "0",
+            "name": "FUXA",
+            "enabled": true,
+            "property": {
+                "delay": 10
+            },
+            "type": "FuxaServer",
+            "polling": 1000,
+            "tags": {
+                "t_a803d3ff-d0a94339": {
+                    "id": "t_a803d3ff-d0a94339",
+                    "name": "啓動",
+                    "type": "boolean",
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "init": "0",
+                    "description": null,
+                    "timestamp": 1792141200093
+                }
+            }
+        }
+    },
+    "hmi": {
+        "views": [
+            {
+                "id": "v_0a1946b9-1071112",
+                "name": "MainView",
+                "profile": {
+                    "width": 1024,
+                    "height": 768,
+                    "bkcolor": "#ffffffff",
+                    "margin": 10,
+                    "align": "topCenter",
+                    "gridType": "fixed",
+                    "viewRenderDelay": 0
+                },
+                "items": {
+                    "HXT_97069c47-f94347db": {
+                        "id": "HXT_97069c47-f94347db",
+                        "type": "svg-ext-html_switch",
+                        "name": "switch_1",
+                        "property": {
+                            "variableId": null,
+                            "events": [
+                                {
+                                    "type": "click",
+                                    "action": "onToggleValue",
+                                    "actoptions": {
+                                        "variable": {
+                                            "variableId": "t_a803d3ff-d0a94339",
+                                            "variableRaw": {
+                                                "id": "t_a803d3ff-d0a94339",
+                                                "name": "啓動",
+                                                "value": false,
+                                                "type": "boolean",
+                                                "daq": {
+                                                    "enabled": false,
+                                                    "interval": 60,
+                                                    "changed": false,
+                                                    "restored": false
+                                                },
+                                                "init": "0",
+                                                "description": null,
+                                                "timestamp": 1792141200093
+                                            },
+                                            "bitmask": null
+                                        }
+                                    }
+                                }
+                            ],
+                            "actions": [],
+                            "options": {
+                                "offValue": 0,
+                                "onValue": 1,
+                                "offBackground": "#ccc",
+                                "onBackground": "#ccc",
+                                "offText": "",
+                                "onText": "",
+                                "offSliderColor": "#fff",
+                                "onSliderColor": "#0CC868",
+                                "offTextColor": "#000",
+                                "onTextColor": "#fff",
+                                "fontSize": 12,
+                                "fontFamily": "",
+                                "radius": 0,
+                                "height": 22
+                            }
+                        },
+                        "label": "HtmlSwitch",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_65b4b377-1e044e8d": {
+                        "id": "SHE_65b4b377-1e044e8d",
+                        "type": "svg-ext-shapes-or2",
+                        "name": "shape_1",
+                        "property": {
+                            "ranges": [
+                                {
+                                    "min": 20,
+                                    "max": 80,
+                                    "color": "",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": [
+                                {
+                                    "variableId": "t_a803d3ff-d0a94339",
+                                    "range": {
+                                        "min": 1,
+                                        "max": 1
+                                    },
+                                    "type": "clockwise",
+                                    "options": {
+                                        "minAngle": 0,
+                                        "maxAngle": 90,
+                                        "delay": 0
+                                    }
+                                },
+                                {
+                                    "variableId": "t_a803d3ff-d0a94339",
+                                    "range": {
+                                        "min": 0,
+                                        "max": 0
+                                    },
+                                    "type": "anticlockwise",
+                                    "options": {}
+                                }
+                            ]
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    }
+                },
+                "variables": {},
+                "svgcontent": "<svg width=\"1024\" height=\"768\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:svg=\"http://www.w3.org/2000/svg\" xmlns:html=\"http://www.w3.org/1999/xhtml\">\n <filter height=\"200\" width=\"200\" y=\"-3\" x=\"-3\" id=\"blur-filter\">\n  <feGaussianBlur stdDeviation=\"3\"/>\n </filter>\n <g>\n  <title>Layer 1</title>\n  <g data-name=\"switch_1\" stroke=\"rgba(0,0,0,0)\" fill=\"rgba(0,0,0,0)\" type=\"svg-ext-html_switch\" id=\"HXT_97069c47-f94347db\">\n   <rect id=\"svg_34d5267b-f9a54d6c\" height=\"28\" width=\"50\" y=\"139\" x=\"135\" stroke-width=\"0\"/>\n   <foreignObject id=\"H-HXT_7ba6934f-8cd74932\" width=\"50\" height=\"28\" y=\"139\" x=\"135\">\n    <LABEL style=\"width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;margin: 3px 3px 3px 3px;\" class=\"md-switch\" id=\"T-HXT_7ba6934f-8cd74932\">\n     <NGX-SWITCH class=\"ng-star-inserted\">\n      <LABEL style=\"border-radius: 0px;\" class=\"md-switch\">\n       <DIV style=\"background-color: rgb(204, 204, 204); opacity: 1; pointer-events: auto;\" class=\"toggle-button\">\n        <INPUT type=\"checkbox\"/>\n        <DIV style=\"text-align: center; line-height: 22px; font-size: 12px; background-color: rgb(255, 255, 255); color: rgb(0, 0, 0);\" class=\"inner-circle\"></DIV>\n       </DIV>\n      </LABEL>\n     </NGX-SWITCH>\n    </LABEL>\n   </foreignObject>\n  </g>\n  <g data-name=\"shape_1\" id=\"SHE_65b4b377-1e044e8d\" type=\"svg-ext-shapes-or2\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\">\n   <path id=\"SHE_c8898460-da6f49fe\" d=\"M334,158A40,40 0 0 1 294,198A40,40 0 0 1 254,158A40,40 0 0 1 294,118A40,40 0 0 1 334,158M254,158L334,158M294,118L294,198L294,118z\"/>\n  </g>\n </g>\n</svg>",
+                "type": "svg"
+            }
+        ],
+        "layout": {
+            "autoresize": false,
+            "start": "v_0a1946b9-1071112",
+            "navigation": {
+                "mode": "over",
+                "type": "block",
+                "bkcolor": "#F4F5F7",
+                "fgcolor": "#1D1D1D",
+                "logo": false
+            },
+            "header": {
+                "bkcolor": "#ffffff",
+                "fgcolor": "#000000",
+                "height": 46,
+                "buttonHeight": 36,
+                "fontSize": 13,
+                "itemsAnchor": "left"
+            },
+            "showdev": true,
+            "inputdialog": "false",
+            "hidenavigation": false,
+            "theme": "",
+            "loginonstart": false,
+            "loginoverlaycolor": "none",
+            "show_connection_error": true,
+            "customStyles": ""
+        }
+    },
+    "ar": {
+        "enabled": false,
+        "markers": []
+    },
+    "version": "1.01",
+    "name": "測試",
+    "charts": [],
+    "graphs": [],
+    "languages": {
+        "options": []
+    },
+    "plugin": [],
+    "clientAccess": {
+        "scriptSystemFunctions": []
+    },
+    "server": {
+        "id": "0",
+        "name": "FUXA",
+        "enabled": true,
+        "property": {
+            "delay": 10
+        },
+        "type": "FuxaServer",
+        "polling": 1000
+    }
+}

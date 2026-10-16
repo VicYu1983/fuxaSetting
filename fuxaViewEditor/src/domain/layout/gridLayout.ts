@@ -29,6 +29,7 @@ export interface ComponentPlacement {
 
 const RECT_SIZE = { width: 40, height: 40 }
 const CYLINDER_SIZE = { width: 60, height: 64 }
+const SWITCH_SIZE = { width: 50, height: 28 }
 
 function positiveDimension(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
@@ -50,7 +51,9 @@ export function layoutComponents(
   const columnWidths = Array<number>(columns).fill(0)
   const rowHeights = Array<number>(rows).fill(0)
   const sizes = components.map((component) => {
-    const standard = component.template === 'cylinder' ? CYLINDER_SIZE : RECT_SIZE
+    const standard = component.template === 'cylinder'
+      ? CYLINDER_SIZE
+      : component.template === 'switch' ? SWITCH_SIZE : RECT_SIZE
     return {
       width: positiveDimension(component.layoutWidth, standard.width),
       height: positiveDimension(component.layoutHeight, standard.height),

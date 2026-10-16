@@ -76,6 +76,77 @@ describe('buildComponentEntries', () => {
     })
   })
 
+  it('builds a FUXA click-to-toggle event for a Coil Switch', () => {
+    const result = buildComponentEntries(
+      component({ template: 'switch' }),
+      [new TestElement({ id: 'shape-3', type: 'svg-ext-html_switch' }) as unknown as Element],
+      {},
+      {
+        name: 'Pump',
+        type: 'Bool',
+        memaddress: '000000',
+        record: { id: 'tag-3', name: 'Pump', type: 'Bool', init: '0' },
+      },
+    )
+
+    expect(result.shapeEntries[0]).toMatchObject({
+      id: 'shape-3',
+      type: 'svg-ext-html_switch',
+      name: 'tc_3',
+      label: 'HtmlSwitch',
+      property: {
+        variableId: null,
+        events: [{
+          type: 'click',
+          action: 'onToggleValue',
+          actoptions: {
+            variable: {
+              variableId: 'tag-3',
+              variableRaw: {
+                id: 'tag-3',
+                name: 'Pump',
+                type: 'boolean',
+                value: false,
+                init: '0',
+              },
+              bitmask: null,
+            },
+          },
+        }],
+        actions: [],
+        options: { offValue: 0, onValue: 1, height: 22 },
+      },
+    })
+    expect(result.labelEntry).toMatchObject({
+      id: 'label-3',
+      name: 'tc_3_label',
+    })
+  })
+
+  it('removes only the generated toggle event when changing a Switch to a shape', () => {
+    const existing = {
+      type: 'svg-ext-html_switch',
+      property: {
+        events: [
+          { type: 'click', action: 'onToggleValue' },
+          { type: 'click', action: 'customAction' },
+        ],
+      },
+    }
+    const result = buildComponentEntries(
+      component(),
+      [new TestElement({ id: 'shape-3', type: 'svg-ext-shapes-rectangle' }) as unknown as Element],
+      { shape: existing },
+    )
+
+    expect((existing.property.events[0])).toMatchObject({
+      action: 'onToggleValue',
+    })
+    expect(result.shapeEntries[0]?.property).toMatchObject({
+      events: [{ type: 'click', action: 'customAction' }],
+    })
+  })
+
   it('builds complementary icon pair actions and retains events but not variableId', () => {
     const model = component({
       template: 'icon-pair',

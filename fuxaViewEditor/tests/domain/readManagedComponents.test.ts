@@ -63,6 +63,47 @@ function makeDocument(root: TestElement): XMLDocument {
 }
 
 describe('readManagedComponents', () => {
+  it('restores a managed switch and its click-bound Coil Tag', () => {
+    const root = new TestElement('svg', {}, '', [
+      new TestElement('g', { id: 'switch-shape', type: 'svg-ext-html_switch' }, '', [
+        new TestElement('rect', { id: 'switch-hitbox' }),
+        new TestElement('foreignObject', { id: 'switch-foreign' }),
+      ]),
+      new TestElement('text', { id: 'switch-label' }, 'Pump'),
+    ])
+    const result = readManagedComponents({
+      'switch-shape': {
+        id: 'switch-shape',
+        name: 'tc_3',
+        type: 'svg-ext-html_switch',
+        property: {
+          events: [{
+            type: 'click',
+            action: 'onToggleValue',
+            actoptions: { variable: { variableId: 'coil-tag' } },
+          }],
+        },
+      },
+      'switch-label': {
+        id: 'switch-label',
+        name: 'tc_3_label',
+        type: 'svg-ext-shapes-text',
+      },
+    }, makeDocument(root))
+
+    expect(result.records).toMatchObject([{
+      key: 'loaded-3',
+      seq: 3,
+      tagId: 'coil-tag',
+      label: 'Pump',
+      template: 'switch',
+      shapeId: 'switch-shape',
+      labelId: 'switch-label',
+      shapeInnerIds: ['switch-hitbox', 'switch-foreign'],
+    }])
+    expect(result.consumed).toEqual(new Set(['switch-shape', 'switch-label']))
+  })
+
   it('loads managed shapes and labels, preserving palette and inner SVG IDs', () => {
     const root = new TestElement('svg', {}, '', [
       new TestElement('g', { id: 'shape-2' }, '', [

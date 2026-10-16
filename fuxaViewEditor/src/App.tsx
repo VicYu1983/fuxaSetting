@@ -39,7 +39,7 @@ import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
-import { buildTagIndex } from './domain/tags/index'
+import { buildTagIndex, isCoilTag } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
 import { getIconAssets, getIconLibrary, MAX_MULTI_STATE_COUNT } from './domain/icons/iconLibrary'
 import type { MultiStateIconSet } from './domain/icons/iconLibrary'
@@ -229,6 +229,7 @@ function App() {
   const [batchSearch, setBatchSearch] = useState('')
   const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set())
   const [batchGraphic, setBatchGraphic] = useState('rect')
+  const [batchCoilSwitchEnabled, setBatchCoilSwitchEnabled] = useState(true)
   const [tagCreateDialogOpen, setTagCreateDialogOpen] = useState(false)
   const [tagCreateDeviceId, setTagCreateDeviceId] = useState('')
   const [tagCreateInput, setTagCreateInput] = useState('')
@@ -354,13 +355,16 @@ function App() {
   const filteredBatchTags = useMemo(() => {
     const query = batchSearch.trim().toLocaleLowerCase()
     return tags.filter((tag) => (
-      `${tag.deviceName} ${tag.name} ${tag.type} ${tag.id} ${tag.floor}`
+      `${tag.deviceName} ${tag.name} ${tag.type} ${tag.memaddress} ${tag.id} ${tag.floor}`
         .toLocaleLowerCase()
         .includes(query)
     ))
   }, [batchSearch, tags])
   const selectedBatchCount = filteredBatchTags.filter((tag) => batchSelection.has(tag.id)).length
   const selectedBatchTags = tags.filter((tag) => batchSelection.has(tag.id))
+  const selectedCoilTags = selectedBatchTags.filter(isCoilTag)
+  const selectedCoilSwitchTags = selectedCoilTags.filter((tag) =>
+    ['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))
   const batchCanUseBooleanGraphic = selectedBatchTags.length > 0
     && selectedBatchTags.every((tag) => ['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))
   const tagCreateSpecs = useMemo(() => parseTagBatchInput(tagCreateInput, {
@@ -767,6 +771,14 @@ function App() {
     if (!model) return
     const component = model.components.find((item) => item.key === key)
     if (!component || component.managed === false) return
+    if (component.template === 'switch' && update.tagId) {
+      const tag = tags.find((candidate) => candidate.id === update.tagId)
+      if (!tag || !isCoilTag(tag)
+          || !['bool', 'boolean'].includes(tag.type.toLocaleLowerCase())) {
+        messageApi.warning('Switch 只能綁定 Boolean Coil Tag。')
+        return
+      }
+    }
 
     dispatchEditor({
       type: 'edit',
@@ -900,6 +912,7 @@ function App() {
     setBatchSelection(new Set())
     setBatchSearch('')
     setBatchGraphic('rect')
+    setBatchCoilSwitchEnabled(true)
     setBatchDialogOpen(true)
   }
 
@@ -943,12 +956,19 @@ function App() {
         const createdIds = new Set(result.created.map((tag) => tag.id))
         const createdTags = [...buildTagIndex(result.config).values()]
           .filter((tag) => createdIds.has(tag.id))
+        const coilSwitchTagIds = new Set(createdTags
+          .filter((tag) => isCoilTag(tag)
+            && ['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))
+          .map((tag) => tag.id))
         nextModels.set(selectedView.id, createViewComponents(
           result.config,
           selectedModel,
           nextModels,
           createdTags,
           { Parser: DOMParser, crypto: window.crypto },
+          'rect',
+          [],
+          coilSwitchTagIds,
         ))
         addedToViewCount = createdTags.length
       }
@@ -995,8 +1015,17 @@ function App() {
       messageApi.warning('多狀態圖示組只能套用至 Boolean Tag；請調整選取的 Tag。')
       return
     }
+    if (batchCoilSwitchEnabled
+        && selectedCoilTags.some((tag) =>
+          !['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))) {
+      messageApi.warning('Coil Switch 需要 Boolean Tag；請取消選取型別不符的 Coil Tag，或關閉 Coil Switch 選項。')
+      return
+    }
 
     try {
+      const switchTagIds = batchCoilSwitchEnabled
+        ? new Set(selectedCoilSwitchTags.map((tag) => tag.id))
+        : new Set<string>()
       const nextModels = createViewComponents(
         config.rawConfig,
         selectedModel,
@@ -1005,6 +1034,7 @@ function App() {
         { Parser: DOMParser, crypto: window.crypto },
         batchGraphic,
         iconLibrary,
+        switchTagIds,
       )
       dispatchEditor({
         type: 'edit',
@@ -2511,6 +2541,13 @@ function App() {
           >
             同時將建立的 Tag 作為元件加入目前 View
           </Checkbox>
+          {tagCreateAlsoAddView && tagCreateSpecs.some((spec) =>
+            spec.memaddress.trim() === '000000'
+            && ['bool', 'boolean'].includes(spec.type.toLocaleLowerCase())) && (
+            <Text type="secondary">
+              Boolean Coil Tag 會建立為 Switch，並顯示 Tag 名稱標籤。
+            </Text>
+          )}
         </Space>
       </Modal>
       <Modal
@@ -2654,6 +2691,26 @@ function App() {
           onChange={setBatchGraphic}
           style={{ width: '100%', marginTop: 12 }}
         />
+        {selectedCoilTags.length > 0 && (
+          <Space orientation="vertical" size={4} style={{ marginTop: 12 }}>
+            <Checkbox
+              checked={batchCoilSwitchEnabled}
+              onChange={(event) => setBatchCoilSwitchEnabled(event.target.checked)}
+            >
+              Coil Tag 建立為 Switch，並顯示 Tag 名稱標籤
+            </Checkbox>
+            <Text type="secondary">
+              {batchCoilSwitchEnabled
+                ? `將建立 ${selectedCoilSwitchTags.length} 個 Switch、${selectedBatchTags.length - selectedCoilSwitchTags.length} 個一般元件。`
+                : `將建立 ${selectedBatchTags.length} 個一般元件。`}
+            </Text>
+            {selectedCoilSwitchTags.length < selectedCoilTags.length && (
+              <Text type="warning">
+                非 Boolean 型別的 Coil 不可轉為 Switch。
+              </Text>
+            )}
+          </Space>
+        )}
         {batchGraphic.startsWith('multi:') && (
           <Text type="secondary">
             每筆 Tag 各建立一個元件，並綁定至所選多狀態圖示組的最高優先狀態。
@@ -2697,7 +2754,9 @@ function App() {
               <span className="batch-tag-option">
                 <span>{tag.deviceName} / {tag.name} ({tag.type || '未設定型別'})</span>
                 <Text type="secondary">
-                  {tag.floor || '未設定樓層'} · {tag.id}
+                  {tag.floor || '未設定樓層'} · {tag.memaddress || '未設定區段'}
+                  {isCoilTag(tag) ? ' · Coil' : ''}
+                  {' · '}{tag.id}
                   {usedTagIds.has(tag.id) ? ' · 此 View 已使用' : ''}
                 </Text>
               </span>

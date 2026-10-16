@@ -64,6 +64,7 @@ const tag: IndexedTag = {
   id: 'tag-1',
   name: 'Pump',
   type: 'Bool',
+  memaddress: '400000',
   deviceId: 'device-1',
   deviceName: 'Device',
   floor: '2F',
@@ -168,6 +169,42 @@ describe('createViewComponents', () => {
     expect(groupComponentsByFloor(added, buildTagIndex(config))).toMatchObject([
       { floor: '2F', items: [{ tagId: 'tag-1' }, { tagId: 'tag-2' }] },
     ])
+  })
+
+  it('creates switches only for explicitly selected Coil Tags', () => {
+    const coilTag: IndexedTag = {
+      ...tag,
+      id: 'coil-tag',
+      name: 'Start pump',
+      memaddress: '000000',
+      record: { id: 'coil-tag', name: 'Start pump', type: 'Bool', memaddress: '000000' },
+    }
+    const initial = model()
+    let random = 1
+    const result = createViewComponents(
+      { devices: {}, hmi: { views: [] } },
+      initial,
+      new Map([['view-1', initial]]),
+      [coilTag],
+      {
+        Parser: TestParser,
+        crypto: {
+          getRandomValues(bytes) {
+            bytes.fill(random++)
+            return bytes
+          },
+        },
+      },
+      'rect',
+      [],
+      new Set([coilTag.id]),
+    )
+
+    expect(result.components[0]).toMatchObject({
+      tagId: coilTag.id,
+      label: 'Start pump',
+      template: 'switch',
+    })
   })
 
   it('fails explicitly when any configured SVG cannot be scanned', () => {
