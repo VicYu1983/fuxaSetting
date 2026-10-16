@@ -267,8 +267,7 @@
   margin-bottom: 4px;
 }
 
-.component-order-controls {
-  align-self: flex-start;
+.component-actions {
   flex-shrink: 0;
 }
 
@@ -578,7 +577,7 @@
   min-width: 0;
 }
 
-.component-row-multi > .ant-btn {
+.component-row-multi > .component-actions {
   grid-column: 2;
   grid-row: 1 / span 2;
 }

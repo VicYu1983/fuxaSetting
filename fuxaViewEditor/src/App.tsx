@@ -3154,32 +3154,6 @@ function App() {
                                   }`}
                                   key={component.key}
                                 >
-                                  <Space className="component-order-controls" size={0}>
-                                    <Button
-                                      size="small"
-                                      type="text"
-                                      aria-label={`上移 ${component.label || '元件'}`}
-                                      title="在此樓層上移"
-                                      disabled={index === 0}
-                                      onClick={() => handleMoveComponent(
-                                        selectedView.id,
-                                        component.key,
-                                        -1,
-                                      )}
-                                    >↑</Button>
-                                    <Button
-                                      size="small"
-                                      type="text"
-                                      aria-label={`下移 ${component.label || '元件'}`}
-                                      title="在此樓層下移"
-                                      disabled={index === group.items.length - 1}
-                                      onClick={() => handleMoveComponent(
-                                        selectedView.id,
-                                        component.key,
-                                        1,
-                                      )}
-                                    >↓</Button>
-                                  </Space>
                                   <div className="component-meta">
                                     <Input
                                       aria-label="元件標籤"
@@ -3346,17 +3320,43 @@ function App() {
                                       </Text>
                                     </div>
                                   )}
-                                  <Button
-                                    danger
-                                    type="link"
-                                    onClick={() => {
-                                      if (window.confirm('刪除此元件？匯出時會從 View 的 SVG 和 items 一併移除。')) {
-                                        handleRemoveComponent(selectedView.id, component.key)
-                                      }
-                                    }}
-                                  >
-                                    刪除
-                                  </Button>
+                                  <Space className="component-actions" size={0}>
+                                    <Button
+                                      size="small"
+                                      type="text"
+                                      aria-label={`上移 ${component.label || '元件'}`}
+                                      title="在此樓層上移"
+                                      disabled={index === 0}
+                                      onClick={() => handleMoveComponent(
+                                        selectedView.id,
+                                        component.key,
+                                        -1,
+                                      )}
+                                    >↑</Button>
+                                    <Button
+                                      size="small"
+                                      type="text"
+                                      aria-label={`下移 ${component.label || '元件'}`}
+                                      title="在此樓層下移"
+                                      disabled={index === group.items.length - 1}
+                                      onClick={() => handleMoveComponent(
+                                        selectedView.id,
+                                        component.key,
+                                        1,
+                                      )}
+                                    >↓</Button>
+                                    <Button
+                                      danger
+                                      type="link"
+                                      onClick={() => {
+                                        if (window.confirm('刪除此元件？匯出時會從 View 的 SVG 和 items 一併移除。')) {
+                                          handleRemoveComponent(selectedView.id, component.key)
+                                        }
+                                      }}
+                                    >
+                                      刪除
+                                    </Button>
+                                  </Space>
                                 </div>
                                 ))}
                               </section>
