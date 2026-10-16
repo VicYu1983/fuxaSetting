@@ -42,6 +42,7 @@ import { deleteView, renameView, validateViewName } from './domain/views/viewMan
 import { buildTagIndex } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
 import { getIconAssets, getIconLibrary, MAX_MULTI_STATE_COUNT } from './domain/icons/iconLibrary'
+import type { MultiStateIconSet } from './domain/icons/iconLibrary'
 import { generateId } from './domain/ids'
 import {
   deleteManagedDevice,
@@ -243,6 +244,7 @@ function App() {
   const [floorSelection, setFloorSelection] = useState<Set<string>>(new Set())
   const [bulkFloor, setBulkFloor] = useState('')
   const [iconLibraryOpen, setIconLibraryOpen] = useState(false)
+  const [editingMultiStateIconId, setEditingMultiStateIconId] = useState('')
   const [iconName, setIconName] = useState('')
   const [iconType, setIconType] = useState<'single' | 'pair' | 'multi-state'>('single')
   const [singleIconFile, setSingleIconFile] = useState<File | null>(null)
@@ -297,6 +299,8 @@ function App() {
     () => config ? getIconLibrary(config.rawConfig) : [],
     [config],
   )
+  const editingMultiStateIcon = iconLibrary.find((icon): icon is MultiStateIconSet =>
+    icon.type === 'multi-state' && icon.id === editingMultiStateIconId)
   const modbusDevices = useMemo(() => (
     config
       ? Object.entries(config.rawConfig.devices)
@@ -1979,7 +1983,19 @@ function App() {
                     key={icon.id}
                     size="small"
                     title={icon.name}
-                    extra={<Button danger size="small" onClick={() => handleRemoveIcon(icon.id)}>刪除</Button>}
+                    extra={(
+                      <Space size="small">
+                        {icon.type === 'multi-state' && (
+                          <Button
+                            size="small"
+                            onClick={() => setEditingMultiStateIconId(icon.id)}
+                          >
+                            修改
+                          </Button>
+                        )}
+                        <Button danger size="small" onClick={() => handleRemoveIcon(icon.id)}>刪除</Button>
+                      </Space>
+                    )}
                   >
                     <Space wrap>
                       {assets.map((asset, index) => (
@@ -1995,75 +2011,6 @@ function App() {
                         </Space>
                       ))}
                     </Space>
-                    {icon.type === 'multi-state' && (
-                      <Space orientation="vertical" className="multi-state-library-order">
-                        <Text strong>狀態優先順序（第一項最高）</Text>
-                        {icon.states.map((state, index) => (
-                          <Space key={state.key} wrap>
-                            <Text>{index + 1}. {state.name}</Text>
-                            <Button
-                              aria-label={`${state.name} 狀態上移`}
-                              disabled={index === 0}
-                              onClick={() => handleMoveMultiStateIconState(icon.id, state.key, -1)}
-                            >
-                              上移
-                            </Button>
-                            <Button
-                              aria-label={`${state.name} 狀態下移`}
-                              disabled={index === icon.states.length - 1}
-                              onClick={() => handleMoveMultiStateIconState(icon.id, state.key, 1)}
-                            >
-                              下移
-                            </Button>
-                            <Button
-                              danger
-                              disabled={icon.states.length <= 1}
-                              onClick={() => handleRemoveMultiStateIconState(icon.id, state.key)}
-                            >
-                              刪除狀態
-                            </Button>
-                          </Space>
-                        ))}
-                        {icon.states.length < MAX_MULTI_STATE_COUNT && (
-                          <Space wrap>
-                            <Input
-                              aria-label={`${icon.name} 新增狀態名稱`}
-                              placeholder="新增狀態名稱"
-                              maxLength={80}
-                              value={multiStateAddDrafts[icon.id]?.name ?? ''}
-                              onChange={(event) => setMultiStateAddDrafts((current) => ({
-                                ...current,
-                                [icon.id]: {
-                                  name: event.target.value,
-                                  file: current[icon.id]?.file ?? null,
-                                },
-                              }))}
-                            />
-                            <label className="icon-file-field">
-                              狀態圖片
-                              <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/gif"
-                                onChange={(event) => setMultiStateAddDrafts((current) => ({
-                                  ...current,
-                                  [icon.id]: {
-                                    name: current[icon.id]?.name ?? '',
-                                    file: event.target.files?.[0] ?? null,
-                                  },
-                                }))}
-                              />
-                            </label>
-                            <Button
-                              disabled={!multiStateAddDrafts[icon.id]?.name.trim()
-                                || !multiStateAddDrafts[icon.id]?.file}
-                              onClick={() => void handleAddMultiStateIconState(icon.id)}
-                            >
-                              新增狀態
-                            </Button>
-                          </Space>
-                        )}
-                      </Space>
-                    )}
                   </Card>
                 )
               })}
@@ -2072,6 +2019,95 @@ function App() {
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="圖示庫目前沒有項目。" />
           )}
         </Space>
+      </Modal>
+      <Modal
+        open={Boolean(editingMultiStateIcon)}
+        title={editingMultiStateIcon ? `修改多狀態圖示組：${editingMultiStateIcon.name}` : '修改多狀態圖示組'}
+        footer={null}
+        onCancel={() => setEditingMultiStateIconId('')}
+        width={640}
+        destroyOnHidden
+      >
+        {editingMultiStateIcon && (
+          <Space orientation="vertical" size="middle" className="multi-state-library-order">
+            <Text strong>狀態優先順序（第一項最高）</Text>
+            {editingMultiStateIcon.states.map((state, index) => (
+              <Space key={state.key} wrap>
+                <Text>{index + 1}. {state.name}</Text>
+                <Button
+                  aria-label={`${state.name} 狀態上移`}
+                  disabled={index === 0}
+                  onClick={() => handleMoveMultiStateIconState(
+                    editingMultiStateIcon.id,
+                    state.key,
+                    -1,
+                  )}
+                >
+                  上移
+                </Button>
+                <Button
+                  aria-label={`${state.name} 狀態下移`}
+                  disabled={index === editingMultiStateIcon.states.length - 1}
+                  onClick={() => handleMoveMultiStateIconState(
+                    editingMultiStateIcon.id,
+                    state.key,
+                    1,
+                  )}
+                >
+                  下移
+                </Button>
+                <Button
+                  danger
+                  disabled={editingMultiStateIcon.states.length <= 1}
+                  onClick={() => handleRemoveMultiStateIconState(
+                    editingMultiStateIcon.id,
+                    state.key,
+                  )}
+                >
+                  刪除狀態
+                </Button>
+              </Space>
+            ))}
+            {editingMultiStateIcon.states.length < MAX_MULTI_STATE_COUNT && (
+              <Space wrap>
+                <Input
+                  aria-label={`${editingMultiStateIcon.name} 新增狀態名稱`}
+                  placeholder="新增狀態名稱"
+                  maxLength={80}
+                  value={multiStateAddDrafts[editingMultiStateIcon.id]?.name ?? ''}
+                  onChange={(event) => setMultiStateAddDrafts((current) => ({
+                    ...current,
+                    [editingMultiStateIcon.id]: {
+                      name: event.target.value,
+                      file: current[editingMultiStateIcon.id]?.file ?? null,
+                    },
+                  }))}
+                />
+                <label className="icon-file-field">
+                  狀態圖片
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif"
+                    onChange={(event) => setMultiStateAddDrafts((current) => ({
+                      ...current,
+                      [editingMultiStateIcon.id]: {
+                        name: current[editingMultiStateIcon.id]?.name ?? '',
+                        file: event.target.files?.[0] ?? null,
+                      },
+                    }))}
+                  />
+                </label>
+                <Button
+                  disabled={!multiStateAddDrafts[editingMultiStateIcon.id]?.name.trim()
+                    || !multiStateAddDrafts[editingMultiStateIcon.id]?.file}
+                  onClick={() => void handleAddMultiStateIconState(editingMultiStateIcon.id)}
+                >
+                  新增狀態
+                </Button>
+              </Space>
+            )}
+          </Space>
+        )}
       </Modal>
       <Modal
         open={deviceManagerOpen}
