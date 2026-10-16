@@ -7,8 +7,10 @@ import type { RandomValuesProvider } from '../../domain/ids'
 import { parseSvg } from '../../domain/svg/parseSvg'
 import type { SvgParserConstructor } from '../../domain/svg/parseSvg'
 import { sanitizePreview } from '../../domain/svg/sanitizePreview'
+import { findSvgLayer } from '../../domain/svg/findSvgLayer'
 import { buildTagIndex } from '../../domain/tags/index'
 import { isRecord } from '../../domain/config/validateFuxaConfig'
+import { drawPreviewSwitchArtwork } from './drawPreviewSwitchArtwork'
 
 export interface ViewPreview {
   width: number
@@ -68,11 +70,13 @@ export function prepareViewPreview(
   const view = structuredClone(matches[0]!)
   const previewModels = structuredClone([...models])
   const model = previewModels.find((item) => item.viewId === viewId)
+  let previewLayout: ReturnType<typeof layoutFloorComponents> | undefined
   let outsideCanvas = false
   if (model) {
     const tags = buildTagIndex(config)
     const frame = getFloorGroupFrameSettings(config)
     const layout = layoutFloorComponents(model.components, model.grid, tags, frame)
+    previewLayout = layout
     const profile = isRecord(view.profile) ? view.profile : {}
     outsideCanvas = layoutExceedsCanvas(
       layout,
@@ -89,6 +93,11 @@ export function prepareViewPreview(
     throw new Error('View 缺少有效的 SVG 內容。')
   }
   const doc = parseSvg(view.svgcontent, runtime.Parser)
+  if (previewLayout) {
+    const layer = findSvgLayer(doc)
+    if (!layer) throw new Error(`View「${view.name || view.id}」找不到可顯示 Switch 預覽的 SVG 圖層。`)
+    drawPreviewSwitchArtwork(layer, previewLayout.placements)
+  }
   for (const node of Array.from(doc.getElementsByTagName('*'))) {
     if (node.getAttribute('data-fuxa-icon-set-id')
         && node.getAttribute('data-fuxa-state-key') !== 'normal') {
