@@ -272,13 +272,23 @@ function buildShapeNode(
   return group
 }
 
+function withSwitchPrefix(id: string | undefined, prefix: string): string {
+  const current = id ?? ''
+  return current.startsWith(prefix) ? current : `${prefix}${current.replace(/^[A-Za-z]+_/, '')}`
+}
+
 function buildSwitchNode(
   doc: XMLDocument,
   component: SvgComponent,
   placement: ComponentPlacement,
   allocateId: SvgIdAllocator,
 ): Element {
-  const [hitboxId, foreignObjectId, htmlLabelId] = allocateInnerIds(component, 3, allocateId)
+  const [hitboxId, rawForeignObjectId, rawHtmlLabelId] = allocateInnerIds(component, 3, allocateId)
+  // FUXA 以 id 前綴 "T-HXT_" 尋找並掛載 ngx-switch，前綴不符則開關不會被初始化而無法點擊
+  const foreignObjectId = withSwitchPrefix(rawForeignObjectId, 'H-HXT_')
+  const htmlLabelId = withSwitchPrefix(rawHtmlLabelId, 'T-HXT_')
+  component.shapeInnerIds[1] = foreignObjectId
+  component.shapeInnerIds[2] = htmlLabelId
   const { x, y } = placement.shape
   const group = createSvgNode(doc, 'g', {
     'data-name': `tc_${component.seq}`,

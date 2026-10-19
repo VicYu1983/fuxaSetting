@@ -194,7 +194,8 @@ describe('buildComponentNodes', () => {
     expect(foreignObject?.children[0]?.namespaceURI).toBe('http://www.w3.org/2000/svg')
     expect(foreignObject?.children[0]?.children[0]?.namespaceURI)
       .toBe('http://www.w3.org/2000/svg')
-    expect(model.shapeInnerIds).toEqual(['SHE-hitbox', 'SHE-foreign', 'SHE-html-label'])
+    expect(model.shapeInnerIds).toEqual(['SHE-hitbox', 'H-HXT_SHE-foreign', 'T-HXT_SHE-html-label'])
+    expect(foreignObject?.children[0]?.attributes.id).toBe('T-HXT_SHE-html-label')
     expect(result.labelNode.textContent).toBe('Pump')
   })
 
