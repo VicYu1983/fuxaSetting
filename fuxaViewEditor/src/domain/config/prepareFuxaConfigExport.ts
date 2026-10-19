@@ -53,6 +53,24 @@ export interface PreparedFuxaConfigExport {
   models: readonly ExportViewModel[]
 }
 
+// 舊版輸出的 Switch 內層 id 為 SHE_，FUXA 無法掛載開關元件，需重建
+export function findLegacySwitchViewIds(
+  models: readonly ExportViewModel[],
+): Set<string> {
+  const ids = new Set<string>()
+  for (const model of models) {
+    const legacy = model.components.some((component) =>
+      component.managed !== false
+      && component.template === 'switch'
+      && !(component.shapeInnerIds?.[1] ?? '').startsWith('H-HXT_')
+      || component.managed !== false
+      && component.template === 'switch'
+      && !(component.shapeInnerIds?.[2] ?? '').startsWith('T-HXT_'))
+    if (legacy) ids.add(model.viewId)
+  }
+  return ids
+}
+
 function viewsById(config: FuxaConfig, viewId: string): Record<string, unknown>[] {
   if (!Array.isArray(config.hmi.views)) return []
   return config.hmi.views.filter(
@@ -81,7 +99,7 @@ export function prepareFuxaConfigExport(
   input: PrepareFuxaConfigExportInput,
   dependencies: PrepareFuxaConfigExportDependencies = {},
 ): PreparedFuxaConfigExport {
-  if (!input.dirty) {
+  if (!input.dirty && findLegacySwitchViewIds(input.models ?? []).size === 0) {
     return {
       config: input.config,
       text: input.originalText,
@@ -106,7 +124,10 @@ export function prepareFuxaConfigExport(
     isRecord(view) && typeof view.id === 'string' ? [view.id] : [],
   )
 
-  const requestedViewIds = input.modifiedViewIds ?? new Set<string>()
+  const requestedViewIds = new Set([
+    ...(input.modifiedViewIds ?? []),
+    ...findLegacySwitchViewIds(models),
+  ])
   for (const viewId of requestedViewIds) {
     const model = models.find((candidate) => candidate.viewId === viewId)
     if (!model) {

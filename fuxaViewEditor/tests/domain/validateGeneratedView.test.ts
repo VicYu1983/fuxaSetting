@@ -256,7 +256,9 @@ describe('validateGeneratedView', () => {
     const shape = doc.documentElement.children[0]?.children[0]
     if (!shape) throw new Error('Missing test shape')
     shape.attributes.type = 'svg-ext-html_switch'
-    shape.appendChild(new TestElement('foreignObject', { width: '50', height: '28' }))
+    const foreignObject = new TestElement('foreignObject', { id: 'H-HXT_a', width: '50', height: '28' })
+    foreignObject.appendChild(new TestElement('LABEL', { id: 'T-HXT_b' }))
+    shape.appendChild(foreignObject)
 
     const model = makeModel([{ ...managedComponent(), template: 'switch' }])
     const items = validItems()

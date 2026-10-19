@@ -220,6 +220,8 @@ function validateManagedComponent(
         || !tag || String(tag.memaddress ?? '').trim() !== '000000'
         || !['bool', 'boolean'].includes(String(tag.type ?? '').toLocaleLowerCase())
         || !foreignObject
+        || !(foreignObject.getAttribute('id') ?? '').startsWith('H-HXT_')
+        || !(foreignObject.children[0]?.getAttribute('id') ?? '').startsWith('T-HXT_')
         || foreignObject.getAttribute('width') !== '50'
         || foreignObject.getAttribute('height') !== '28') {
       throw new Error(`元件「${component.label || component.shapeId}」的 Coil Switch 或 click Tag 綁定不正確。`)

@@ -36,7 +36,7 @@ import {
 } from './domain/config/parseFuxaConfig'
 import { createEmptyFuxaConfig } from './domain/config/createEmptyFuxaConfig'
 import { projectFileName } from './domain/config/serialization'
-import { prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
+import { findLegacySwitchViewIds, prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
@@ -552,7 +552,8 @@ function App() {
 
     try {
       const outputFileName = projectFileName(projectName)
-      const dependencies = isDirty
+      const exportDirty = isDirty || findLegacySwitchViewIds([...models.values()]).size > 0
+      const dependencies = exportDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
           Parser: DOMParser,
           serialize: (doc) => new XMLSerializer().serializeToString(doc),
@@ -563,7 +564,7 @@ function App() {
         config: config.rawConfig,
         originalText: config.originalText,
         sourceFormat: config.sourceFormat,
-        dirty: isDirty,
+        dirty: exportDirty,
         models: [...models.values()],
         modifiedViewIds,
         tags: buildTagIndex(config.rawConfig),
