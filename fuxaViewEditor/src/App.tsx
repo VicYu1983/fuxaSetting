@@ -40,7 +40,7 @@ import { findLegacySwitchViewIds, prepareFuxaConfigExport } from './domain/confi
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
-import { buildTagIndex, isCoilTag } from './domain/tags/index'
+import { buildTagIndex, isAutoFilledTag, isCoilTag } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
 import { getIconAssets, getIconLibrary, MAX_MULTI_STATE_COUNT } from './domain/icons/iconLibrary'
 import type { MultiStateIconSet } from './domain/icons/iconLibrary'
@@ -375,16 +375,17 @@ function App() {
   const addressFillError = addressFillState && 'error' in addressFillState
     ? addressFillState.error
     : null
+  const batchableTags = useMemo(() => tags.filter((tag) => !isAutoFilledTag(tag)), [tags])
   const filteredBatchTags = useMemo(() => {
     const query = batchSearch.trim().toLocaleLowerCase()
-    return tags.filter((tag) => (
+    return batchableTags.filter((tag) => (
       `${tag.deviceName} ${tag.name} ${tag.type} ${tag.memaddress} ${tag.id} ${tag.floor}`
         .toLocaleLowerCase()
         .includes(query)
     ))
-  }, [batchSearch, tags])
+  }, [batchSearch, batchableTags])
   const selectedBatchCount = filteredBatchTags.filter((tag) => batchSelection.has(tag.id)).length
-  const selectedBatchTags = tags.filter((tag) => batchSelection.has(tag.id))
+  const selectedBatchTags = batchableTags.filter((tag) => batchSelection.has(tag.id))
   const selectedCoilTags = selectedBatchTags.filter(isCoilTag)
   const selectedCoilSwitchTags = selectedCoilTags.filter((tag) =>
     ['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))
@@ -2290,7 +2291,7 @@ function App() {
             新增 ModbusTCP 設備
           </Button>
           <Button
-            disabled={!selectedModel || tags.length === 0}
+            disabled={!selectedModel || batchableTags.length === 0}
             onClick={() => {
               setDeviceManagerOpen(false)
               openBatchDialog()
@@ -2836,7 +2837,7 @@ function App() {
             全選目前搜尋結果
           </Checkbox>
           <Text type="secondary">
-            已選 {batchSelection.size} 筆 / {tags.length} 筆
+            已選 {batchSelection.size} 筆 / {batchableTags.length} 筆
           </Text>
         </div>
         <div className="batch-tag-list" role="group" aria-label="可加入的 Tag">

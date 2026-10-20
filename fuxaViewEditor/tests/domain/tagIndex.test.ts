@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FuxaConfig } from '../../src/domain/config/types'
-import { buildTagIndex } from '../../src/domain/tags'
+import { buildTagIndex, isAutoFilledTag } from '../../src/domain/tags'
 
 describe('buildTagIndex', () => {
   it('indexes tags by id and carries normalized floor and device metadata', () => {
@@ -61,5 +61,23 @@ describe('buildTagIndex', () => {
       hmi: { views: [] },
     }
     expect(buildTagIndex(config).get('same')?.name).toBe('second')
+  })
+
+  it('identifies generated Modbus address-fill tags by their description marker', () => {
+    const config: FuxaConfig = {
+      devices: {
+        device: {
+          tags: {
+            generated: { id: 'generated', description: '自動補位點位' },
+            regular: { id: 'regular', name: '補位_12', description: '一般點位' },
+          },
+        },
+      },
+      hmi: { views: [] },
+    }
+    const tags = buildTagIndex(config)
+
+    expect(isAutoFilledTag(tags.get('generated')!)).toBe(true)
+    expect(isAutoFilledTag(tags.get('regular')!)).toBe(false)
   })
 })

@@ -17,6 +17,10 @@ export function isCoilTag(tag: IndexedTag): boolean {
   return tag.memaddress.trim() === '000000'
 }
 
+export function isAutoFilledTag(tag: IndexedTag): boolean {
+  return tag.record.description === '自動補位點位'
+}
+
 export function buildTagIndex(config: FuxaConfig): Map<string, IndexedTag> {
   const index = new Map<string, IndexedTag>()
   for (const [deviceId, device] of Object.entries(config.devices)) {
