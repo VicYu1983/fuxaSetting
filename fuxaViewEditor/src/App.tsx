@@ -430,7 +430,7 @@ function App() {
   const filteredFloorTags = useMemo(() => {
     const query = floorSearch.trim().toLocaleLowerCase()
     return tags.filter((tag) => (
-      `${tag.deviceName} ${tag.name} ${tag.floor} ${tag.type} ${tag.id}`
+      `${tag.deviceName} ${tag.name} ${tag.floor} ${tag.type} ${tag.id} ${String(tag.record.address ?? '')}`
         .toLocaleLowerCase()
         .includes(query)
     ))
@@ -2739,6 +2739,13 @@ function App() {
                   <span className="floor-tag-name" title={tag.name}>{tag.name}</span>
                   <Text className="floor-tag-device" type="secondary" title={tag.deviceName}>
                     {tag.deviceName}
+                  </Text>
+                  <Text
+                    className="floor-tag-address"
+                    type="secondary"
+                    title={`Address: ${String(tag.record.address ?? '未設定')}`}
+                  >
+                    Address: {String(tag.record.address ?? '未設定')}
                   </Text>
                   <Input
                     aria-label={`${tag.name} 的樓層`}

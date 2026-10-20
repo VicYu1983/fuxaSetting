@@ -501,12 +501,13 @@
   align-items: center;
   display: grid;
   gap: 12px;
-  grid-template-columns: 28px minmax(100px, 1fr) minmax(120px, 0.8fr) minmax(150px, 0.8fr);
+  grid-template-columns: 28px minmax(100px, 1fr) minmax(120px, 0.8fr) minmax(100px, 0.6fr) minmax(150px, 0.8fr);
   padding: 6px 0;
 }
 
 .floor-tag-name,
-.floor-tag-device {
+.floor-tag-device,
+.floor-tag-address {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -527,7 +528,7 @@
 
   .floor-tag-row {
     gap: 6px;
-    grid-template-columns: 28px minmax(90px, 1fr) minmax(120px, 0.8fr);
+    grid-template-columns: 28px minmax(90px, 1fr) minmax(110px, 0.8fr);
   }
 
   .floor-tag-device {
