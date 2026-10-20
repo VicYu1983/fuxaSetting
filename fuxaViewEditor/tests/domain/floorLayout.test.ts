@@ -92,8 +92,10 @@ describe('Floor layout', () => {
     expect(result.sections.map((section) => section.title)).toEqual(['B1F', '1F'])
     expect(result.sections[1]?.entries.map(({ component }) => component.tagId)).toEqual(['a', 'b'])
     expect(result.sections[0]?.entries[0]?.placement.shape.x).toBe(10)
-    expect(result.sections[0]?.frame.x)
-      .toBeLessThan(result.sections[0]?.entries[0]?.placement.shape.x ?? 0)
+    expect(result.sections[0]?.frame.x).toBe(10)
+    expect(
+      (result.sections[0]?.frame.x ?? 0) + (result.sections[0]?.frame.width ?? 0),
+    ).toBe(1024 - 10)
     expect(result.sections[0]?.frame.y)
       .toBeLessThan(result.sections[0]?.titleY ?? 0)
     expect(result.sections[1]?.frame.y)
@@ -151,5 +153,22 @@ describe('Floor layout', () => {
     }], DEFAULT_GRID, new Map([['tag-a', { floor: '1F' }]]), frameSettings)
 
     expect(result.sections[0]?.frame.x).toBeLessThan(DEFAULT_GRID.originX - 15)
+  })
+
+  it('aligns every floor frame to the canvas edges with a 10px inset', () => {
+    const result = layoutFloorComponents([
+      { key: 'short', tagId: 'tag-a', template: 'rect', label: 'A' },
+      { key: 'long', tagId: 'tag-b', template: 'rect', label: 'A much longer label' },
+    ], {
+      ...DEFAULT_GRID,
+      originX: 120,
+    }, new Map([
+      ['tag-a', { floor: '1F' }],
+      ['tag-b', { floor: '2F' }],
+    ]), DEFAULT_FLOOR_GROUP_FRAME, 800)
+
+    expect(result.sections).toHaveLength(2)
+    expect(result.sections.map(({ frame }) => frame.x)).toEqual([10, 10])
+    expect(result.sections.map(({ frame }) => frame.width)).toEqual([780, 780])
   })
 })

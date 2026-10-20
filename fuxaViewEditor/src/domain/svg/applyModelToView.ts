@@ -1,6 +1,6 @@
 import type { FloorGroupFrameSettings, GridSettings } from '../config/types'
 import type { FloorTag, FloorLayoutComponent } from '../layout/floorLayout'
-import { layoutFloorComponents } from '../layout/floorLayout'
+import { getCanvasWidth, layoutFloorComponents } from '../layout/floorLayout'
 import { applyExistingTagLayout } from './applyExistingTagLayout'
 import { buildComponentEntries } from './buildComponentEntries'
 import { buildComponentNodes } from './buildComponentNodes'
@@ -36,6 +36,7 @@ export interface ApplyModelComponent extends FloorLayoutComponent {
 export interface ApplyModelView {
   id: string
   name?: string
+  profile?: unknown
   svgcontent: string
   items: Record<string, unknown>
 }
@@ -176,6 +177,7 @@ function applyModelToViewInPlace(
     model.grid,
     options.tags,
     options.floorGroupFrame,
+    getCanvasWidth(view.profile),
   )
 
   for (const section of layout.sections) {

@@ -2160,7 +2160,9 @@ function App() {
         onOk={() => floorFrameForm.submit()}
         destroyOnHidden
       >
-        <Text type="secondary">設定會套用至所有 View 的樓層 Group 底框，並可使用 Undo/Redo 還原。</Text>
+        <Text type="secondary">
+          設定會套用至所有 View 的樓層 Group 底框；左右固定內縮 10px，上下可調整內距，並可使用 Undo/Redo 還原。
+        </Text>
         <Form
           form={floorFrameForm}
           layout="vertical"
@@ -2202,7 +2204,7 @@ function App() {
             <InputNumber min={0} max={100} step={1} />
           </Form.Item>
           <Form.Item
-            label="內距"
+            label="上下內距"
             name="padding"
             rules={[
               { required: true, type: 'number', min: 0, max: 200, message: '請輸入 0–200。' },

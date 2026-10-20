@@ -1,7 +1,7 @@
 import { isRecord } from '../config/validateFuxaConfig'
 import type { FloorGroupFrameSettings, GridSettings } from '../config/types'
 import type { FloorTag, FloorLayoutComponent } from '../layout/floorLayout'
-import { layoutFloorComponents } from '../layout/floorLayout'
+import { getCanvasWidth, layoutFloorComponents } from '../layout/floorLayout'
 import { findSvgElementById, parseSvg } from './parseSvg'
 import type { SvgParserConstructor } from './parseSvg'
 import { existingTagTransform } from './existingTagTransform'
@@ -46,6 +46,7 @@ export interface GeneratedViewModel {
 export interface GeneratedView {
   id: string
   name?: string
+  profile?: unknown
   svgcontent: string
   items: unknown
 }
@@ -433,6 +434,7 @@ export function validateGeneratedView(
     model.grid,
     options.tags,
     model.floorGroupFrame,
+    getCanvasWidth(view.profile),
   )
   for (const component of model.components) {
     if (component.managed === false) {

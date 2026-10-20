@@ -1,4 +1,5 @@
 import type { FloorGroupFrameSettings, GridSettings } from '../config/types'
+import { isRecord } from '../config/validateFuxaConfig'
 import { compareFloors, normalizeFloor } from '../tags/floor'
 import type { ComponentPlacement, LayoutComponent } from './gridLayout'
 import { getSvgTextBounds, layoutComponents, measureSvgText } from './gridLayout'
@@ -64,6 +65,15 @@ export interface ComponentFloorGroup {
   items: FloorLayoutComponent[]
 }
 
+export function getCanvasWidth(profile: unknown): number {
+  return isRecord(profile)
+      && typeof profile.width === 'number'
+      && Number.isFinite(profile.width)
+      && profile.width > 0
+    ? profile.width
+    : 1024
+}
+
 function tagFor(
   tags: Map<string, FloorTag> | Record<string, FloorTag>,
   tagId: string,
@@ -96,6 +106,7 @@ export function layoutFloorComponents(
   settings: Partial<GridSettings>,
   tags: Map<string, FloorTag> | Record<string, FloorTag>,
   frameSettings: Partial<FloorGroupFrameSettings> = DEFAULT_FLOOR_GROUP_FRAME,
+  canvasWidth = 1024,
 ): FloorLayoutResult {
   const grid = { ...DEFAULT_GRID, ...settings }
   const frame = normalizeFloorGroupFrameSettings(frameSettings)
@@ -164,10 +175,14 @@ export function layoutFloorComponents(
       bounds.bottom = Math.max(bounds.bottom, labelBounds.bottom)
     }
 
+    const safeCanvasWidth = Number.isFinite(canvasWidth) && canvasWidth > 0
+      ? canvasWidth
+      : 1024
+    const horizontalInset = Math.min(10, safeCanvasWidth / 2)
     const sectionFrame: Bounds = {
-      x: bounds.left - frame.padding,
+      x: horizontalInset,
       y: bounds.top - frame.padding,
-      width: bounds.right - bounds.left + frame.padding * 2,
+      width: safeCanvasWidth - horizontalInset * 2,
       height: bounds.bottom - bounds.top + frame.padding * 2,
     }
     sections.push({

@@ -196,6 +196,7 @@ describe('applyModelToView', () => {
       'label-1': { id: 'label-1', customLabelField: true },
       'user-item': { id: 'user-item', name: 'unmanaged' },
     })
+    currentView.profile = { width: 800 }
     const currentModel = model([managedComponent])
     currentModel.originalComponents = [managedComponent]
 
@@ -223,6 +224,11 @@ describe('applyModelToView', () => {
       'fuxa_floor_section_title',
     )
     expect(layer.children.some((node) => node.getAttribute('id') === 'shape-1')).toBe(true)
+    const floorFrameNode = layer.children.find(
+      (node) => node.getAttribute('data-name') === 'fuxa_floor_section_frame',
+    )
+    expect(floorFrameNode?.children[0]?.getAttribute('x')).toBe('10')
+    expect(floorFrameNode?.children[0]?.getAttribute('width')).toBe('780')
   })
 
   it('declares XLink namespace for icon-based components', () => {

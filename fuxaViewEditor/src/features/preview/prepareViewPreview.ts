@@ -2,7 +2,7 @@ import type { FuxaConfig } from '../../domain/config/types'
 import { createFuxaConfigExportDependencies } from '../../domain/config/fuxaConfigExportDependencies'
 import type { ExportViewModel } from '../../domain/config/prepareFuxaConfigExport'
 import { getFloorGroupFrameSettings } from '../../domain/layout/floorGroupFrame'
-import { layoutFloorComponents } from '../../domain/layout/floorLayout'
+import { getCanvasWidth, layoutFloorComponents } from '../../domain/layout/floorLayout'
 import type { RandomValuesProvider } from '../../domain/ids'
 import { parseSvg } from '../../domain/svg/parseSvg'
 import type { SvgParserConstructor } from '../../domain/svg/parseSvg'
@@ -75,13 +75,21 @@ export function prepareViewPreview(
   if (model) {
     const tags = buildTagIndex(config)
     const frame = getFloorGroupFrameSettings(config)
-    const layout = layoutFloorComponents(model.components, model.grid, tags, frame)
-    previewLayout = layout
     const profile = isRecord(view.profile) ? view.profile : {}
+    const width = dimension(profile.width, 1024)
+    const height = dimension(profile.height, 768)
+    const layout = layoutFloorComponents(
+      model.components,
+      model.grid,
+      tags,
+      frame,
+      getCanvasWidth(profile),
+    )
+    previewLayout = layout
     outsideCanvas = layoutExceedsCanvas(
       layout,
-      dimension(profile.width, 1024),
-      dimension(profile.height, 768),
+      width,
+      height,
     )
 
     const dependencies = createFuxaConfigExportDependencies(config, runtime)
