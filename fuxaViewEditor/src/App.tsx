@@ -240,6 +240,8 @@ function App() {
     componentKey: string
   } | null>(null)
   const [componentMoveTargetId, setComponentMoveTargetId] = useState('')
+  const [batchMoveDialogOpen, setBatchMoveDialogOpen] = useState(false)
+  const [batchMoveSelection, setBatchMoveSelection] = useState<Set<string>>(new Set())
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
   const [batchSearch, setBatchSearch] = useState('')
   const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set())
@@ -822,57 +824,90 @@ function App() {
     setComponentMoveTargetId(targetView.id || targetView.key)
   }
 
-  function handleMoveComponentToView() {
-    if (!config || !componentMoveSource || !componentMoveTargetId) return
-    const { viewId: sourceViewId, componentKey } = componentMoveSource
-    const sourceModel = models.get(sourceViewId)
-    const targetModel = models.get(componentMoveTargetId)
-    if (!sourceModel || !targetModel || sourceViewId === componentMoveTargetId) {
-      messageApi.error('來源或目標 View 不可編輯，無法移動元件。')
+  function openBatchMoveDialog(viewId: string) {
+    const targetView = config?.views.find((view) => {
+      const id = view.id || view.key
+      return id !== viewId && models.has(id)
+    })
+    if (!targetView) {
+      messageApi.info('沒有其他可編輯的 View 可移動元件。')
       return
     }
-    const component = sourceModel.components.find((item) =>
-      item.key === componentKey && item.managed !== false)
-    if (!component) {
-      messageApi.error('找不到要移動的受管理元件。')
-      return
+    setBatchMoveSelection(new Set())
+    setComponentMoveTargetId(targetView.id || targetView.key)
+    setBatchMoveDialogOpen(true)
+  }
+
+  function moveComponentsToView(
+    sourceViewId: string,
+    componentKeys: readonly string[],
+    targetViewId: string,
+  ): boolean {
+    if (!config || !componentKeys.length || !targetViewId) return false
+    const sourceModel = models.get(sourceViewId)
+    const targetModel = models.get(targetViewId)
+    if (!sourceModel || !targetModel || sourceViewId === targetViewId) {
+      messageApi.error('來源或目標 View 不可編輯，無法移動元件。')
+      return false
+    }
+    const keySet = new Set(componentKeys)
+    const components = sourceModel.components.filter((item) =>
+      keySet.has(item.key) && item.managed !== false)
+    if (components.length !== keySet.size) {
+      messageApi.error('部分選取項目已不存在或不是可移動的受管理元件。')
+      return false
     }
 
     const usedKeys = new Set(
       [...models.values()].flatMap((model) => model.components.map((item) => item.key)),
     )
-    const movedComponent = {
+    let sequence = targetModel.components.reduce((maximum, item) => {
+      if (item.managed === false || !Number.isSafeInteger(item.seq)) return maximum
+      return Math.max(maximum, item.seq ?? 0)
+    }, 0)
+    const movedComponents = components.map((component) => ({
       ...component,
       key: `moved-${generateId('component', usedKeys, window.crypto)}`,
-      seq: targetModel.components.reduce((maximum, item) => {
-        if (item.managed === false || !Number.isSafeInteger(item.seq)) return maximum
-        return Math.max(maximum, item.seq ?? 0)
-      }, 0) + 1,
-    }
+      seq: ++sequence,
+    }))
     const nextModels = new Map(models)
     nextModels.set(sourceViewId, {
       ...sourceModel,
-      components: sourceModel.components.filter((item) => item.key !== componentKey),
+      components: sourceModel.components.filter((item) => !keySet.has(item.key)),
     })
-    nextModels.set(componentMoveTargetId, {
+    nextModels.set(targetViewId, {
       ...targetModel,
-      components: [...targetModel.components, movedComponent],
+      components: [...targetModel.components, ...movedComponents],
     })
     const nextModifiedViewIds = new Set(modifiedViewIds)
     nextModifiedViewIds.add(sourceViewId)
-    nextModifiedViewIds.add(componentMoveTargetId)
+    nextModifiedViewIds.add(targetViewId)
     dispatchEditor({
       type: 'document-edit',
       document: config,
       models: nextModels,
       modifiedViewIds: nextModifiedViewIds,
     })
-    setSelectedViewId(componentMoveTargetId)
-    setComponentMoveSource(null)
-    setComponentMoveTargetId('')
+    setSelectedViewId(targetViewId)
     const targetName = config.views.find((view) =>
-      (view.id || view.key) === componentMoveTargetId)?.name || componentMoveTargetId
-    messageApi.success(`已將「${component.label || '元件'}」移動至 View「${targetName}」。`)
+      (view.id || view.key) === targetViewId)?.name || targetViewId
+    messageApi.success(`已將 ${components.length} 個元件移動至 View「${targetName}」。`)
+    return true
+  }
+
+  function handleMoveComponentToView() {
+    if (!config || !componentMoveSource || !componentMoveTargetId) return
+    const { viewId: sourceViewId, componentKey } = componentMoveSource
+    const component = models.get(sourceViewId)?.components.find((item) =>
+      item.key === componentKey && item.managed !== false)
+    if (!component) {
+      messageApi.error('找不到要移動的受管理元件。')
+      return
+    }
+    if (moveComponentsToView(sourceViewId, [componentKey], componentMoveTargetId)) {
+      setComponentMoveSource(null)
+      setComponentMoveTargetId('')
+    }
   }
 
   function handleUpdateComponent(
@@ -1948,6 +1983,79 @@ function App() {
             })) ?? []}
           onChange={setComponentMoveTargetId}
         />
+      </Modal>
+      <Modal
+        open={batchMoveDialogOpen}
+        title="批次移動元件"
+        okText={`移動 ${batchMoveSelection.size} 個`}
+        cancelText="取消"
+        okButtonProps={{
+          disabled: batchMoveSelection.size === 0 || !componentMoveTargetId,
+        }}
+        onCancel={() => {
+          setBatchMoveDialogOpen(false)
+          setBatchMoveSelection(new Set())
+          setComponentMoveTargetId('')
+        }}
+        onOk={() => {
+          if (!selectedView) return
+          const moved = moveComponentsToView(
+            selectedView.id,
+            [...batchMoveSelection],
+            componentMoveTargetId,
+          )
+          if (moved) {
+            setBatchMoveDialogOpen(false)
+            setBatchMoveSelection(new Set())
+            setComponentMoveTargetId('')
+          }
+        }}
+        width={640}
+        destroyOnHidden
+      >
+        <Text type="secondary">
+          選擇要移動的已管理元件及目標 View。元件會從目前 View 移除。
+        </Text>
+        <Select
+          aria-label="批次移動至 View"
+          style={{ margin: '16px 0', width: '100%' }}
+          value={componentMoveTargetId || undefined}
+          placeholder="選擇目標 View"
+          options={config?.views
+            .filter((view) => {
+              const id = view.id || view.key
+              return id !== selectedView?.id && models.has(id)
+            })
+            .map((view) => ({
+              value: view.id || view.key,
+              label: view.name || view.id || view.key,
+            })) ?? []}
+          onChange={setComponentMoveTargetId}
+        />
+        <div className="batch-tag-list" role="group" aria-label="選擇要移動的元件">
+          {selectedModel?.components
+            .filter((component) => component.managed !== false)
+            .map((component) => {
+              const tagName = tags.find((tag) => tag.id === component.tagId)?.name
+              return (
+                <Checkbox
+                  key={component.key}
+                  checked={batchMoveSelection.has(component.key)}
+                  onChange={(event) => {
+                    setBatchMoveSelection((current) => {
+                      const next = new Set(current)
+                      if (event.target.checked) next.add(component.key)
+                      else next.delete(component.key)
+                      return next
+                    })
+                  }}
+                >
+                  {component.label || tagName || '未命名元件'}
+                  {tagName ? ` · ${tagName}` : ''}
+                </Checkbox>
+              )
+            })}
+        </div>
       </Modal>
       <Modal
         open={viewDialogMode !== null}
@@ -3313,6 +3421,22 @@ function App() {
                               onClick={openBatchDialog}
                             >
                               批次加入 Tag
+                            </Button>
+                            <Button
+                              size="small"
+                              disabled={
+                                !selectedView
+                                || !selectedModel?.components.some(
+                                  (component) => component.managed !== false,
+                                )
+                                || !config?.views.some((view) => {
+                                  const id = view.id || view.key
+                                  return id !== selectedView.id && models.has(id)
+                                })
+                              }
+                              onClick={() => selectedView && openBatchMoveDialog(selectedView.id)}
+                            >
+                              批次移動
                             </Button>
                           </Space>
                         )}
