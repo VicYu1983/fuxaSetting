@@ -30,7 +30,12 @@ import {
   message,
 } from 'antd'
 import zhTW from 'antd/locale/zh_TW'
-import { DeleteOutlined, DownOutlined, UpOutlined } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  DownOutlined,
+  SwapOutlined,
+  UpOutlined,
+} from '@ant-design/icons'
 import {
   parseFuxaConfig,
 } from './domain/config/parseFuxaConfig'
@@ -230,6 +235,11 @@ function App() {
   const [previewSnapshot, setPreviewSnapshot] = useState<PreviewSnapshot | null>(null)
   const [viewDialogMode, setViewDialogMode] = useState<'create' | 'rename' | null>(null)
   const [viewDialogTargetId, setViewDialogTargetId] = useState('')
+  const [componentMoveSource, setComponentMoveSource] = useState<{
+    viewId: string
+    componentKey: string
+  } | null>(null)
+  const [componentMoveTargetId, setComponentMoveTargetId] = useState('')
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
   const [batchSearch, setBatchSearch] = useState('')
   const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set())
@@ -797,6 +807,72 @@ function App() {
       viewId,
       model: { ...model, components: nextComponents },
     })
+  }
+
+  function openComponentMoveDialog(viewId: string, componentKey: string) {
+    const targetView = config?.views.find((view) => {
+      const id = view.id || view.key
+      return id !== viewId && models.has(id)
+    })
+    if (!targetView) {
+      messageApi.info('沒有其他可編輯的 View 可移動元件。')
+      return
+    }
+    setComponentMoveSource({ viewId, componentKey })
+    setComponentMoveTargetId(targetView.id || targetView.key)
+  }
+
+  function handleMoveComponentToView() {
+    if (!config || !componentMoveSource || !componentMoveTargetId) return
+    const { viewId: sourceViewId, componentKey } = componentMoveSource
+    const sourceModel = models.get(sourceViewId)
+    const targetModel = models.get(componentMoveTargetId)
+    if (!sourceModel || !targetModel || sourceViewId === componentMoveTargetId) {
+      messageApi.error('來源或目標 View 不可編輯，無法移動元件。')
+      return
+    }
+    const component = sourceModel.components.find((item) =>
+      item.key === componentKey && item.managed !== false)
+    if (!component) {
+      messageApi.error('找不到要移動的受管理元件。')
+      return
+    }
+
+    const usedKeys = new Set(
+      [...models.values()].flatMap((model) => model.components.map((item) => item.key)),
+    )
+    const movedComponent = {
+      ...component,
+      key: `moved-${generateId('component', usedKeys, window.crypto)}`,
+      seq: targetModel.components.reduce((maximum, item) => {
+        if (item.managed === false || !Number.isSafeInteger(item.seq)) return maximum
+        return Math.max(maximum, item.seq ?? 0)
+      }, 0) + 1,
+    }
+    const nextModels = new Map(models)
+    nextModels.set(sourceViewId, {
+      ...sourceModel,
+      components: sourceModel.components.filter((item) => item.key !== componentKey),
+    })
+    nextModels.set(componentMoveTargetId, {
+      ...targetModel,
+      components: [...targetModel.components, movedComponent],
+    })
+    const nextModifiedViewIds = new Set(modifiedViewIds)
+    nextModifiedViewIds.add(sourceViewId)
+    nextModifiedViewIds.add(componentMoveTargetId)
+    dispatchEditor({
+      type: 'document-edit',
+      document: config,
+      models: nextModels,
+      modifiedViewIds: nextModifiedViewIds,
+    })
+    setSelectedViewId(componentMoveTargetId)
+    setComponentMoveSource(null)
+    setComponentMoveTargetId('')
+    const targetName = config.views.find((view) =>
+      (view.id || view.key) === componentMoveTargetId)?.name || componentMoveTargetId
+    messageApi.success(`已將「${component.label || '元件'}」移動至 View「${targetName}」。`)
   }
 
   function handleUpdateComponent(
@@ -1840,6 +1916,39 @@ function App() {
       }}
     >
       {contextHolder}
+      <Modal
+        open={componentMoveSource !== null}
+        title="移動元件至 View"
+        okText="移動"
+        cancelText="取消"
+        okButtonProps={{ disabled: !componentMoveTargetId }}
+        onCancel={() => {
+          setComponentMoveSource(null)
+          setComponentMoveTargetId('')
+        }}
+        onOk={handleMoveComponentToView}
+        destroyOnHidden
+      >
+        <Text type="secondary">
+          選擇要移入此元件的目標 View；元件會從目前 View 移除。
+        </Text>
+        <Select
+          aria-label="移動至 View"
+          style={{ marginTop: 16, width: '100%' }}
+          value={componentMoveTargetId || undefined}
+          placeholder="選擇目標 View"
+          options={config?.views
+            .filter((view) => {
+              const id = view.id || view.key
+              return id !== componentMoveSource?.viewId && models.has(id)
+            })
+            .map((view) => ({
+              value: view.id || view.key,
+              label: view.name || view.id || view.key,
+            })) ?? []}
+          onChange={setComponentMoveTargetId}
+        />
+      </Modal>
       <Modal
         open={viewDialogMode !== null}
         title={viewDialogMode === 'rename' ? '修改 View 名稱' : '新增空白 View'}
@@ -3399,6 +3508,17 @@ function App() {
                                     direction="vertical"
                                     size={0}
                                   >
+                                    <Button
+                                      size="small"
+                                      type="text"
+                                      aria-label={`移動 ${component.label || '元件'} 至其他 View`}
+                                      title="移動至其他 View"
+                                      onClick={() => openComponentMoveDialog(
+                                        selectedView.id,
+                                        component.key,
+                                      )}
+                                      icon={<SwapOutlined />}
+                                    />
                                     <Button
                                       size="small"
                                       type="text"
