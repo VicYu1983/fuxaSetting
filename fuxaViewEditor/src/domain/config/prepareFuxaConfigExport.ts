@@ -10,6 +10,10 @@ import { saveFloorGroupArtifacts } from '../layout/floorGroupArtifacts'
 import { groupComponentsByFloor } from '../layout/floorLayout'
 import type { FloorTag } from '../layout/floorLayout'
 import { saveIconLibrary } from '../icons/iconLibrary'
+import {
+  deviceTagsNeedAddressSorting,
+  sortDeviceTagsByAddress,
+} from '../devices/deviceTagAddressSort'
 import { isRecord } from './validateFuxaConfig'
 import type { GeneratedViewModel } from '../svg/validateGeneratedView'
 
@@ -103,8 +107,10 @@ export function prepareFuxaConfigExport(
 ): PreparedFuxaConfigExport {
   const projectNameChanged = input.projectName !== undefined
     && input.config.name !== input.projectName
+  const deviceTagsNeedSorting = deviceTagsNeedAddressSorting(input.config)
   if (!input.dirty
       && !projectNameChanged
+      && !deviceTagsNeedSorting
       && findLegacySwitchViewIds(input.models ?? []).size === 0) {
     return {
       config: input.config,
@@ -116,6 +122,7 @@ export function prepareFuxaConfigExport(
   }
 
   const output = structuredClone(input.config)
+  sortDeviceTagsByAddress(output)
   if (input.projectName !== undefined) output.name = input.projectName
   const models = (input.models ?? []).map((model) => structuredClone(model))
   const modifiedViewIds = new Set<string>()

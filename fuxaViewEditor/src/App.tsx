@@ -55,6 +55,10 @@ import {
 } from './domain/views/viewTitleLabel'
 import { buildTagIndex, isAutoFilledTag, isCoilTag } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
+import {
+  deviceTagsNeedAddressSorting,
+  sortTagEntriesByAddress,
+} from './domain/devices/deviceTagAddressSort'
 import { getIconAssets, getIconLibrary, MAX_MULTI_STATE_COUNT } from './domain/icons/iconLibrary'
 import type { MultiStateIconSet } from './domain/icons/iconLibrary'
 import { generateId } from './domain/ids'
@@ -369,7 +373,7 @@ function App() {
   const managedDevice = modbusDevices.find((device) => device.id === managedDeviceId)
   const managedDeviceTags = useMemo(() => (
     managedDevice && isRecord(managedDevice.record.tags)
-      ? Object.entries(managedDevice.record.tags)
+      ? sortTagEntriesByAddress(Object.entries(managedDevice.record.tags))
         .filter((entry): entry is [string, Record<string, unknown>] => isRecord(entry[1]))
         .map(([key, record]) => ({
           id: typeof record.id === 'string' ? record.id : key,
@@ -600,6 +604,7 @@ function App() {
       const exportDirty = isDirty
         || findLegacySwitchViewIds([...models.values()]).size > 0
         || floorFrameLayoutNeedsUpdate
+        || deviceTagsNeedAddressSorting(config.rawConfig)
       const dependencies = exportDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
           Parser: DOMParser,

@@ -109,6 +109,33 @@ describe('prepareFuxaConfigExport', () => {
     expect(result.dirty).toBe(false)
   })
 
+  it('sorts device Tags by numeric address in JSON export, even without other edits', () => {
+    const original = config()
+    original.devices = {
+      device1: {
+        type: 'ModbusTCP',
+        tags: {
+          later: { id: 'later', address: 20 },
+          earlier: { id: 'earlier', address: 3 },
+        },
+      },
+    }
+
+    const result = prepareFuxaConfigExport(input({ config: original }), {
+      validate: vi.fn(),
+    })
+
+    expect(result.dirty).toBe(true)
+    expect(Object.keys(JSON.parse(result.text).devices.device1.tags)).toEqual([
+      'earlier',
+      'later',
+    ])
+    expect(Object.keys((original.devices.device1 as { tags: object }).tags)).toEqual([
+      'later',
+      'earlier',
+    ])
+  })
+
   it('applies selected Views, persists metadata, preserves unknown settings and source formatting', () => {
     const original = config()
     original.extra = {
