@@ -73,6 +73,7 @@ import type { DeviceTagUpdate } from './features/devices/manageDeviceTags'
 import { DEFAULT_GRID, ICON_SCALE_MAX, ICON_SCALE_MIN } from './domain/layout/gridSettings'
 import { groupComponentsByFloor } from './domain/layout/floorLayout'
 import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
+import { hasCurrentFloorFrameLayout } from './domain/layout/floorGroupFrame'
 import type { FloorGroupFrameSettings } from './domain/config/types'
 import { findSvgElementById, parseSvg } from './domain/svg/parseSvg'
 import { prepareViewPreview } from './features/preview/prepareViewPreview'
@@ -592,7 +593,13 @@ function App() {
 
     try {
       const outputFileName = projectFileName(normalizedProjectName)
-      const exportDirty = isDirty || findLegacySwitchViewIds([...models.values()]).size > 0
+      const hasFloorFrames = [...models.values()].some((model) =>
+        model.components.length > 0 || Object.keys(model.floorFrames).length > 0)
+      const floorFrameLayoutNeedsUpdate = !hasCurrentFloorFrameLayout(config.rawConfig)
+        && hasFloorFrames
+      const exportDirty = isDirty
+        || findLegacySwitchViewIds([...models.values()]).size > 0
+        || floorFrameLayoutNeedsUpdate
       const dependencies = exportDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
           Parser: DOMParser,

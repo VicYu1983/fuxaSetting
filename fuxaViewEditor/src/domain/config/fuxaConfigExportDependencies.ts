@@ -13,8 +13,12 @@ import type {
   ExportViewModel,
   PrepareFuxaConfigExportDependencies,
 } from './prepareFuxaConfigExport'
-import { getFloorGroupFrameSettings } from '../layout/floorGroupFrame'
+import {
+  getFloorGroupFrameSettings,
+  saveFloorFrameLayoutVersion,
+} from '../layout/floorGroupFrame'
 import type { FloorGroupFrameSettings } from './types'
+import { alignFloorFramesToCanvas } from '../svg/alignFloorFramesToCanvas'
 
 export interface FuxaConfigExportRuntime {
   Parser: SvgParserConstructor
@@ -141,6 +145,14 @@ export function createFuxaConfigExportDependencies(
   }
 
   return {
+    alignFloorFrames(output) {
+      alignFloorFramesToCanvas(
+        output,
+        runtime.Parser,
+        runtime.serialize,
+      )
+      saveFloorFrameLayoutVersion(output)
+    },
     applyView(view, model, models) {
       if (!isApplyModelView(view) || view.id !== model.viewId) {
         throw new Error(`View「${model.viewId}」缺少有效的 SVG 或 items，無法套用編輯模型。`)

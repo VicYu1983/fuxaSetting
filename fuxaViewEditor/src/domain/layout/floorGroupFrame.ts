@@ -12,6 +12,32 @@ export const DEFAULT_FLOOR_GROUP_FRAME: Readonly<FloorGroupFrameSettings> = Obje
 
 const TOOL_SETTINGS_KEY = 'fuxaSetting'
 const FLOOR_FRAME_SETTINGS_KEY = 'floorGroupFrames'
+const FLOOR_FRAME_LAYOUT_VERSION_KEY = 'floorFrameLayoutVersion'
+export const FLOOR_FRAME_LAYOUT_VERSION = 1
+
+export function hasCurrentFloorFrameLayout(config: FuxaConfig): boolean {
+  if (!isRecord(config.extra) || !isRecord(config.extra[TOOL_SETTINGS_KEY])) return false
+  return config.extra[TOOL_SETTINGS_KEY][FLOOR_FRAME_LAYOUT_VERSION_KEY]
+    === FLOOR_FRAME_LAYOUT_VERSION
+}
+
+export function saveFloorFrameLayoutVersion(config: FuxaConfig): void {
+  if (config.extra !== undefined && !isRecord(config.extra)) {
+    throw new Error('配置的 extra 欄位不是物件，無法安全保存樓層底框版面版本。')
+  }
+  const extra = isRecord(config.extra) ? config.extra : {}
+  const currentToolSettings = extra[TOOL_SETTINGS_KEY]
+  if (currentToolSettings !== undefined && !isRecord(currentToolSettings)) {
+    throw new Error(
+      `配置的 extra.${TOOL_SETTINGS_KEY} 欄位不是物件，無法安全保存樓層底框版面版本。`,
+    )
+  }
+  extra[TOOL_SETTINGS_KEY] = {
+    ...(isRecord(currentToolSettings) ? currentToolSettings : {}),
+    [FLOOR_FRAME_LAYOUT_VERSION_KEY]: FLOOR_FRAME_LAYOUT_VERSION,
+  }
+  config.extra = extra
+}
 
 export function normalizeFloorGroupFrameSettings(settings: unknown): FloorGroupFrameSettings {
   const frame: FloorGroupFrameSettings = { ...DEFAULT_FLOOR_GROUP_FRAME }

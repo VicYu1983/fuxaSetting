@@ -297,6 +297,9 @@ describe('prepareFuxaConfigExport', () => {
     expect(result.dirty).toBe(true)
     expect(result.modifiedViewIds.size).toBe(0)
     expect(JSON.parse(result.text).hmi.views).toHaveLength(2)
+    expect(result.config.extra).toMatchObject({
+      fuxaSetting: { floorFrameLayoutVersion: 1 },
+    })
   })
 
   it('surfaces malformed existing SVG when it prevents safe ID allocation', () => {

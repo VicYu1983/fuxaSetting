@@ -44,6 +44,7 @@ export interface PrepareFuxaConfigExportDependencies {
     modifiedViewIds: ReadonlySet<string>,
     models: readonly ExportViewModel[],
   ) => void
+  alignFloorFrames?: (config: FuxaConfig) => void
 }
 
 export interface PreparedFuxaConfigExport {
@@ -154,6 +155,8 @@ export function prepareFuxaConfigExport(
     dependencies.applyView(view, model, models)
     modifiedViewIds.add(viewId)
   }
+
+  dependencies.alignFloorFrames?.(output)
 
   if (input.iconLibrary !== undefined
       && JSON.stringify(input.iconLibrary) !== input.originalIconLibrary) {
