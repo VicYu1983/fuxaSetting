@@ -24,6 +24,7 @@ export interface PrepareFuxaConfigExportInput {
   originalText: string
   sourceFormat: SourceTextFormat
   dirty: boolean
+  projectName?: string
   models?: readonly ExportViewModel[]
   modifiedViewIds?: ReadonlySet<string>
   tags?: Map<string, FloorTag> | Record<string, FloorTag>
@@ -99,7 +100,11 @@ export function prepareFuxaConfigExport(
   input: PrepareFuxaConfigExportInput,
   dependencies: PrepareFuxaConfigExportDependencies = {},
 ): PreparedFuxaConfigExport {
-  if (!input.dirty && findLegacySwitchViewIds(input.models ?? []).size === 0) {
+  const projectNameChanged = input.projectName !== undefined
+    && input.config.name !== input.projectName
+  if (!input.dirty
+      && !projectNameChanged
+      && findLegacySwitchViewIds(input.models ?? []).size === 0) {
     return {
       config: input.config,
       text: input.originalText,
@@ -110,6 +115,7 @@ export function prepareFuxaConfigExport(
   }
 
   const output = structuredClone(input.config)
+  if (input.projectName !== undefined) output.name = input.projectName
   const models = (input.models ?? []).map((model) => structuredClone(model))
   const modifiedViewIds = new Set<string>()
   const tags = input.tags ?? {}

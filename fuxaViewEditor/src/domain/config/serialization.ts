@@ -17,8 +17,12 @@ export function serializeFuxaConfig(
   return text
 }
 
+export function normalizeProjectName(projectName: string): string {
+  return projectName.trim().replace(/\.json$/i, '')
+}
+
 export function projectFileName(projectName: string): string {
-  const name = projectName.trim().replace(/\.json$/i, '')
+  const name = normalizeProjectName(projectName)
   if (!name) throw new Error('專案名稱不可空白。')
   const hasControlCharacter = [...name].some((character) => (
     character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127

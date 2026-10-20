@@ -40,7 +40,7 @@ import {
   parseFuxaConfig,
 } from './domain/config/parseFuxaConfig'
 import { createEmptyFuxaConfig } from './domain/config/createEmptyFuxaConfig'
-import { projectFileName } from './domain/config/serialization'
+import { normalizeProjectName, projectFileName } from './domain/config/serialization'
 import { findLegacySwitchViewIds, prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
@@ -291,7 +291,10 @@ function App() {
   const [unsupported, setUnsupported] = useState<Map<string, string[]>>(new Map())
   const { models, modifiedViewIds } = editor
   const config = editor.document
-  const isDirty = editor.configurationDirty || modifiedViewIds.size > 0
+  const normalizedProjectName = normalizeProjectName(projectName)
+  const projectNameNeedsExport = Boolean(config)
+    && config?.rawConfig.name !== normalizedProjectName
+  const isDirty = editor.configurationDirty || modifiedViewIds.size > 0 || projectNameNeedsExport
 
   useEffect(() => {
     if (!isDirty) return
@@ -496,7 +499,12 @@ function App() {
       const text = await file.text()
       const parsed = parseFuxaConfig(text)
       replaceWorkspace(parsed)
-      messageApi.success(`已載入 ${file.name}；專案名稱維持「${projectName}」。`)
+      const configuredName = parsed.rawConfig.name
+      const nextProjectName = typeof configuredName === 'string' && configuredName.trim()
+        ? normalizeProjectName(configuredName)
+        : normalizeProjectName(file.name)
+      setProjectName(nextProjectName)
+      messageApi.success(`已載入 ${file.name}；專案名稱為「${nextProjectName}」。`)
     } catch (error) {
       const detail = error instanceof Error ? error.message : '未知錯誤'
       messageApi.error(`載入失敗：${detail}`)
@@ -567,7 +575,7 @@ function App() {
     if (!config) return
 
     try {
-      const outputFileName = projectFileName(projectName)
+      const outputFileName = projectFileName(normalizedProjectName)
       const exportDirty = isDirty || findLegacySwitchViewIds([...models.values()]).size > 0
       const dependencies = exportDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
@@ -581,6 +589,7 @@ function App() {
         originalText: config.originalText,
         sourceFormat: config.sourceFormat,
         dirty: exportDirty,
+        projectName: normalizedProjectName,
         models: [...models.values()],
         modifiedViewIds,
         tags: buildTagIndex(config.rawConfig),
@@ -3110,7 +3119,7 @@ function App() {
               maxLength={120}
               value={projectName}
               onChange={(event) => setProjectName(event.target.value)}
-              title="匯入 JSON 只會取代配置資料，不會變更專案名稱。"
+              title="載入時使用 JSON 最外層的 name；匯出時也會同步更新該欄位。"
             />
             <Button
               disabled={editor.past.length === 0}

@@ -77,6 +77,37 @@ describe('prepareFuxaConfigExport', () => {
     expect(original.extra).toEqual({ customField: { keep: true } })
   })
 
+  it('writes the edited project name to the top-level JSON name', () => {
+    const original = config()
+    original.name = 'Before'
+    const result = prepareFuxaConfigExport(input({
+      config: original,
+      projectName: 'After',
+    }), {
+      validate: vi.fn(),
+    })
+
+    expect(result.dirty).toBe(true)
+    expect(result.config.name).toBe('After')
+    expect(JSON.parse(result.text).name).toBe('After')
+    expect(original.name).toBe('Before')
+  })
+
+  it('keeps the original JSON text when the project name is unchanged', () => {
+    const original = config()
+    original.name = 'Same name'
+    const originalText = '{ "name": "Same name", "devices": {}, "hmi": { "views": [] } }\n'
+    const result = prepareFuxaConfigExport(input({
+      config: original,
+      originalText,
+      projectName: 'Same name',
+    }))
+
+    expect(result.text).toBe(originalText)
+    expect(result.config).toBe(original)
+    expect(result.dirty).toBe(false)
+  })
+
   it('applies selected Views, persists metadata, preserves unknown settings and source formatting', () => {
     const original = config()
     original.extra = {
