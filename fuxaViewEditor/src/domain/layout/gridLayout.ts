@@ -1,5 +1,5 @@
 import type { GridSettings } from '../config/types'
-import { DEFAULT_GRID } from './gridSettings'
+import { DEFAULT_GRID, ICON_SCALE_MAX, ICON_SCALE_MIN } from './gridSettings'
 
 export interface LayoutComponent {
   key: string
@@ -47,6 +47,10 @@ export function layoutComponents(
   const gapY = Math.max(0, Number(grid.gapY) || 0)
   const labelOffset = Math.max(0, Number(grid.labelOffset) || 0)
   const fontSize = Math.max(8, Number(grid.labelFontSize) || DEFAULT_GRID.labelFontSize)
+  const iconScale = Math.min(
+    ICON_SCALE_MAX,
+    Math.max(ICON_SCALE_MIN, Number(grid.iconScale) || DEFAULT_GRID.iconScale),
+  ) / 100
   const rows = Math.ceil(components.length / columns)
   const columnWidths = Array<number>(columns).fill(0)
   const rowHeights = Array<number>(rows).fill(0)
@@ -55,8 +59,8 @@ export function layoutComponents(
       ? CYLINDER_SIZE
       : component.template === 'switch' ? SWITCH_SIZE : RECT_SIZE
     return {
-      width: positiveDimension(component.layoutWidth, standard.width),
-      height: positiveDimension(component.layoutHeight, standard.height),
+      width: positiveDimension(component.layoutWidth, standard.width * iconScale),
+      height: positiveDimension(component.layoutHeight, standard.height * iconScale),
     }
   })
 

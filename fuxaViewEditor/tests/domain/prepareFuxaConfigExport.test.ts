@@ -38,6 +38,7 @@ function model(viewId = 'view-1'): ExportViewModel {
       labelPosition: 'below',
       labelOffset: 3,
       labelFontSize: 12,
+      iconScale: 100,
     },
     floorGroupFrame: {
       fill: '#eff6ff',

@@ -43,6 +43,7 @@ function model(components: ExportViewModel['components'] = []): ExportViewModel 
       labelPosition: 'above',
       labelOffset: 4,
       labelFontSize: 14,
+      iconScale: 100,
     },
     floorGroupFrame: {
       fill: '#ffffff',

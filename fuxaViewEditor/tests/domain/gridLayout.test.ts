@@ -67,6 +67,28 @@ describe('Grid component layout', () => {
 
     expect(placement?.shape).toMatchObject({ width: 50, height: 28 })
   })
+
+  it('scales standard shapes by iconScale but keeps measured existing sizes', () => {
+    const placements = layoutComponents([
+      { key: 'rect', template: 'rect' },
+      { key: 'cylinder', template: 'cylinder' },
+      { key: 'switch', template: 'switch' },
+      { key: 'existing', template: 'existing', layoutWidth: 100, layoutHeight: 50 },
+    ], { ...DEFAULT_GRID, iconScale: 150 })
+
+    expect(placements[0]?.shape).toMatchObject({ width: 60, height: 60 })
+    expect(placements[1]?.shape).toMatchObject({ width: 90, height: 96 })
+    expect(placements[2]?.shape).toMatchObject({ width: 75, height: 42 })
+    expect(placements[3]?.shape).toMatchObject({ width: 100, height: 50 })
+  })
+
+  it('falls back to 100% when iconScale is missing or invalid', () => {
+    const [placement] = layoutComponents([{ key: 'rect', template: 'rect' }], {
+      iconScale: Number.NaN,
+    })
+
+    expect(placement?.shape).toMatchObject({ width: 40, height: 40 })
+  })
 })
 
 describe('SVG text measurement', () => {

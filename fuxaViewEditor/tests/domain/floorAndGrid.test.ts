@@ -72,6 +72,13 @@ describe('View Grid settings', () => {
       .toEqual(DEFAULT_GRID)
   })
 
+  it('accepts iconScale only within the supported percentage range', () => {
+    expect(normalizeGridSettings({ iconScale: 150 }).iconScale).toBe(150)
+    expect(normalizeGridSettings({ iconScale: 24 }).iconScale).toBe(DEFAULT_GRID.iconScale)
+    expect(normalizeGridSettings({ iconScale: 301 }).iconScale).toBe(DEFAULT_GRID.iconScale)
+    expect(normalizeGridSettings({}).iconScale).toBe(100)
+  })
+
   it('loads and saves settings by View ID while preserving sibling settings', () => {
     const config = {
       devices: {},

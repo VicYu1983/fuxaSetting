@@ -66,7 +66,7 @@ import {
   updateModbusDeviceTag,
 } from './features/devices/manageDeviceTags'
 import type { DeviceTagUpdate } from './features/devices/manageDeviceTags'
-import { DEFAULT_GRID } from './domain/layout/gridSettings'
+import { DEFAULT_GRID, ICON_SCALE_MAX, ICON_SCALE_MIN } from './domain/layout/gridSettings'
 import { groupComponentsByFloor } from './domain/layout/floorLayout'
 import { getFloorGroupFrameSettings } from './domain/layout/floorGroupFrame'
 import type { FloorGroupFrameSettings } from './domain/config/types'
@@ -3435,6 +3435,22 @@ function App() {
                                 />
                               </label>
                               <label>
+                                <Text>圖示大小（%）</Text>
+                                <InputNumber
+                                  aria-label="圖示大小"
+                                  min={ICON_SCALE_MIN}
+                                  max={ICON_SCALE_MAX}
+                                  step={5}
+                                  addonAfter="%"
+                                  value={selectedModel.grid.iconScale}
+                                  onChange={(iconScale) => {
+                                    if (iconScale !== null) {
+                                      handleUpdateGrid(selectedView.id, { iconScale })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
                                 <Text>標籤位置</Text>
                                 <Select
                                   aria-label="標籤位置"
@@ -3451,9 +3467,9 @@ function App() {
                                 />
                               </label>
                               <label>
-                                <Text>標籤位移</Text>
+                                <Text>標籤與圖示距離</Text>
                                 <InputNumber
-                                  aria-label="標籤位移"
+                                  aria-label="標籤與圖示距離"
                                   min={0}
                                   value={selectedModel.grid.labelOffset}
                                   onChange={(labelOffset) => {

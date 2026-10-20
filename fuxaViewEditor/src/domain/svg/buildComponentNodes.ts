@@ -5,9 +5,6 @@ import type { ManagedComponentRecord } from './readManagedComponents'
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink'
-const RECT_SIZE = { width: 40, height: 40 }
-const CYLINDER_SIZE = { width: 60, height: 64 }
-const SWITCH_SIZE = { width: 50, height: 28 }
 const PALETTES = {
   normal: ['#00ff07ff', '#f80000ff'],
   alarm: ['#ff0000ff', '#00ff07ff'],
@@ -115,8 +112,8 @@ function buildIconPairNodes(
       id,
       x,
       y,
-      width: RECT_SIZE.width,
-      height: RECT_SIZE.height,
+      width: placement.shape.width,
+      height: placement.shape.height,
       preserveAspectRatio: 'xMidYMid meet',
     })
     setIconHref(image, icon)
@@ -158,8 +155,8 @@ function buildMultiStateNodes(
       id,
       x,
       y,
-      width: RECT_SIZE.width,
-      height: RECT_SIZE.height,
+      width: placement.shape.width,
+      height: placement.shape.height,
       preserveAspectRatio: 'xMidYMid meet',
     })
     setIconHref(image, icon)
@@ -222,8 +219,8 @@ function buildShapeNode(
   const { x, y } = placement.shape
 
   if (component.template === 'cylinder') {
-    const width = CYLINDER_SIZE.width
-    const height = CYLINDER_SIZE.height
+    const width = placement.shape.width
+    const height = placement.shape.height
     const ry = Math.min(10, height / 6)
     const [bodyId, topId] = allocateInnerIds(component, 2, allocateId)
     const top = y + ry
@@ -243,8 +240,8 @@ function buildShapeNode(
       id: iconNodeId ?? '',
       x,
       y,
-      width: RECT_SIZE.width,
-      height: RECT_SIZE.height,
+      width: placement.shape.width,
+      height: placement.shape.height,
       preserveAspectRatio: 'xMidYMid meet',
     })
     setIconHref(image, icon)
@@ -253,8 +250,8 @@ function buildShapeNode(
     appendChild(group, createSvgNode(doc, 'rect', {
       'data-fuxa-state-marker': 'true',
       id: markerId ?? '',
-      x: x + RECT_SIZE.width - markerSize,
-      y: y + RECT_SIZE.height - markerSize,
+      x: x + placement.shape.width - markerSize,
+      y: y + placement.shape.height - markerSize,
       width: markerSize,
       height: markerSize,
       stroke: 'none',
@@ -265,8 +262,8 @@ function buildShapeNode(
       id: rectId ?? '',
       x,
       y,
-      width: RECT_SIZE.width,
-      height: RECT_SIZE.height,
+      width: placement.shape.width,
+      height: placement.shape.height,
     }))
   }
   return group
@@ -301,16 +298,16 @@ function buildSwitchNode(
     id: hitboxId ?? '',
     x,
     y,
-    width: SWITCH_SIZE.width,
-    height: SWITCH_SIZE.height,
+    width: placement.shape.width,
+    height: placement.shape.height,
     'stroke-width': 0,
   }))
   const foreignObject = createSvgNode(doc, 'foreignObject', {
     id: foreignObjectId ?? '',
     x,
     y,
-    width: SWITCH_SIZE.width,
-    height: SWITCH_SIZE.height,
+    width: placement.shape.width,
+    height: placement.shape.height,
   })
   const label = createSvgNode(doc, 'LABEL', {
     id: htmlLabelId ?? '',

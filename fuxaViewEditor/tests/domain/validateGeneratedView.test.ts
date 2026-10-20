@@ -84,6 +84,7 @@ const grid: GridSettings = {
   labelPosition: 'above',
   labelOffset: 10,
   labelFontSize: 14,
+  iconScale: 100,
 }
 
 const floorFrame: FloorGroupFrameSettings = {

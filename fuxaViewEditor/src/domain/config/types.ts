@@ -25,6 +25,7 @@ export interface GridSettings {
   labelPosition: LabelPosition
   labelOffset: number
   labelFontSize: number
+  iconScale: number
 }
 
 export interface FloorGroupFrameSettings {

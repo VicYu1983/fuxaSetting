@@ -52,6 +52,7 @@ const grid: GridSettings = {
   labelPosition: 'above',
   labelOffset: 10,
   labelFontSize: 14,
+  iconScale: 100,
 }
 
 function component(overrides: Partial<SvgComponent> = {}): SvgComponent {
@@ -80,12 +81,13 @@ function build(
   model: SvgComponent,
   icons: readonly IconAsset[] = [],
   ids: string[] = ['inner-1', 'inner-2'],
+  shape: ComponentPlacement['shape'] = placement.shape,
 ) {
   let nextId = 0
   return buildComponentNodes(
     doc,
     model,
-    placement,
+    { ...placement, shape },
     grid,
     (id) => icons.find((candidate) => candidate.id === id),
     (prefix) => {
@@ -149,7 +151,12 @@ describe('buildComponentNodes', () => {
   })
 
   it('builds cylinder paths and normal/alarm icon pairs', () => {
-    const cylinder = build(component({ template: 'cylinder' }))
+    const cylinder = build(component({ template: 'cylinder' }), [], undefined, {
+      x: 20,
+      y: 30,
+      width: 60,
+      height: 64,
+    })
     const paths = (cylinder.shapeNodes[0] as unknown as TestElement).children
     expect(paths.map((path) => path.localName)).toEqual(['path', 'path'])
     expect(paths[0]?.attributes.d).toContain('M 20 40')
@@ -171,7 +178,12 @@ describe('buildComponentNodes', () => {
 
   it('builds a FUXA HTML Switch without duplicate SVG switch artwork', () => {
     const model = component({ template: 'switch' })
-    const result = build(model, [], ['hitbox', 'foreign', 'html-label'])
+    const result = build(model, [], ['hitbox', 'foreign', 'html-label'], {
+      x: 20,
+      y: 30,
+      width: 50,
+      height: 28,
+    })
     const shape = result.shapeNodes[0] as unknown as TestElement
     const foreignObject = shape.children[1]
 

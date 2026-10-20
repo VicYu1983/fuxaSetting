@@ -10,7 +10,11 @@ export const DEFAULT_GRID: Readonly<GridSettings> = Object.freeze({
   labelPosition: 'above',
   labelOffset: 10,
   labelFontSize: 14,
+  iconScale: 100,
 })
+
+export const ICON_SCALE_MIN = 25
+export const ICON_SCALE_MAX = 300
 
 const GRID_SETTINGS_KEY = 'fuxaSetting'
 const LABEL_POSITIONS = new Set<LabelPosition>(['above', 'below', 'left', 'right'])
@@ -23,7 +27,7 @@ export function normalizeGridSettings(settings: unknown): GridSettings {
   const grid: GridSettings = { ...DEFAULT_GRID }
   if (!isRecord(settings)) return grid
 
-  for (const key of ['columns', 'originX', 'originY', 'gapX', 'gapY', 'labelOffset', 'labelFontSize'] as const) {
+  for (const key of ['columns', 'originX', 'originY', 'gapX', 'gapY', 'labelOffset', 'labelFontSize', 'iconScale'] as const) {
     const value = settings[key]
     if (typeof value !== 'number' || !Number.isFinite(value)) continue
 
@@ -31,6 +35,8 @@ export function normalizeGridSettings(settings: unknown): GridSettings {
       if (Number.isInteger(value) && value >= 1 && value <= 24) grid[key] = value
     } else if (key === 'labelFontSize') {
       if (value >= 8 && value <= 72) grid[key] = value
+    } else if (key === 'iconScale') {
+      if (value >= ICON_SCALE_MIN && value <= ICON_SCALE_MAX) grid[key] = value
     } else if (value >= 0) {
       grid[key] = value
     }
