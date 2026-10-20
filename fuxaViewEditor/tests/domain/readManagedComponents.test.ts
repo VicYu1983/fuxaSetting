@@ -313,6 +313,49 @@ describe('readManagedComponents', () => {
     expect(result.consumed.has('alarm')).toBe(true)
   })
 
+  it('recovers multi-state components when another icon shares the same normal image data', () => {
+    const sharedUrl = 'data:image/png;base64,shared'
+    const alarmUrl = 'data:image/gif;base64,alarm'
+    const root = new TestElement('svg', {}, '', [
+      new TestElement('image', { id: 'normal', 'data-name': 'tc_3', 'xlink:href': sharedUrl }),
+      new TestElement('image', { id: 'alarm', 'data-name': 'tc_3_state_alarm', 'xlink:href': alarmUrl }),
+      new TestElement('text', { id: 'label-3' }, 'Generator'),
+    ])
+    const iconSet: MultiStateIconSet = {
+      id: 'generator-set',
+      name: 'Generator',
+      type: 'multi-state',
+      normal: { id: 'generator-normal', mimeType: 'image/png', dataUrl: sharedUrl },
+      states: [
+        {
+          key: 'alarm',
+          name: 'Alarm',
+          asset: { id: 'generator-alarm', mimeType: 'image/gif', dataUrl: alarmUrl },
+        },
+      ],
+    }
+    const result = readManagedComponents({
+      normal: { id: 'normal', name: 'tc_3', type: 'svg-ext-shapes-select', property: {} },
+      alarm: {
+        id: 'alarm',
+        name: 'tc_3_state_alarm',
+        type: 'svg-ext-shapes-select',
+        property: { actions: [{ variableId: 'tag-alarm' }] },
+      },
+      'label-3': { id: 'label-3', name: 'tc_3_label', type: 'svg-ext-shapes-text' },
+    }, makeDocument(root), new Set(), new Map([
+      [sharedUrl, 'pump-low-oil-normal'],
+      [alarmUrl, iconSet.states[0]!.asset.id],
+    ]), [iconSet])
+
+    expect(result.records[0]).toMatchObject({
+      template: 'icon-multi',
+      multiIconSetId: 'generator-set',
+      normalIconId: 'generator-normal',
+      tagId: 'tag-alarm',
+    })
+  })
+
   it('recovers multi-state components from exported FUXA SVG images and item names', () => {
     const normalUrl = 'data:image/gif;base64,normal'
     const alarmUrl = 'data:image/gif;base64,alarm'

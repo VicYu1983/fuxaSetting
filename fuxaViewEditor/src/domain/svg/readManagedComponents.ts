@@ -1,5 +1,5 @@
 import { isRecord } from '../config/validateFuxaConfig'
-import type { MultiStateIconSet } from '../icons/iconLibrary'
+import type { IconAsset, MultiStateIconSet } from '../icons/iconLibrary'
 
 const MANAGED_NAME = /^tc_(\d+)$/
 const ALARM_PALETTE_FIRST_COLOR = '#ff0000ff'
@@ -97,6 +97,7 @@ function multiStateNodesFromSvg(
   doc: XMLDocument,
   seq: number,
   iconSetId: string,
+  iconSet: MultiStateIconSet | undefined,
   iconAssetIds: ReadonlyMap<string, string>,
 ): MultiStateNodeBinding[] {
   return Array.from(doc.getElementsByTagName('*'))
@@ -109,9 +110,12 @@ function multiStateNodesFromSvg(
       const stateKey = node.getAttribute('data-fuxa-state-key') || ''
       const id = node.getAttribute('id') || ''
       const actions = actionsFor(items[id])
+      const stateAssetId = iconSet?.states.find((state) => state.key === stateKey)?.asset.id
       return {
         stateKey,
-        iconId: findIconAssetId(node, iconAssetIds),
+        iconId: node.getAttribute('data-fuxa-icon-id')
+          || stateAssetId
+          || findIconAssetId(node, iconAssetIds),
         tagId: actions.map(actionVariableId)
           .find((variableId): variableId is string => variableId !== undefined) ?? '',
         shapeId: id,
@@ -122,19 +126,36 @@ function multiStateNodesFromSvg(
     .sort((left, right) => left.priority - right.priority)
 }
 
+// Matches by explicit id or by data URL against this asset only. Several library
+// icons can share one data URL, so a shared URL-to-id map cannot pick the right set.
+function matchesIconAsset(node: Element, asset: IconAsset): boolean {
+  if (node.getAttribute('data-fuxa-icon-id') === asset.id) return true
+  return (node.getAttribute('href') || node.getAttribute('xlink:href')) === asset.dataUrl
+}
+
 function recoverMultiStateIconSet(
   shapeNode: Element,
   items: Record<string, unknown>,
   itemIds: readonly string[],
   doc: XMLDocument,
   seq: number,
-  iconAssetIds: ReadonlyMap<string, string>,
   iconSets: readonly MultiStateIconSet[],
 ): { iconSet: MultiStateIconSet; bindings: MultiStateNodeBinding[] } | undefined {
-  const normalIconId = findIconAssetId(shapeNode, iconAssetIds)
-  const iconSet = iconSets.find((candidate) => candidate.normal.id === normalIconId)
-  if (!iconSet) return undefined
+  for (const iconSet of iconSets) {
+    if (!matchesIconAsset(shapeNode, iconSet.normal)) continue
+    const bindings = recoverStateBindings(iconSet, items, itemIds, doc, seq)
+    if (bindings) return { iconSet, bindings }
+  }
+  return undefined
+}
 
+function recoverStateBindings(
+  iconSet: MultiStateIconSet,
+  items: Record<string, unknown>,
+  itemIds: readonly string[],
+  doc: XMLDocument,
+  seq: number,
+): MultiStateNodeBinding[] | undefined {
   const bindings: MultiStateNodeBinding[] = []
   for (const [priority, state] of iconSet.states.entries()) {
     const stateItemId = itemIds.find((id) => (
@@ -144,7 +165,7 @@ function recoverMultiStateIconSet(
     ))
     const stateNode = stateItemId ? findById(doc, stateItemId) : null
     if (!stateItemId || !stateNode || stateNode.localName !== 'image'
-        || findIconAssetId(stateNode, iconAssetIds) !== state.asset.id) {
+        || !matchesIconAsset(stateNode, state.asset)) {
       return undefined
     }
     const tagId = actionsFor(items[stateItemId])
@@ -159,8 +180,7 @@ function recoverMultiStateIconSet(
       priority,
     })
   }
-
-  return { iconSet, bindings }
+  return bindings
 }
 
 export function readManagedComponents(
@@ -206,9 +226,10 @@ export function readManagedComponents(
         itemIds,
         doc,
         seq,
-        iconAssetIds,
         iconSets,
       )
+    const multiIconSet = recovered?.iconSet
+      ?? (explicitIconSetId ? iconSets.find((set) => set.id === explicitIconSetId) : undefined)
     const multiIconSetId = explicitIconSetId || recovered?.iconSet.id || ''
     const multiStateNodes = explicitIconSetId
       ? multiStateNodesFromSvg(
@@ -216,6 +237,7 @@ export function readManagedComponents(
         doc,
         seq,
         explicitIconSetId,
+        multiIconSet,
         iconAssetIds,
       )
       : recovered?.bindings ?? []
@@ -253,7 +275,7 @@ export function readManagedComponents(
     const iconNode = shapeNode.querySelector('image[data-fuxa-icon-id]')
     const iconId = findIconAssetId(shapeNode, iconAssetIds)
       || (iconNode ? findIconAssetId(iconNode, iconAssetIds) : '')
-    const normalIconId = findIconAssetId(shapeNode, iconAssetIds)
+    const normalIconId = multiIconSet?.normal.id ?? findIconAssetId(shapeNode, iconAssetIds)
     const alarmIconId = alarmNode ? findIconAssetId(alarmNode, iconAssetIds) : ''
     const isSwitch = shapeItem.type === 'svg-ext-html_switch'
     const shapeType = isSwitch
