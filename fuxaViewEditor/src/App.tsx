@@ -49,6 +49,10 @@ import {
   getViewBackgroundInputColor,
   updateAllViewBackgrounds,
 } from './domain/views/viewBackground'
+import {
+  getViewTitleLabelSettings,
+  updateAllViewTitleLabels,
+} from './domain/views/viewTitleLabel'
 import { buildTagIndex, isAutoFilledTag, isCoilTag } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
 import { getIconAssets, getIconLibrary, MAX_MULTI_STATE_COUNT } from './domain/icons/iconLibrary'
@@ -148,6 +152,8 @@ interface FloorGroupFrameFormValues extends Omit<FloorGroupFrameSettings, 'fillO
 
 interface ViewPropertiesFormValues {
   bkcolor: string
+  viewTitleColor: string
+  viewTitleFontSize: number
 }
 
 function countTags(devices: Record<string, unknown>): number {
@@ -1602,28 +1608,45 @@ function App() {
     if (!config) return
     const selected = getSelectedView(config.views, selectedViewId)
     const index = selected ? config.views.indexOf(selected) : 0
-    viewPropertiesForm.setFieldsValue({
-      bkcolor: getViewBackgroundInputColor(config.rawConfig, Math.max(index, 0)),
-    })
-    setViewPropertiesDialogOpen(true)
+    try {
+      const titleStyle = getViewTitleLabelSettings(
+        config.rawConfig,
+        selected?.id,
+        DOMParser,
+      )
+      viewPropertiesForm.setFieldsValue({
+        bkcolor: getViewBackgroundInputColor(config.rawConfig, Math.max(index, 0)),
+        viewTitleColor: titleStyle.color,
+        viewTitleFontSize: titleStyle.fontSize,
+      })
+      setViewPropertiesDialogOpen(true)
+    } catch (error) {
+      messageApi.error(`讀取 View 屬性失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   function handleViewPropertiesSubmit(values: ViewPropertiesFormValues) {
     if (!config) return
     try {
-      const result = updateAllViewBackgrounds(config.rawConfig, values.bkcolor)
-      if (!result.changed) {
+      const backgroundResult = updateAllViewBackgrounds(config.rawConfig, values.bkcolor)
+      const titleResult = updateAllViewTitleLabels(
+        backgroundResult.config,
+        { color: values.viewTitleColor, fontSize: values.viewTitleFontSize },
+        DOMParser,
+        (doc) => new XMLSerializer().serializeToString(doc),
+      )
+      if (!backgroundResult.changed && !titleResult.changed) {
         setViewPropertiesDialogOpen(false)
         messageApi.info('View 屬性沒有變更。')
         return
       }
       dispatchEditor({
         type: 'document-edit',
-        document: parseUpdatedConfig(result.config, config),
+        document: parseUpdatedConfig(titleResult.config, config),
         models,
       })
       setViewPropertiesDialogOpen(false)
-      messageApi.success('已更新所有 View 的背景色。')
+      messageApi.success('已更新所有 View 的背景色與名稱標籤樣式。')
     } catch (error) {
       messageApi.error(`更新 View 屬性失敗：${error instanceof Error ? error.message : String(error)}`)
     }
@@ -2223,7 +2246,9 @@ function App() {
         onOk={() => viewPropertiesForm.submit()}
         destroyOnHidden
       >
-        <Text type="secondary">設定會套用至所有 View 的背景色，並可使用 Undo/Redo 還原。</Text>
+        <Text type="secondary">
+          背景色與 View 名稱標籤樣式會套用至所有 View；名稱標籤設定會保存於匯出 JSON 的 extra，並可使用 Undo/Redo 還原。
+        </Text>
         <Form
           form={viewPropertiesForm}
           layout="vertical"
@@ -2232,6 +2257,18 @@ function App() {
         >
           <Form.Item label="背景色" name="bkcolor" rules={[{ required: true }]}>
             <Input type="color" aria-label="View 背景色" />
+          </Form.Item>
+          <Form.Item label="View 名稱標籤顏色" name="viewTitleColor" rules={[{ required: true }]}>
+            <Input type="color" aria-label="View 名稱標籤顏色" />
+          </Form.Item>
+          <Form.Item
+            label="View 名稱標籤大小"
+            name="viewTitleFontSize"
+            rules={[
+              { required: true, type: 'number', min: 8, max: 72, message: '請輸入 8–72。' },
+            ]}
+          >
+            <InputNumber min={8} max={72} step={1} aria-label="View 名稱標籤大小" />
           </Form.Item>
         </Form>
       </Modal>

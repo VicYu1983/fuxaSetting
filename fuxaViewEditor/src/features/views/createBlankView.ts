@@ -5,6 +5,7 @@ import type { RandomValuesProvider } from '../../domain/ids'
 import type { SvgParserConstructor } from '../../domain/svg/parseSvg'
 import { buildTagIndex } from '../../domain/tags/index'
 import { isRecord } from '../../domain/config/validateFuxaConfig'
+import { getViewTitleLabelSettings } from '../../domain/views/viewTitleLabel'
 
 export interface CreateBlankViewRuntime {
   Parser: SvgParserConstructor
@@ -78,6 +79,7 @@ export function createBlankView(
 
   const width = typeof defaultProfile.width === 'number' ? defaultProfile.width : 1024
   const height = typeof defaultProfile.height === 'number' ? defaultProfile.height : 768
+  const titleStyle = getViewTitleLabelSettings(config)
   const escapedName = name.replace(/[&<>"']/g, (character) => ({
     '&': '&amp;',
     '<': '&lt;',
@@ -86,7 +88,7 @@ export function createBlankView(
     "'": '&apos;',
   })[character]!)
   const doc = parseSvg(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><g><title>Layer 1</title><text data-name="view_title" id="${titleId}" x="20" y="36" fill="#000000" stroke="#000000" stroke-width="0" font-size="24" font-family="sans-serif" text-anchor="start" xml:space="preserve">${escapedName}</text></g></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><g><title>Layer 1</title><text data-name="view_title" id="${titleId}" x="20" y="36" fill="${titleStyle.color}" stroke="${titleStyle.color}" stroke-width="0" font-size="${titleStyle.fontSize}" font-family="sans-serif" text-anchor="start" xml:space="preserve">${escapedName}</text></g></svg>`,
     runtime.Parser,
   )
   const view: Record<string, unknown> = {

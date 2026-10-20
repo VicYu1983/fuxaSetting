@@ -98,6 +98,31 @@ describe('createBlankView', () => {
     expect(result.view.items).toHaveProperty(result.titleId)
   })
 
+  it('uses the saved global View title label style', () => {
+    const config: FuxaConfig = {
+      devices: {},
+      hmi: { views: [] },
+      extra: { fuxaSetting: { viewTitleLabel: { color: '#123456', fontSize: 32 } } },
+    }
+    let svgSource = ''
+    class CapturingParser extends TestParser {
+      parseFromString(source: string, mimeType: 'image/svg+xml'): XMLDocument {
+        svgSource = source
+        return super.parseFromString(source, mimeType)
+      }
+    }
+
+    createBlankView(config, 'New View', '', {
+      Parser: CapturingParser,
+      serialize: () => '<svg/>',
+      crypto: { getRandomValues: (bytes) => bytes },
+    })
+
+    expect(svgSource).toContain('fill="#123456"')
+    expect(svgSource).toContain('stroke="#123456"')
+    expect(svgSource).toContain('font-size="32"')
+  })
+
   it('fails explicitly when an existing view SVG cannot be scanned safely', () => {
     const config: FuxaConfig = {
       devices: {},
