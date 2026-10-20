@@ -74,8 +74,10 @@ import { moveManagedComponent } from './features/views/moveManagedComponent'
 import {
   addMultiStateIconState,
   addIconLibraryEntry,
+  createIconLibraryExport,
   findIconLibraryUsages,
   findIconLibrarySvgUsages,
+  importIconLibrary,
   moveMultiStateIconState,
   removeMultiStateIconState,
   removeIconLibraryEntry,
@@ -248,6 +250,7 @@ function App() {
   const [floorSelection, setFloorSelection] = useState<Set<string>>(new Set())
   const [bulkFloor, setBulkFloor] = useState('')
   const [iconLibraryOpen, setIconLibraryOpen] = useState(false)
+  const iconLibraryImportRef = useRef<HTMLInputElement>(null)
   const [editingMultiStateIconId, setEditingMultiStateIconId] = useState('')
   const [iconName, setIconName] = useState('')
   const [iconType, setIconType] = useState<'single' | 'pair' | 'multi-state'>('single')
@@ -1503,6 +1506,44 @@ function App() {
     }
   }
 
+  function handleExportIconLibrary() {
+    try {
+      const contents = `${JSON.stringify(createIconLibraryExport(iconLibrary), null, 2)}\n`
+      const blob = new Blob([contents], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = '圖示庫.json'
+      link.hidden = true
+      document.body.append(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      messageApi.success('已匯出圖示庫 JSON。')
+    } catch (error) {
+      messageApi.error(`圖示庫匯出失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  async function handleImportIconLibrary(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0]
+    event.currentTarget.value = ''
+    if (!file || !config) return
+    try {
+      const input: unknown = JSON.parse(await file.text())
+      const nextConfig = importIconLibrary(config.rawConfig, input)
+      const importedCount = getIconLibrary(nextConfig).length - iconLibrary.length
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(nextConfig, config),
+        models,
+      })
+      messageApi.success(`已匯入 ${importedCount} 個圖示。`)
+    } catch (error) {
+      messageApi.error(`圖示庫匯入失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   function handleRemoveIcon(iconId: string) {
     if (!config) return
     try {
@@ -1912,6 +1953,29 @@ function App() {
         destroyOnHidden
       >
         <Space orientation="vertical" size="middle" className="icon-library-manager">
+          <Space wrap>
+            <Button
+              disabled={!config || !iconLibrary.length}
+              onClick={handleExportIconLibrary}
+            >
+              匯出圖示庫
+            </Button>
+            <Button
+              disabled={!config}
+              onClick={() => iconLibraryImportRef.current?.click()}
+            >
+              匯入圖示庫
+            </Button>
+            <input
+              ref={iconLibraryImportRef}
+              type="file"
+              accept="application/json,.json"
+              aria-label="匯入圖示庫 JSON"
+              hidden
+              onChange={(event) => void handleImportIconLibrary(event)}
+            />
+            <Text type="secondary">匯入會合併圖示；若名稱或 ID 衝突，整批匯入將被拒絕。</Text>
+          </Space>
           <Space wrap>
             <Input
               aria-label="圖示名稱（必填）"

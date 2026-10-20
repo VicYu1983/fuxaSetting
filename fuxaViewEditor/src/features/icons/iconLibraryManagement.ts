@@ -5,11 +5,61 @@ import {
   getIconLibrary,
   MAX_MULTI_STATE_COUNT,
   saveIconLibrary,
+  validateIconLibrary,
 } from '../../domain/icons/iconLibrary'
 import type { IconLibraryEntry, IconMimeType } from '../../domain/icons/iconLibrary'
 import type { ExportViewModel } from '../../domain/config/prepareFuxaConfigExport'
 import { generateId, type RandomValuesProvider } from '../../domain/ids'
 import { parseSvg, type SvgParserConstructor } from '../../domain/svg/parseSvg'
+
+const ICON_LIBRARY_EXPORT_FORMAT = 'fuxaSetting-icon-library'
+
+export interface IconLibraryExport {
+  format: typeof ICON_LIBRARY_EXPORT_FORMAT
+  version: 1
+  icons: IconLibraryEntry[]
+}
+
+export function createIconLibraryExport(icons: readonly IconLibraryEntry[]): IconLibraryExport {
+  return {
+    format: ICON_LIBRARY_EXPORT_FORMAT,
+    version: 1,
+    icons: validateIconLibrary(icons),
+  }
+}
+
+export function importIconLibrary(source: FuxaConfig, input: unknown): FuxaConfig {
+  if (!isRecord(input)
+      || input.format !== ICON_LIBRARY_EXPORT_FORMAT
+      || input.version !== 1) {
+    throw new Error('匯入檔格式無效或版本不支援。')
+  }
+  const importedIcons = validateIconLibrary(input.icons)
+  if (!importedIcons.length) throw new Error('匯入檔沒有任何圖示。')
+
+  const currentIcons = getIconLibrary(source)
+  const existingIds = new Set(currentIcons.flatMap((icon) => [
+    icon.id,
+    ...getIconAssets(icon).map((asset) => asset.id),
+  ]))
+  const existingNames = new Set(currentIcons.map((icon) => icon.name.trim().toLocaleLowerCase()))
+  for (const icon of importedIcons) {
+    const normalizedName = icon.name.trim().toLocaleLowerCase()
+    if (existingNames.has(normalizedName)) {
+      throw new Error(`圖示名稱「${icon.name}」已存在，請先處理名稱衝突。`)
+    }
+    existingNames.add(normalizedName)
+  }
+  const conflictingId = importedIcons.flatMap((icon) => [
+    icon.id,
+    ...getIconAssets(icon).map((asset) => asset.id),
+  ]).find((id) => existingIds.has(id))
+  if (conflictingId) throw new Error(`圖示 ID「${conflictingId}」已存在，無法匯入。`)
+
+  const nextConfig = structuredClone(source)
+  saveIconLibrary(nextConfig, [...currentIcons, ...importedIcons])
+  return nextConfig
+}
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''

@@ -10,8 +10,10 @@ import type { SvgParserConstructor } from '../../../src/domain/svg/parseSvg'
 import {
   addMultiStateIconState,
   addIconLibraryEntry,
+  createIconLibraryExport,
   findIconLibraryUsages,
   findIconLibrarySvgUsages,
+  importIconLibrary,
   identifyIconMimeType,
   moveMultiStateIconState,
   removeMultiStateIconState,
@@ -51,6 +53,79 @@ function model(component: ExportViewModel['components'][number]): ExportViewMode
 }
 
 describe('iconLibraryManagement', () => {
+  it('exports validated icons and imports them by merging without overwriting the project', () => {
+    const existing = {
+      id: 'existing-icon',
+      name: 'Existing',
+      type: 'single' as const,
+      mimeType: 'image/gif' as const,
+      dataUrl: 'data:image/gif;base64,R0lGODlh',
+    }
+    const imported = {
+      id: 'imported-icon',
+      name: 'Imported',
+      type: 'single' as const,
+      mimeType: 'image/png' as const,
+      dataUrl: 'data:image/png;base64,iVBORw==',
+    }
+    const source: FuxaConfig = {
+      ...emptyConfig(),
+      extra: {
+        preserve: true,
+        fuxaSetting: { note: 'keep', icons: [existing] },
+      },
+    }
+    const archive = createIconLibraryExport([imported])
+    const nextConfig = importIconLibrary(source, JSON.parse(JSON.stringify(archive)))
+
+    expect(archive).toMatchObject({ format: 'fuxaSetting-icon-library', version: 1 })
+    expect(getIconLibrary(nextConfig)).toEqual([existing, imported])
+    expect(nextConfig.extra).toMatchObject({
+      preserve: true,
+      fuxaSetting: { note: 'keep', icons: [existing, imported] },
+    })
+    expect(getIconLibrary(source)).toEqual([existing])
+  })
+
+  it('rejects an invalid archive or any name/asset ID conflict without changing the source', () => {
+    const existing = {
+      id: 'existing-icon',
+      name: 'Existing',
+      type: 'single' as const,
+      mimeType: 'image/gif' as const,
+      dataUrl: 'data:image/gif;base64,R0lGODlh',
+    }
+    const source: FuxaConfig = {
+      ...emptyConfig(),
+      extra: { fuxaSetting: { icons: [existing] } },
+    }
+    const conflictingName = {
+      ...existing,
+      id: 'different-id',
+    }
+    const conflictingAssetId = {
+      id: 'new-pair',
+      name: 'New pair',
+      type: 'pair' as const,
+      normal: { ...existing, id: 'existing-icon' },
+      alarm: { ...existing, id: 'new-alarm' },
+    }
+
+    expect(() => importIconLibrary(source, { ...createIconLibraryExport([existing]), version: 2 }))
+      .toThrow('版本不支援')
+    expect(() => importIconLibrary(source, createIconLibraryExport([conflictingName])))
+      .toThrow('名稱')
+    expect(() => importIconLibrary(source, createIconLibraryExport([conflictingAssetId])))
+      .toThrow('ID')
+    expect(() => importIconLibrary(source, createIconLibraryExport([
+      { ...existing, id: 'same-name-1' },
+      { ...existing, id: 'same-name-2', name: 'eXISTING' },
+    ]))).toThrow('名稱')
+    expect(() => importIconLibrary(source, { format: 'fuxaSetting-icon-library', version: 1, icons: [{}] }))
+      .toThrow('無效項目')
+    expect(getIconLibrary(source)).toEqual([existing])
+  })
+
   it('identifies supported signatures and preserves GIF bytes in its data URL', () => {
     expect(identifyIconMimeType(gifBytes)).toBe('image/gif')
     expect(identifyIconMimeType(new Uint8Array([
