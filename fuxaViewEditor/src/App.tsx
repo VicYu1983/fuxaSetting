@@ -45,6 +45,10 @@ import { findLegacySwitchViewIds, prepareFuxaConfigExport } from './domain/confi
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
+import {
+  getViewBackgroundInputColor,
+  updateAllViewBackgrounds,
+} from './domain/views/viewBackground'
 import { buildTagIndex, isAutoFilledTag, isCoilTag } from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
 import { getIconAssets, getIconLibrary, MAX_MULTI_STATE_COUNT } from './domain/icons/iconLibrary'
@@ -142,6 +146,10 @@ interface FloorGroupFrameFormValues extends Omit<FloorGroupFrameSettings, 'fillO
   fillOpacityPercent: number
 }
 
+interface ViewPropertiesFormValues {
+  bkcolor: string
+}
+
 function countTags(devices: Record<string, unknown>): number {
   return Object.values(devices).reduce<number>((count, device) => {
     if (!isRecord(device) || !isRecord(device.tags)) return count
@@ -228,6 +236,7 @@ function App() {
   const [deviceManagerForm] = Form.useForm<ModbusDeviceFormValues>()
   const [deviceTagForm] = Form.useForm<ModbusTagFormValues>()
   const [floorFrameForm] = Form.useForm<FloorGroupFrameFormValues>()
+  const [viewPropertiesForm] = Form.useForm<ViewPropertiesFormValues>()
   const [messageApi, contextHolder] = message.useMessage()
   const [projectName, setProjectName] = useState('新專案')
   const [selectedViewId, setSelectedViewId] = useState('')
@@ -277,6 +286,7 @@ function App() {
   >({})
   const [deviceManagerOpen, setDeviceManagerOpen] = useState(false)
   const [floorFrameDialogOpen, setFloorFrameDialogOpen] = useState(false)
+  const [viewPropertiesDialogOpen, setViewPropertiesDialogOpen] = useState(false)
   const [deviceManagerMode, setDeviceManagerMode] = useState<'create' | 'edit'>('edit')
   const [managedDeviceId, setManagedDeviceId] = useState('')
   const [deviceTagSearch, setDeviceTagSearch] = useState('')
@@ -1588,6 +1598,37 @@ function App() {
     }
   }
 
+  function openViewPropertiesDialog() {
+    if (!config) return
+    const selected = getSelectedView(config.views, selectedViewId)
+    const index = selected ? config.views.indexOf(selected) : 0
+    viewPropertiesForm.setFieldsValue({
+      bkcolor: getViewBackgroundInputColor(config.rawConfig, Math.max(index, 0)),
+    })
+    setViewPropertiesDialogOpen(true)
+  }
+
+  function handleViewPropertiesSubmit(values: ViewPropertiesFormValues) {
+    if (!config) return
+    try {
+      const result = updateAllViewBackgrounds(config.rawConfig, values.bkcolor)
+      if (!result.changed) {
+        setViewPropertiesDialogOpen(false)
+        messageApi.info('View 屬性沒有變更。')
+        return
+      }
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(result.config, config),
+        models,
+      })
+      setViewPropertiesDialogOpen(false)
+      messageApi.success('已更新所有 View 的背景色。')
+    } catch (error) {
+      messageApi.error(`更新 View 屬性失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   async function handleAddIcon() {
     if (!config) return
     try {
@@ -2168,6 +2209,27 @@ function App() {
             ]}
           >
             <InputNumber min={0} max={200} step={1} />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        open={viewPropertiesDialogOpen}
+        title="View 屬性"
+        okText="套用所有 View"
+        cancelText="取消"
+        onCancel={() => setViewPropertiesDialogOpen(false)}
+        onOk={() => viewPropertiesForm.submit()}
+        destroyOnHidden
+      >
+        <Text type="secondary">設定會套用至所有 View 的背景色，並可使用 Undo/Redo 還原。</Text>
+        <Form
+          form={viewPropertiesForm}
+          layout="vertical"
+          onFinish={handleViewPropertiesSubmit}
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item label="背景色" name="bkcolor" rules={[{ required: true }]}>
+            <Input type="color" aria-label="View 背景色" />
           </Form.Item>
         </Form>
       </Modal>
@@ -3164,6 +3226,9 @@ function App() {
             </Button>
             <Button disabled={!config} onClick={openFloorFrameDialog}>
               樓層框樣式
+            </Button>
+            <Button disabled={!config} onClick={openViewPropertiesDialog}>
+              View 屬性
             </Button>
           </Space>
         </Header>
