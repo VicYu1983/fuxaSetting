@@ -44,6 +44,19 @@ export function updateModbusDeviceTag(
   if (!name) throw new Error('Tag 名稱不可空白。')
   if (!type) throw new Error('Tag 型別不可空白。')
   if (!memaddress) throw new Error('記憶體區段不可空白。')
+  const normalizedName = name.toLocaleLowerCase()
+  for (const candidate of Object.values(config.devices)) {
+    if (!isRecord(candidate) || !isRecord(candidate.tags)) continue
+    for (const value of Object.values(candidate.tags)) {
+      if (!isRecord(value) || value === tag) continue
+      const candidateName = typeof value.name === 'string'
+        ? value.name.trim().toLocaleLowerCase()
+        : ''
+      if (candidateName && candidateName === normalizedName) {
+        throw new Error(`Tag 名稱「${name}」已被其他 Tag 使用。`)
+      }
+    }
+  }
   if (update.address !== undefined && update.address !== null
       && (!Number.isSafeInteger(update.address) || update.address < 0 || update.address > 65535)) {
     throw new Error('Tag 位址必須是 0 到 65535 之間的整數。')

@@ -108,6 +108,30 @@ describe('Modbus device Tag management', () => {
     expect(source).toEqual(original)
   })
 
+  it('rejects a name already used by another Tag anywhere in the project', () => {
+    const source = createConfig()
+    ;(source.devices.device1 as {
+      tags: Record<string, Record<string, unknown>>
+    }).tags.other = { id: 'tag-2', name: 'Fan' }
+    source.devices.device2 = {
+      id: 'device2',
+      type: 'ModbusTCP',
+      tags: { tag3: { id: 'tag-3', name: 'Valve' } },
+    }
+    const original = structuredClone(source)
+    const update = {
+      name: ' valve ',
+      type: 'Bool',
+      memaddress: '000000',
+      description: '',
+      floor: '',
+    }
+
+    expect(() => updateModbusDeviceTag(source, 'device1', 'tag-1', update))
+      .toThrow('Tag 名稱「valve」已被其他 Tag 使用')
+    expect(source).toEqual(original)
+  })
+
   it('deletes a Tag from a cloned device without affecting sibling Tags', () => {
     const source = createConfig()
     const deleted = deleteModbusDeviceTag(source, 'device1', 'tag-1')

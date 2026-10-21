@@ -345,6 +345,20 @@ function App() {
     () => config ? [...buildTagIndex(config.rawConfig).values()] : [],
     [config],
   )
+  const duplicateTagGroups = useMemo(() => {
+    const names = new Map<string, typeof tags>()
+    for (const tag of tags) {
+      const name = tag.name.trim().toLocaleLowerCase()
+      if (!name) continue
+      const group = names.get(name) ?? []
+      group.push(tag)
+      names.set(name, group)
+    }
+    return [...names.values()].filter((group) => group.length > 1)
+  }, [tags])
+  const duplicateTagIds = useMemo(() => new Set(
+    duplicateTagGroups.flatMap((group) => group.map((tag) => tag.id)),
+  ), [duplicateTagGroups])
   const managedComponentGroups = useMemo(() => {
     if (!selectedModel) return []
     const components = selectedModel.components.filter(
@@ -2757,6 +2771,32 @@ function App() {
             批次建立 Tag
           </Button>
         </div>
+        {deviceManagerMode === 'edit' && (
+          <Alert
+            showIcon
+            type={duplicateTagGroups.length ? 'warning' : 'success'}
+            message={duplicateTagGroups.length
+              ? `全專案名稱檢查：發現 ${duplicateTagGroups.length} 組重複名稱，共 ${duplicateTagGroups.reduce((count, group) => count + group.length, 0)} 個 Tag`
+              : '全專案名稱檢查：目前沒有重複的 Tag 名稱'}
+            description={duplicateTagGroups.length ? (
+              <Space wrap>
+                {duplicateTagGroups.slice(0, 8).map((group) => {
+                  const firstTag = group[0]
+                  if (!firstTag) return null
+                  return (
+                    <Tag key={firstTag.name.trim().toLocaleLowerCase()}>
+                      {firstTag.name}：{group.map((tag) => tag.deviceName).join('、')}
+                    </Tag>
+                  )
+                })}
+                {duplicateTagGroups.length > 8
+                  ? <Text type="secondary">另有 {duplicateTagGroups.length - 8} 組未顯示</Text>
+                  : null}
+              </Space>
+            ) : undefined}
+            style={{ marginTop: 12 }}
+          />
+        )}
         {deviceManagerMode === 'edit' && managedDevice && (
           <div className="device-manager-summary">
             <Text type="secondary">
@@ -2810,6 +2850,9 @@ function App() {
                 <div className="device-tag-row" key={tag.id}>
                   <div className="device-tag-info">
                     <Text strong ellipsis title={tag.name}>{tag.name}</Text>
+                    {duplicateTagIds.has(tag.id) && (
+                      <Text type="danger">名稱重複，請修改 Tag 名稱</Text>
+                    )}
                     <Text type="secondary" ellipsis title={`${tag.type} · ${tag.memaddress}`}>
                       {tag.type || '未設定型別'} · {tag.memaddress || '未設定區段'}
                     </Text>
@@ -2908,6 +2951,17 @@ function App() {
             rules={[
               { required: true, whitespace: true, message: 'Tag 名稱不可空白。' },
               { max: 120, message: 'Tag 名稱不可超過 120 個字元。' },
+              {
+                validator: async (_, value: unknown) => {
+                  const name = typeof value === 'string' ? value.trim().toLocaleLowerCase() : ''
+                  if (!name) return
+                  const duplicate = tags.some((tag) => (
+                    tag.id !== editingDeviceTagId
+                    && tag.name.trim().toLocaleLowerCase() === name
+                  ))
+                  if (duplicate) throw new Error('此名稱已被其他 Tag 使用。')
+                },
+              },
             ]}
           >
             <Input maxLength={120} />
