@@ -170,6 +170,13 @@ const TAG_ALARM_LEVEL_OPTIONS: { value: TagAlarmLevel; label: string }[] = [
   { value: 'info', label: '資訊 (Info)' },
 ]
 
+const TAG_ALARM_LEVEL_LABELS: Record<TagAlarmLevel, string> = {
+  highhigh: '高高',
+  high: '高',
+  low: '低',
+  info: '資訊',
+}
+
 interface FloorGroupFrameFormValues extends Omit<FloorGroupFrameSettings, 'fillOpacity'> {
   fillOpacityPercent: number
 }
@@ -420,6 +427,36 @@ function App() {
     () => tags.filter((tag) => tagViewOptions.has(tag.id)),
     [tagViewOptions, tags],
   )
+  const alarmSettingsByTag = useMemo(() => {
+    const settingsByTag = new Map<string, { level: TagAlarmLevel; text: string }[]>()
+    const alarms = config?.rawConfig.alarms
+    if (!Array.isArray(alarms)) return settingsByTag
+
+    const levels: { key: TagAlarmLevel; label: string }[] = [
+      { key: 'highhigh', label: '高高' },
+      { key: 'high', label: '高' },
+      { key: 'low', label: '低' },
+      { key: 'info', label: '資訊' },
+    ]
+    for (const alarm of alarms) {
+      if (!isRecord(alarm) || !isRecord(alarm.property)
+          || typeof alarm.property.variableId !== 'string') continue
+      const tagId = alarm.property.variableId
+      const settings = levels.flatMap(({ key }) => {
+        const level = alarm[key]
+        return isRecord(level) && level.enabled === true
+          ? [{
+            level: key,
+            text: typeof level.text === 'string' ? level.text : '',
+          }]
+          : []
+      })
+      if (settings.length) {
+        settingsByTag.set(tagId, [...(settingsByTag.get(tagId) ?? []), ...settings])
+      }
+    }
+    return settingsByTag
+  }, [config])
   const filteredAlarmTags = useMemo(() => {
     const query = tagAlarmSearch.trim().toLocaleLowerCase()
     return selectableAlarmTags.filter((tag) => (
@@ -1386,6 +1423,23 @@ function App() {
                   >
                     Address: {String(tag.record.address ?? '未設定')}
                   </Text>
+                  <div className="alarm-tag-settings" aria-label={`${tag.name} 已設定告警`}>
+                    {alarmSettingsByTag.get(tag.id)?.length ? (
+                      alarmSettingsByTag.get(tag.id)?.map(({ level, text }, index) => (
+                        <div className="alarm-tag-setting" key={`${level}-${index}`}>
+                          <Tag>{TAG_ALARM_LEVEL_LABELS[level]}</Tag>
+                          <Text
+                            type="secondary"
+                            ellipsis={{ tooltip: text || '未設定告警文字' }}
+                          >
+                            {text || '未設定告警文字'}
+                          </Text>
+                        </div>
+                      ))
+                    ) : (
+                      <Text type="secondary">未設定告警</Text>
+                    )}
+                  </div>
                 </div>
               ))}
             </section>

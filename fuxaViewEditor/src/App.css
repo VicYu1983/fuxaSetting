@@ -513,8 +513,30 @@
   align-items: center;
   display: grid;
   gap: 12px;
-  grid-template-columns: 28px minmax(100px, 1fr) minmax(120px, 0.8fr) minmax(100px, 0.6fr);
+  grid-template-columns: 28px minmax(100px, 1fr) minmax(120px, 0.8fr) minmax(100px, 0.6fr) minmax(180px, 1.2fr);
   padding: 6px 0;
+}
+
+.alarm-tag-settings {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.alarm-tag-setting {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.alarm-tag-setting .ant-tag {
+  flex: 0 0 auto;
+  margin-inline-end: 0;
+}
+
+.alarm-tag-setting .ant-typography {
+  min-width: 0;
 }
 
 .floor-tag-name,
@@ -545,7 +567,7 @@
 
   .alarm-tag-row {
     gap: 6px;
-    grid-template-columns: 28px minmax(90px, 1fr) minmax(110px, 0.8fr);
+    grid-template-columns: 28px minmax(90px, 1fr) minmax(100px, 0.6fr) minmax(150px, 1fr);
   }
 
   .floor-tag-device {
