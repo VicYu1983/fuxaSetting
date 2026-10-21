@@ -296,7 +296,7 @@ function App() {
   const [tagCreateType, setTagCreateType] = useState('Bool')
   const [tagCreateFloor, setTagCreateFloor] = useState('')
   const [tagCreateAlsoAddView, setTagCreateAlsoAddView] = useState(true)
-  const [projectManagerTab, setProjectManagerTab] = useState<'devices' | 'floors'>('devices')
+  const [projectManagerTab, setProjectManagerTab] = useState<'devices' | 'floors' | 'alarms'>('devices')
   const [floorSearch, setFloorSearch] = useState('')
   const [floorDisplayMode, setFloorDisplayMode] = useState<'group' | 'list'>('group')
   const [floorSelection, setFloorSelection] = useState<Set<string>>(new Set())
@@ -323,7 +323,6 @@ function App() {
   const [deviceTagSearch, setDeviceTagSearch] = useState('')
   const [editingDeviceTagId, setEditingDeviceTagId] = useState('')
   const [deviceTagDialogOpen, setDeviceTagDialogOpen] = useState(false)
-  const [tagAlarmDialogOpen, setTagAlarmDialogOpen] = useState(false)
   const [tagAlarmTagIds, setTagAlarmTagIds] = useState<string[]>([])
   const [tagAlarmSearch, setTagAlarmSearch] = useState('')
   const [tagAlarmText, setTagAlarmText] = useState('設備異常告警')
@@ -1254,16 +1253,6 @@ function App() {
     setTagCreateDialogOpen(true)
   }
 
-  function openTagAlarmDialog() {
-    setTagAlarmTagIds([])
-    setTagAlarmSearch('')
-    setTagAlarmText('設備異常告警')
-    setTagAlarmLevel('highhigh')
-    setTagAlarmTargetViewIds({})
-    setDeviceManagerOpen(false)
-    setTagAlarmDialogOpen(true)
-  }
-
   function toggleVisibleAlarmTags(checked: boolean) {
     setTagAlarmTagIds((current) => {
       const next = new Set(current)
@@ -1313,7 +1302,6 @@ function App() {
       )
       const document = parseUpdatedConfig(result.config, config)
       dispatchEditor({ type: 'document-edit', document, models })
-      setTagAlarmDialogOpen(false)
       messageApi.success(
         `已設定 ${result.created + result.updated} 個告警（新增 ${result.created} 個、更新 ${result.updated} 個）。`,
       )
@@ -1321,6 +1309,157 @@ function App() {
       const detail = error instanceof Error ? error.message : String(error)
       messageApi.error(`批次設定告警失敗：${detail}`)
     }
+  }
+
+  function renderTagAlarmSettings() {
+    return (
+      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+        <Text type="secondary">
+          多選要設定的 Tag，告警文字與等級會套用至全部選取項目。告警觸發時會跳轉至各 Tag 指定的 View。
+        </Text>
+        {tagsWithoutViewCount > 0 && (
+          <Alert
+            type="info"
+            showIcon
+            message={`${tagsWithoutViewCount} 個尚未在任何 View 使用的 Tag 不列入選項，因為沒有可跳轉的 Tag 頁面。`}
+          />
+        )}
+        <Input
+          aria-label="搜尋告警 Tag"
+          allowClear
+          placeholder="搜尋設備、Tag、型別、ID 或樓層"
+          value={tagAlarmSearch}
+          onChange={(event) => setTagAlarmSearch(event.target.value)}
+          style={{ margin: '12px 0' }}
+        />
+        <div className="floor-manager-toolbar">
+          <Text type="secondary">
+            {selectableAlarmTags.length} 個可設定 Tag · 已選 {tagAlarmTagIds.length} 個
+          </Text>
+        </div>
+        <div className="floor-bulk-toolbar">
+          <Checkbox
+            checked={filteredAlarmTags.length > 0
+              && filteredAlarmTags.every((tag) => tagAlarmTagIds.includes(tag.id))}
+            indeterminate={filteredAlarmTags.some((tag) => tagAlarmTagIds.includes(tag.id))
+              && !filteredAlarmTags.every((tag) => tagAlarmTagIds.includes(tag.id))}
+            disabled={filteredAlarmTags.length === 0}
+            onChange={(event) => toggleVisibleAlarmTags(event.target.checked)}
+          >
+            全選可見 Tag
+          </Checkbox>
+        </div>
+        <div className="floor-tag-list alarm-tag-list" role="group" aria-label="告警 Tag 清單">
+          {filteredAlarmTags.length ? alarmTagGroups.map((group) => (
+            <section className="floor-tag-group" key={group.floor || 'all'}>
+              {group.title && (
+                <div className="floor-tag-group-title">
+                  {group.title} · {group.items.length} 個 Tag
+                </div>
+              )}
+              {group.items.map((tag) => (
+                <div className="alarm-tag-row" key={tag.id}>
+                  <Checkbox
+                    aria-label={`選取 ${tag.deviceName}／${tag.name}`}
+                    checked={tagAlarmTagIds.includes(tag.id)}
+                    onChange={(event) => {
+                      setTagAlarmTagIds((current) => event.target.checked
+                        ? [...current, tag.id]
+                        : current.filter((tagId) => tagId !== tag.id))
+                      if (event.target.checked) {
+                        const options = tagViewOptions.get(tag.id) ?? []
+                        setTagAlarmTargetViewIds((current) => ({
+                          ...current,
+                          [tag.id]: options.length === 1 ? options[0]?.id ?? '' : '',
+                        }))
+                      }
+                    }}
+                  />
+                  <span className="floor-tag-name" title={tag.name}>{tag.name}</span>
+                  <Text className="floor-tag-device" type="secondary" title={tag.deviceName}>
+                    {tag.deviceName}
+                  </Text>
+                  <Text
+                    className="floor-tag-address"
+                    type="secondary"
+                    title={`Address: ${String(tag.record.address ?? '未設定')}`}
+                  >
+                    Address: {String(tag.record.address ?? '未設定')}
+                  </Text>
+                </div>
+              ))}
+            </section>
+          )) : (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="沒有符合條件且已加入 View 的 Tag。"
+            />
+          )}
+        </div>
+        <label>
+          告警文字（套用至所有選取 Tag）
+          <Input
+            aria-label="批次告警文字"
+            maxLength={120}
+            value={tagAlarmText}
+            onChange={(event) => setTagAlarmText(event.target.value)}
+          />
+        </label>
+        <label>
+          告警等級（套用至所有選取 Tag）
+          <Select
+            aria-label="批次告警等級"
+            value={tagAlarmLevel}
+            options={TAG_ALARM_LEVEL_OPTIONS}
+            onChange={setTagAlarmLevel}
+          />
+        </label>
+        {selectedAlarmTags.length > 0 && (
+          <section className="device-tag-manager" aria-label="告警跳轉頁面設定">
+            <div className="device-tag-manager-heading">
+              <Text strong>告警動作目標頁面</Text>
+              <Text type="secondary">每個 Tag 可指定不同頁面</Text>
+            </div>
+            <Space orientation="vertical" style={{ width: '100%' }}>
+              {selectedAlarmTags.map((tag) => {
+                const options = tagViewOptions.get(tag.id) ?? []
+                return (
+                  <div className="device-tag-row" key={tag.id}>
+                    <Text strong ellipsis title={`${tag.deviceName} / ${tag.name}`}>
+                      {tag.deviceName} / {tag.name}
+                    </Text>
+                    <Select
+                      aria-label={`${tag.name} 告警目標 View`}
+                      placeholder={options.length
+                        ? '選擇告警時要前往的 View'
+                        : '此 Tag 尚未加入任何 View'}
+                      disabled={options.length === 0}
+                      value={tagAlarmTargetViewIds[tag.id] || undefined}
+                      options={options.map((view) => ({
+                        value: view.id,
+                        label: view.name,
+                      }))}
+                      onChange={(viewId: string) => setTagAlarmTargetViewIds((current) => ({
+                        ...current,
+                        [tag.id]: viewId,
+                      }))}
+                      style={{ minWidth: 240 }}
+                    />
+                  </div>
+                )
+              })}
+            </Space>
+          </section>
+        )}
+        {selectedAlarmTags.some((tag) => (tagViewOptions.get(tag.id) ?? []).length > 1) && (
+          <Alert
+            type="info"
+            showIcon
+            message="部分 Tag 出現在多個 View，請指定告警觸發時要前往的頁面。"
+          />
+        )}
+      </Space>
+    )
   }
 
   function handleCreateTags() {
@@ -2880,7 +3019,23 @@ function App() {
         cancelText="關閉"
         footer={projectManagerTab === 'devices'
           ? undefined
-          : [
+          : projectManagerTab === 'alarms'
+            ? [
+              <Button key="cancel" onClick={() => setDeviceManagerOpen(false)}>
+                關閉
+              </Button>,
+              <Button
+                key="apply-alarms"
+                type="primary"
+                disabled={tagAlarmTagIds.length === 0
+                  || !tagAlarmText.trim()
+                  || tagAlarmTargetsMissing}
+                onClick={handleCreateTagAlarms}
+              >
+                設定 {tagAlarmTagIds.length} 個告警
+              </Button>,
+            ]
+            : [
             <Button key="close" onClick={() => setDeviceManagerOpen(false)}>
               關閉
             </Button>,
@@ -2894,7 +3049,9 @@ function App() {
       >
         <Tabs
           activeKey={projectManagerTab}
-          onChange={(key) => setProjectManagerTab(key === 'floors' ? 'floors' : 'devices')}
+          onChange={(key) => setProjectManagerTab(
+            key === 'floors' || key === 'alarms' ? key : 'devices',
+          )}
           items={[
             {
               key: 'devices',
@@ -2940,12 +3097,6 @@ function App() {
             onClick={openTagCreateDialog}
           >
             批次建立 Tag
-          </Button>
-          <Button
-            disabled={!config || tags.length === 0}
-            onClick={openTagAlarmDialog}
-          >
-            批次設定告警
           </Button>
         </div>
         {deviceManagerMode === 'edit' && (
@@ -3108,6 +3259,11 @@ function App() {
           儲存 addressCount 時會以目前最小有效位址為起點，複製其 Tag 範本補齊相同 memaddress 區段的缺漏；位址 +1/-1 會先檢查整台設備的所有 Tag，超出 0–65535 時整批取消。
         </Text>
               </>,
+            },
+            {
+              key: 'alarms',
+              label: '告警設定',
+              children: renderTagAlarmSettings(),
             },
             {
               key: 'floors',
@@ -3295,168 +3451,6 @@ function App() {
             <Input placeholder="例如 4F" />
           </Form.Item>
         </Form>
-      </Modal>
-      <Modal
-        open={tagAlarmDialogOpen}
-        title="批次設定 Tag 告警"
-        okText={`設定 ${tagAlarmTagIds.length} 個告警`}
-        cancelText="取消"
-        okButtonProps={{
-          disabled: tagAlarmTagIds.length === 0
-            || !tagAlarmText.trim()
-            || tagAlarmTargetsMissing,
-        }}
-        onCancel={() => setTagAlarmDialogOpen(false)}
-        onOk={handleCreateTagAlarms}
-        width={760}
-        destroyOnHidden
-      >
-        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-          <Text type="secondary">
-            多選要設定的 Tag，告警文字與等級會套用至全部選取項目。告警觸發時會跳轉至各 Tag 指定的 View。
-          </Text>
-          {tagsWithoutViewCount > 0 && (
-            <Alert
-              type="info"
-              showIcon
-              message={`${tagsWithoutViewCount} 個尚未在任何 View 使用的 Tag 不列入選項，因為沒有可跳轉的 Tag 頁面。`}
-            />
-          )}
-          <Input
-            aria-label="搜尋告警 Tag"
-            allowClear
-            placeholder="搜尋設備、Tag、型別、ID 或樓層"
-            value={tagAlarmSearch}
-            onChange={(event) => setTagAlarmSearch(event.target.value)}
-            style={{ margin: '12px 0' }}
-          />
-          <div className="floor-manager-toolbar">
-            <Text type="secondary">
-              {selectableAlarmTags.length} 個可設定 Tag · 已選 {tagAlarmTagIds.length} 個
-            </Text>
-          </div>
-          <div className="floor-bulk-toolbar">
-            <Checkbox
-              checked={filteredAlarmTags.length > 0
-                && filteredAlarmTags.every((tag) => tagAlarmTagIds.includes(tag.id))}
-              indeterminate={filteredAlarmTags.some((tag) => tagAlarmTagIds.includes(tag.id))
-                && !filteredAlarmTags.every((tag) => tagAlarmTagIds.includes(tag.id))}
-              disabled={filteredAlarmTags.length === 0}
-              onChange={(event) => toggleVisibleAlarmTags(event.target.checked)}
-            >
-              全選可見 Tag
-            </Checkbox>
-          </div>
-          <div className="floor-tag-list alarm-tag-list" role="group" aria-label="告警 Tag 清單">
-            {filteredAlarmTags.length ? alarmTagGroups.map((group) => (
-              <section className="floor-tag-group" key={group.floor || 'all'}>
-                {group.title && (
-                  <div className="floor-tag-group-title">
-                    {group.title} · {group.items.length} 個 Tag
-                  </div>
-                )}
-                {group.items.map((tag) => (
-                  <div className="alarm-tag-row" key={tag.id}>
-                    <Checkbox
-                      aria-label={`選取 ${tag.deviceName}／${tag.name}`}
-                      checked={tagAlarmTagIds.includes(tag.id)}
-                      onChange={(event) => {
-                        setTagAlarmTagIds((current) => event.target.checked
-                          ? [...current, tag.id]
-                          : current.filter((tagId) => tagId !== tag.id))
-                        if (event.target.checked) {
-                          const options = tagViewOptions.get(tag.id) ?? []
-                          setTagAlarmTargetViewIds((current) => ({
-                            ...current,
-                            [tag.id]: options.length === 1 ? options[0]?.id ?? '' : '',
-                          }))
-                        }
-                      }}
-                    />
-                    <span className="floor-tag-name" title={tag.name}>{tag.name}</span>
-                    <Text className="floor-tag-device" type="secondary" title={tag.deviceName}>
-                      {tag.deviceName}
-                    </Text>
-                    <Text
-                      className="floor-tag-address"
-                      type="secondary"
-                      title={`Address: ${String(tag.record.address ?? '未設定')}`}
-                    >
-                      Address: {String(tag.record.address ?? '未設定')}
-                    </Text>
-                  </div>
-                ))}
-              </section>
-            )) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="沒有符合條件且已加入 View 的 Tag。"
-              />
-            )}
-          </div>
-          <label>
-            告警文字（套用至所有選取 Tag）
-            <Input
-              aria-label="批次告警文字"
-              maxLength={120}
-              value={tagAlarmText}
-              onChange={(event) => setTagAlarmText(event.target.value)}
-            />
-          </label>
-          <label>
-            告警等級（套用至所有選取 Tag）
-            <Select
-              aria-label="批次告警等級"
-              value={tagAlarmLevel}
-              options={TAG_ALARM_LEVEL_OPTIONS}
-              onChange={setTagAlarmLevel}
-            />
-          </label>
-          {selectedAlarmTags.length > 0 && (
-            <section className="device-tag-manager" aria-label="告警跳轉頁面設定">
-              <div className="device-tag-manager-heading">
-                <Text strong>告警動作目標頁面</Text>
-                <Text type="secondary">每個 Tag 可指定不同頁面</Text>
-              </div>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                {selectedAlarmTags.map((tag) => {
-                  const options = tagViewOptions.get(tag.id) ?? []
-                  return (
-                    <div className="device-tag-row" key={tag.id}>
-                      <Text strong ellipsis title={`${tag.deviceName} / ${tag.name}`}>
-                        {tag.deviceName} / {tag.name}
-                      </Text>
-                      <Select
-                        aria-label={`${tag.name} 告警目標 View`}
-                        placeholder={options.length
-                          ? '選擇告警時要前往的 View'
-                          : '此 Tag 尚未加入任何 View'}
-                        disabled={options.length === 0}
-                        value={tagAlarmTargetViewIds[tag.id] || undefined}
-                        options={options.map((view) => ({
-                          value: view.id,
-                          label: view.name,
-                        }))}
-                        onChange={(viewId: string) => setTagAlarmTargetViewIds((current) => ({
-                          ...current,
-                          [tag.id]: viewId,
-                        }))}
-                        style={{ minWidth: 240 }}
-                      />
-                    </div>
-                  )
-                })}
-              </Space>
-            </section>
-          )}
-          {selectedAlarmTags.some((tag) => (tagViewOptions.get(tag.id) ?? []).length > 1) && (
-            <Alert
-              type="info"
-              showIcon
-              message="部分 Tag 出現在多個 View，請指定告警觸發時要前往的頁面。"
-            />
-          )}
-        </Space>
       </Modal>
       <Modal
         open={tagCreateDialogOpen}
