@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FuxaConfig } from '../../../src/domain/config/types'
 import {
+  deleteAllAutoFilledModbusDeviceTags,
   deleteModbusDeviceTag,
   updateModbusDeviceTag,
 } from '../../../src/features/devices/manageDeviceTags'
@@ -113,5 +114,42 @@ describe('Modbus device Tag management', () => {
 
     expect((deleted.devices.device1 as { tags: object }).tags).toEqual({})
     expect((source.devices.device1 as { tags: object }).tags).toHaveProperty('tag1')
+  })
+
+  it('deletes all marked auto-filled Tags but keeps regular Tags and the source unchanged', () => {
+    const source = createConfig()
+    const tags = (source.devices.device1 as {
+      tags: Record<string, Record<string, unknown>>
+    }).tags
+    tags.filled1 = {
+      id: 'filled-1',
+      name: '補位_13',
+      description: '自動補位點位',
+    }
+    tags.filled2 = {
+      id: 'filled-2',
+      name: '補位_14',
+      description: '自動補位點位',
+    }
+    tags.regular = {
+      id: 'regular',
+      name: '補位_15',
+      description: '一般點位',
+    }
+
+    const result = deleteAllAutoFilledModbusDeviceTags(source, 'device1')
+    const resultTags = (result.config.devices.device1 as {
+      tags: Record<string, unknown>
+    }).tags
+
+    expect(result.deletedTagIds).toEqual(['filled-1', 'filled-2'])
+    expect(Object.keys(resultTags)).toEqual(['tag1', 'regular'])
+    expect(Object.keys(tags)).toEqual(['tag1', 'filled1', 'filled2', 'regular'])
+  })
+
+  it('rejects bulk removal for an invalid device', () => {
+    const source = createConfig()
+    expect(() => deleteAllAutoFilledModbusDeviceTags(source, 'missing'))
+      .toThrow('找不到所選的 ModbusTCP 設備或其 Tag 清單')
   })
 })

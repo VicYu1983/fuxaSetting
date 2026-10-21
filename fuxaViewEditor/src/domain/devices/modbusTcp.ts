@@ -1,6 +1,7 @@
 import { isRecord } from '../config/validateFuxaConfig'
 import type { FuxaTag } from '../config/types'
 import { generateId, type RandomValuesProvider } from '../ids'
+import { AUTO_FILLED_TAG_DESCRIPTION } from '../tags'
 
 export interface ModbusTcpDevice extends Record<string, unknown> {
   id?: string
@@ -227,7 +228,7 @@ export function fillModbusTcpAddressGaps(
       id,
       name,
       address,
-      description: '自動補位點位',
+      description: AUTO_FILLED_TAG_DESCRIPTION,
       timestamp: now(),
     }
     tags[id] = tag

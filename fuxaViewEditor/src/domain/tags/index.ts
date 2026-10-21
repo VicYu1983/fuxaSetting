@@ -13,12 +13,14 @@ export interface IndexedTag {
   record: FuxaTag
 }
 
+export const AUTO_FILLED_TAG_DESCRIPTION = '自動補位點位'
+
 export function isCoilTag(tag: IndexedTag): boolean {
   return tag.memaddress.trim() === '000000'
 }
 
 export function isAutoFilledTag(tag: IndexedTag): boolean {
-  return tag.record.description === '自動補位點位'
+  return tag.record.description === AUTO_FILLED_TAG_DESCRIPTION
 }
 
 export function buildTagIndex(config: FuxaConfig): Map<string, IndexedTag> {

@@ -53,7 +53,12 @@ import {
   getViewTitleLabelSettings,
   updateAllViewTitleLabels,
 } from './domain/views/viewTitleLabel'
-import { buildTagIndex, isAutoFilledTag, isCoilTag } from './domain/tags/index'
+import {
+  AUTO_FILLED_TAG_DESCRIPTION,
+  buildTagIndex,
+  isAutoFilledTag,
+  isCoilTag,
+} from './domain/tags/index'
 import { groupByFloor, normalizeFloor } from './domain/tags/floor'
 import {
   deviceTagsNeedAddressSorting,
@@ -70,6 +75,7 @@ import {
   shiftModbusDeviceTags,
 } from './features/devices/manageModbusDevice'
 import {
+  deleteAllAutoFilledModbusDeviceTags,
   deleteModbusDeviceTag,
   updateModbusDeviceTag,
 } from './features/devices/manageDeviceTags'
@@ -389,6 +395,9 @@ function App() {
         }))
       : []
   ), [managedDevice])
+  const autoFilledManagedDeviceTags = managedDeviceTags.filter(
+    (tag) => tag.description === AUTO_FILLED_TAG_DESCRIPTION,
+  )
   const filteredManagedDeviceTags = useMemo(() => {
     const query = deviceTagSearch.trim().toLocaleLowerCase()
     return managedDeviceTags.filter((tag) => (
@@ -1393,6 +1402,69 @@ function App() {
         } catch (error) {
           const detail = error instanceof Error ? error.message : String(error)
           messageApi.error(`Tag 刪除失敗：${detail}`)
+        }
+      },
+    })
+  }
+
+  function handleDeleteAutoFilledDeviceTags() {
+    if (!config || !managedDevice || !autoFilledManagedDeviceTags.length) return
+    const autoFilledTagIds = new Set(autoFilledManagedDeviceTags.map((tag) => tag.id))
+    const referencedModels = [...models.entries()].flatMap(([viewId, model]) => {
+      const components = model.components.filter((component) => (
+        autoFilledTagIds.has(component.tagId)
+        || component.multiStateBindings?.some((binding) => autoFilledTagIds.has(binding.tagId))
+      ))
+      return components.length ? [{ viewId, model, components }] : []
+    })
+    const readonlyReferences = referencedModels.flatMap(({ viewId, components }) => {
+      const count = components.filter((component) => component.managed === false).length
+      if (!count) return []
+      const view = config.views.find((candidate) => candidate.id === viewId)
+      return [`${view?.name || viewId} (${count} 個唯讀元件)`]
+    })
+    if (readonlyReferences.length) {
+      messageApi.error(
+        `無法移除補位 Tag：以下 View 有無法安全修改的唯讀元件引用：${readonlyReferences.join('、')}`,
+      )
+      return
+    }
+
+    const managedReferenceCount = referencedModels.reduce(
+      (count, entry) => count + entry.components.length,
+      0,
+    )
+    Modal.confirm({
+      title: `確定移除設備「${managedDevice.record.name || managedDeviceId}」的所有補位 Tag？`,
+      content: managedReferenceCount
+        ? `將移除 ${autoFilledManagedDeviceTags.length} 個補位 Tag，並一併移除 ${managedReferenceCount} 個引用它們的受管理元件。此操作無法復原。`
+        : `將移除 ${autoFilledManagedDeviceTags.length} 個補位 Tag。此操作無法復原。`,
+      okText: '移除補位 Tag',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk() {
+        try {
+          const result = deleteAllAutoFilledModbusDeviceTags(config.rawConfig, managedDeviceId)
+          const nextModels = new Map(models)
+          for (const { viewId, model, components } of referencedModels) {
+            const removeKeys = new Set(components.map((component) => component.key))
+            nextModels.set(viewId, {
+              ...model,
+              components: model.components.filter((component) => !removeKeys.has(component.key)),
+            })
+          }
+          dispatchEditor({
+            type: 'document-edit',
+            document: parseUpdatedConfig(result.config, config),
+            models: nextModels,
+          })
+          messageApi.success(
+            `已移除 ${result.deletedTagIds.length} 個補位 Tag。`
+            + (managedReferenceCount ? `並移除 ${managedReferenceCount} 個相關元件。` : ''),
+          )
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error)
+          messageApi.error(`補位 Tag 移除失敗：${detail}`)
         }
       },
     })
@@ -2663,6 +2735,13 @@ function App() {
                 disabled={!addressFillPlan?.hasAnchor || addressFillPlan.missing.length === 0}
               >
                 補齊缺漏位址
+              </Button>
+              <Button
+                danger
+                disabled={autoFilledManagedDeviceTags.length === 0}
+                onClick={handleDeleteAutoFilledDeviceTags}
+              >
+                移除補位 Tag ({autoFilledManagedDeviceTags.length})
               </Button>
               {managedDeviceId !== '0' && (
                 <Button danger onClick={handleDeleteManagedDevice}>刪除此設備</Button>

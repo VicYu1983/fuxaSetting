@@ -1,5 +1,6 @@
 import type { FuxaConfig, FuxaTag } from '../../domain/config/types'
 import { isRecord } from '../../domain/config/validateFuxaConfig'
+import { AUTO_FILLED_TAG_DESCRIPTION } from '../../domain/tags'
 import { setTagFloor } from '../../domain/tags/floor'
 
 export interface DeviceTagUpdate {
@@ -72,4 +73,23 @@ export function deleteModbusDeviceTag(
   if (!entry || entry[1] !== tag) throw new Error('找不到要刪除的 Tag。')
   delete tags[entry[0]]
   return config
+}
+
+export function deleteAllAutoFilledModbusDeviceTags(
+  source: FuxaConfig,
+  deviceId: string,
+): { config: FuxaConfig; deletedTagIds: string[] } {
+  const config = structuredClone(source)
+  const device = config.devices[deviceId]
+  if (!isRecord(device) || device.type !== 'ModbusTCP' || !isRecord(device.tags)) {
+    throw new Error('找不到所選的 ModbusTCP 設備或其 Tag 清單。')
+  }
+
+  const deletedTagIds: string[] = []
+  for (const [key, value] of Object.entries(device.tags)) {
+    if (!isRecord(value) || value.description !== AUTO_FILLED_TAG_DESCRIPTION) continue
+    deletedTagIds.push(typeof value.id === 'string' ? value.id : key)
+    delete device.tags[key]
+  }
+  return { config, deletedTagIds }
 }
