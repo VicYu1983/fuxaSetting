@@ -355,6 +355,12 @@
   width: 100%;
 }
 
+.tag-alarm-field {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
 .tag-create-settings {
   display: grid;
   gap: 12px;
