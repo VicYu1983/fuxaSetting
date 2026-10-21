@@ -1,0 +1,323 @@
+{
+    "devices": {
+        "0": {
+            "id": "0",
+            "name": "FUXA",
+            "enabled": true,
+            "property": {
+                "delay": 10
+            },
+            "type": "FuxaServer",
+            "polling": 1000,
+            "tags": {
+                "t_70096e1e-a45d4a64": {
+                    "id": "t_70096e1e-a45d4a64",
+                    "name": "水箱蓋-開啓",
+                    "type": "boolean",
+                    "daq": {
+                        "enabled": false,
+                        "interval": 60,
+                        "changed": false,
+                        "restored": false
+                    },
+                    "init": null,
+                    "description": null,
+                    "timestamp": 1792558800587
+                }
+            }
+        }
+    },
+    "hmi": {
+        "views": [
+            {
+                "id": "v_997114896-10b1",
+                "name": "MainView",
+                "profile": {
+                    "width": 1024,
+                    "height": 768,
+                    "bkcolor": "#ffffffff",
+                    "margin": 10,
+                    "align": "topCenter",
+                    "gridType": "fixed",
+                    "viewRenderDelay": 0
+                },
+                "items": {
+                    "HXT_65723110-87dc460a": {
+                        "id": "HXT_65723110-87dc460a",
+                        "type": "svg-ext-html_switch",
+                        "name": "switch_1",
+                        "property": {
+                            "variableId": "t_70096e1e-a45d4a64",
+                            "events": [],
+                            "actions": [],
+                            "options": {
+                                "offValue": 0,
+                                "onValue": 1,
+                                "offBackground": "#ccc",
+                                "onBackground": "#ccc",
+                                "offText": "",
+                                "onText": "",
+                                "offSliderColor": "#fff",
+                                "onSliderColor": "#0CC868",
+                                "offTextColor": "#000",
+                                "onTextColor": "#fff",
+                                "fontSize": 12,
+                                "fontFamily": "",
+                                "radius": 0,
+                                "height": 22
+                            }
+                        },
+                        "label": "HtmlSwitch",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_54ea3414-d5bb4f11": {
+                        "id": "svg_54ea3414-d5bb4f11",
+                        "type": "svg-ext-shapes-rect",
+                        "name": "shape_1",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    }
+                },
+                "variables": {},
+                "svgcontent": "<svg width=\"1024\" height=\"768\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:svg=\"http://www.w3.org/2000/svg\" xmlns:html=\"http://www.w3.org/1999/xhtml\">\n <filter height=\"200\" width=\"200\" y=\"-3\" x=\"-3\" id=\"blur-filter\">\n  <feGaussianBlur stdDeviation=\"3\"/>\n </filter>\n <g>\n  <title>Layer 1</title>\n  <text fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0\" x=\"411\" y=\"246\" id=\"svg_51b45613-01184bd4\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" xml:space=\"preserve\">home</text>\n  <g data-name=\"switch_1\" type=\"svg-ext-html_switch\" fill=\"rgba(0,0,0,0)\" stroke=\"rgba(0,0,0,0)\" id=\"HXT_65723110-87dc460a\">\n   <rect data-name=\"shape_1\" stroke-width=\"0\" x=\"273.79996\" y=\"233.10003\" width=\"50\" height=\"28\" id=\"svg_54ea3414-d5bb4f11\"/>\n   <foreignObject x=\"273.79996\" y=\"233.10003\" height=\"28\" width=\"50\" id=\"H-HXT_604003c7-132e41d2\">\n    <LABEL id=\"T-HXT_9c31eef1-998742de\" style=\"width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;margin: 3px 3px 3px 3px;\" class=\"md-switch\">\n     <NGX-SWITCH class=\"ng-star-inserted\">\n      <LABEL style=\"border-radius: 0px;\" class=\"md-switch\">\n       <DIV style=\"background-color: rgb(204, 204, 204); opacity: 1; pointer-events: auto;\" class=\"toggle-button\">\n        <INPUT type=\"checkbox\"/>\n        <DIV style=\"text-align: center; line-height: 22px; font-size: 12px; background-color: rgb(255, 255, 255); color: rgb(0, 0, 0);\" class=\"inner-circle\"></DIV>\n       </DIV>\n      </LABEL>\n     </NGX-SWITCH>\n    </LABEL>\n   </foreignObject>\n  </g>\n </g>\n</svg>",
+                "type": "svg"
+            },
+            {
+                "id": "v_413a847a0-9a103",
+                "name": "水箱",
+                "profile": {
+                    "width": 1024,
+                    "height": 768,
+                    "bkcolor": "#ffffffff",
+                    "margin": 10,
+                    "align": "topCenter",
+                    "gridType": "fixed",
+                    "viewRenderDelay": 0
+                },
+                "items": {
+                    "SHE_7032ec71-f0b84645": {
+                        "id": "SHE_7032ec71-f0b84645",
+                        "type": "svg-ext-shapes-rectangle",
+                        "name": "shape_1",
+                        "property": {
+                            "variableId": "t_70096e1e-a45d4a64",
+                            "ranges": [
+                                {
+                                    "min": 1,
+                                    "max": 1,
+                                    "color": "#ff0000ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                },
+                                {
+                                    "min": 0,
+                                    "max": 0,
+                                    "color": "#29ff00ff",
+                                    "type": 2,
+                                    "stroke": ""
+                                }
+                            ],
+                            "events": [],
+                            "actions": []
+                        },
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "SHE_97acd0ec-b9e1420f": {
+                        "id": "SHE_97acd0ec-b9e1420f",
+                        "type": "svg-ext-shapes-rect",
+                        "name": "shape_1",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "HXT_e21b4057-b407405b": {
+                        "id": "HXT_e21b4057-b407405b",
+                        "type": "svg-ext-html_switch",
+                        "name": "switch_1",
+                        "property": {
+                            "variableId": "t_70096e1e-a45d4a64",
+                            "events": [],
+                            "actions": [],
+                            "options": {
+                                "offValue": 0,
+                                "onValue": 1,
+                                "offBackground": "#ccc",
+                                "onBackground": "#ccc",
+                                "offText": "",
+                                "onText": "",
+                                "offSliderColor": "#fff",
+                                "onSliderColor": "#0CC868",
+                                "offTextColor": "#000",
+                                "onTextColor": "#fff",
+                                "fontSize": 12,
+                                "fontFamily": "",
+                                "radius": 0,
+                                "height": 22
+                            }
+                        },
+                        "label": "HtmlSwitch",
+                        "hide": false,
+                        "lock": false
+                    },
+                    "svg_9e661ba2-a3574346": {
+                        "id": "svg_9e661ba2-a3574346",
+                        "type": "svg-ext-shapes-rect",
+                        "name": "shape_1",
+                        "property": null,
+                        "label": "Shapes",
+                        "hide": false,
+                        "lock": false
+                    }
+                },
+                "variables": {},
+                "svgcontent": "<svg width=\"1024\" height=\"768\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:svg=\"http://www.w3.org/2000/svg\">\n <filter id=\"blur-filter\" x=\"-3\" y=\"-3\" width=\"200\" height=\"200\">\n  <feGaussianBlur stdDeviation=\"3\"/>\n </filter>\n <g>\n  <title>Layer 1</title>\n  <g data-name=\"shape_1\" type=\"svg-ext-shapes-rectangle\" fill=\"#FFFFFF\" stroke=\"#000000\" font-size=\"14\" font-family=\"sans-serif\" text-anchor=\"middle\" id=\"SHE_7032ec71-f0b84645\">\n   <rect data-name=\"shape_1\" width=\"40\" height=\"40\" y=\"367.65003\" x=\"573.19996\" id=\"SHE_97acd0ec-b9e1420f\"/>\n  </g>\n </g>\n</svg>",
+                "type": "svg"
+            }
+        ],
+        "layout": {
+            "autoresize": false,
+            "start": "v_997114896-10b1",
+            "navigation": {
+                "mode": "over",
+                "type": "block",
+                "bkcolor": "#F4F5F7",
+                "fgcolor": "#1D1D1D",
+                "items": [
+                    {
+                        "text": "home",
+                        "view": "v_997114896-10b1",
+                        "permission": 0,
+                        "children": []
+                    },
+                    {
+                        "text": "water",
+                        "view": "v_413a847a0-9a103",
+                        "permission": 0,
+                        "children": []
+                    }
+                ],
+                "logo": false
+            },
+            "header": {
+                "alarms": "float",
+                "infos": "float",
+                "bkcolor": "#ffffffff",
+                "fgcolor": "#000000",
+                "height": 46,
+                "buttonHeight": 36,
+                "fontFamily": "Sans-serif",
+                "fontSize": 13,
+                "itemsAnchor": "right",
+                "loginInfo": "nothing",
+                "language": "nothing"
+            },
+            "showdev": true,
+            "inputdialog": "false",
+            "hidenavigation": false,
+            "theme": "dark",
+            "loginonstart": false,
+            "loginoverlaycolor": "none",
+            "show_connection_error": true,
+            "customStyles": ""
+        }
+    },
+    "alarms": [
+        {
+            "highhigh": {
+                "min": 1,
+                "max": 1,
+                "enabled": true,
+                "text": "水箱蓋異常開啓",
+                "ackmode": "ackactive",
+                "bkcolor": "#FF4848",
+                "color": "#FFF",
+                "checkdelay": 1,
+                "timedelay": 0
+            },
+            "high": {
+                "enabled": false,
+                "ackmode": "ackactive",
+                "bkcolor": "#F9CF59",
+                "color": "#000",
+                "text": "bbb",
+                "checkdelay": 1
+            },
+            "low": {
+                "enabled": false,
+                "ackmode": "ackactive",
+                "bkcolor": "#E5E5E5",
+                "color": "#000",
+                "text": "cccc",
+                "checkdelay": 1
+            },
+            "info": {
+                "enabled": false,
+                "ackmode": "float",
+                "bkcolor": "#22A7F2",
+                "color": "#FFF",
+                "text": "dddd",
+                "checkdelay": 1
+            },
+            "actions": {
+                "enabled": true,
+                "values": [
+                    {
+                        "min": 1,
+                        "max": 1,
+                        "type": "setView",
+                        "actparam": "v_413a847a0-9a103",
+                        "actoptions": {
+                            "type": "warning"
+                        },
+                        "checkdelay": 1,
+                        "timedelay": 0
+                    },
+                    {
+                        "checkdelay": 1,
+                        "min": 1,
+                        "max": 1,
+                        "timedelay": 0,
+                        "type": "toastMessage",
+                        "actparam": "水箱蓋異常開啓",
+                        "actoptions": {}
+                    }
+                ]
+            },
+            "property": {
+                "variableId": "t_70096e1e-a45d4a64"
+            },
+            "name": "水箱蓋告警"
+        }
+    ],
+    "ar": {
+        "enabled": false,
+        "markers": []
+    },
+    "version": "1.01",
+    "charts": [],
+    "graphs": [],
+    "languages": {
+        "options": []
+    },
+    "plugin": [],
+    "clientAccess": {
+        "scriptSystemFunctions": []
+    },
+    "name": "testAlarm",
+    "server": {
+        "id": "0",
+        "name": "FUXA",
+        "enabled": true,
+        "property": {
+            "delay": 10
+        },
+        "type": "FuxaServer",
+        "polling": 1000
+    }
+}

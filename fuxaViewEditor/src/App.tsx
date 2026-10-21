@@ -45,7 +45,10 @@ import {
 } from './domain/config/parseFuxaConfig'
 import { createEmptyFuxaConfig } from './domain/config/createEmptyFuxaConfig'
 import { normalizeProjectName, projectFileName } from './domain/config/serialization'
-import { applyTagAlarms } from './domain/alarms/manageTagAlarms'
+import {
+  applyTagAlarms,
+  updateExistingTagAlarmTexts,
+} from './domain/alarms/manageTagAlarms'
 import type { TagAlarmLevel } from './domain/alarms/manageTagAlarms'
 import { findLegacySwitchViewIds, prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
@@ -1348,12 +1351,44 @@ function App() {
     }
   }
 
+  function handleQuickSetAlarmTexts() {
+    if (!config) return
+    try {
+      const result = updateExistingTagAlarmTexts(
+        config.rawConfig,
+        new Map(tags.map((tag) => [tag.id, tag.name])),
+      )
+      if (!result.updated) {
+        messageApi.info('沒有需要更新的既有告警文字。')
+        return
+      }
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(result.config, config),
+        models,
+      })
+      messageApi.success(`已更新 ${result.updated} 筆告警文字為「Tag 名稱異常」。`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`快速更新告警文字失敗：${detail}`)
+    }
+  }
+
   function renderTagAlarmSettings() {
     return (
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-        <Text type="secondary">
-          多選要設定的 Tag，告警文字與等級會套用至全部選取項目。告警觸發時會跳轉至各 Tag 指定的 View。
-        </Text>
+        <Space align="center" wrap style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Text type="secondary">
+            多選要設定的 Tag，告警文字與等級會套用至全部選取項目。告警觸發時會跳轉至各 Tag 指定的 View。
+          </Text>
+          <Button
+            disabled={alarmSettingsByTag.size === 0}
+            onClick={handleQuickSetAlarmTexts}
+            title="將所有已啟用告警的文字更新為 Tag 名稱加上「異常」"
+          >
+            快速設定
+          </Button>
+        </Space>
         {tagsWithoutViewCount > 0 && (
           <Alert
             type="info"

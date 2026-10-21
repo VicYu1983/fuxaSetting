@@ -11,6 +11,37 @@ export interface TagAlarmDraft {
   viewId: string
 }
 
+export function updateExistingTagAlarmTexts(
+  source: FuxaConfig,
+  tagNames: ReadonlyMap<string, string>,
+): { config: FuxaConfig; updated: number } {
+  const config = structuredClone(source)
+  if (config.alarms !== undefined && !Array.isArray(config.alarms)) {
+    throw new Error('FUXA alarms 欄位格式無效，無法更新告警文字。')
+  }
+  if (!Array.isArray(config.alarms)) return { config, updated: 0 }
+
+  let updated = 0
+  for (const alarm of config.alarms) {
+    if (!isRecord(alarm) || !isRecord(alarm.property)
+        || typeof alarm.property.variableId !== 'string') continue
+    const tagName = tagNames.get(alarm.property.variableId)?.trim()
+    if (!tagName) continue
+
+    let changed = false
+    for (const level of ['highhigh', 'high', 'low', 'info'] as const) {
+      const setting = alarm[level]
+      if (!isRecord(setting) || setting.enabled !== true) continue
+      const text = `${tagName}異常`
+      if (setting.text === text) continue
+      setting.text = text
+      changed = true
+    }
+    if (changed) updated += 1
+  }
+  return { config, updated }
+}
+
 const ALARM_LEVEL_DEFAULTS: Record<TagAlarmLevel, Record<string, unknown>> = {
   highhigh: {
     min: 1,
