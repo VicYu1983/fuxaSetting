@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f4f7fb">
+    <title>瀏覽器語音示範</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="intro">
+        <span class="eyebrow">WEB SPEECH API</span>
+        <h1>瀏覽器語音示範</h1>
+        <p>使用裝置與瀏覽器提供的語音，將文字轉換為語音播放。</p>
+      </header>
+
+      <section class="panel" aria-labelledby="speech-heading">
+        <div class="panel-heading">
+          <div>
+            <h2 id="speech-heading">朗讀設定</h2>
+            <p>優先選擇繁體中文（台灣）的本機語音。</p>
+          </div>
+          <span class="status" id="status" role="status" aria-live="polite">載入可用語音中…</span>
+        </div>
+
+        <label for="voice-select">語音</label>
+        <select id="voice-select" disabled>
+          <option>正在載入語音…</option>
+        </select>
+        <p class="voice-note" id="voice-note">瀏覽器尚未提供語音清單。</p>
+
+        <label for="speech-text">朗讀內容</label>
+        <textarea id="speech-text" rows="4" maxlength="500">一號泵浦溫度過高</textarea>
+        <div class="character-count"><span id="character-count">10</span> / 500</div>
+
+        <div class="controls" aria-label="語音播放控制">
+          <button class="button button-primary" id="speak-button" type="button">播放</button>
+          <button class="button" id="pause-button" type="button" disabled>暫停</button>
+          <button class="button" id="resume-button" type="button" disabled>繼續</button>
+          <button class="button button-secondary" id="cancel-button" type="button" disabled>停止</button>
+        </div>
+      </section>
+
+      <aside class="notice">
+        <strong>提示</strong>
+        <p>可用語音會依作業系統和瀏覽器而不同。若清單尚未載入，請稍候或重新整理頁面；部分瀏覽器需要使用者點擊「播放」後才允許發聲。</p>
+      </aside>
+    </main>
+  </body>
+</html>
