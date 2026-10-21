@@ -281,12 +281,10 @@ function App() {
   const [componentMoveTargetId, setComponentMoveTargetId] = useState('')
   const [batchMoveDialogOpen, setBatchMoveDialogOpen] = useState(false)
   const [batchMoveSelection, setBatchMoveSelection] = useState<Set<string>>(new Set())
-  const [batchDialogOpen, setBatchDialogOpen] = useState(false)
   const [batchSearch, setBatchSearch] = useState('')
   const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set())
   const [batchGraphic, setBatchGraphic] = useState('rect')
   const [batchCoilSwitchEnabled, setBatchCoilSwitchEnabled] = useState(true)
-  const [tagCreateDialogOpen, setTagCreateDialogOpen] = useState(false)
   const [tagCreateDeviceId, setTagCreateDeviceId] = useState('')
   const [tagCreateInput, setTagCreateInput] = useState('')
   const [tagCreateNameOverrides, setTagCreateNameOverrides] = useState<Record<number, string>>({})
@@ -296,7 +294,9 @@ function App() {
   const [tagCreateType, setTagCreateType] = useState('Bool')
   const [tagCreateFloor, setTagCreateFloor] = useState('')
   const [tagCreateAlsoAddView, setTagCreateAlsoAddView] = useState(true)
-  const [projectManagerTab, setProjectManagerTab] = useState<'devices' | 'floors' | 'alarms'>('devices')
+  const [projectManagerTab, setProjectManagerTab] = useState<
+    'devices' | 'floors' | 'alarms' | 'tag-create' | 'tag-add'
+  >('devices')
   const [floorSearch, setFloorSearch] = useState('')
   const [floorDisplayMode, setFloorDisplayMode] = useState<'group' | 'list'>('group')
   const [floorSelection, setFloorSelection] = useState<Set<string>>(new Set())
@@ -674,7 +674,6 @@ function App() {
     })
     setModelErrors(editorModels.errors)
     setUnsupported(editorModels.unsupported)
-    setBatchDialogOpen(false)
     setBatchSearch('')
     setBatchSelection(new Set())
     const firstView = parsed.views[0]
@@ -1228,15 +1227,16 @@ function App() {
     })
   }
 
-  function openBatchDialog() {
+  function openBatchAddTab() {
     setBatchSelection(new Set())
     setBatchSearch('')
     setBatchGraphic('rect')
     setBatchCoilSwitchEnabled(true)
-    setBatchDialogOpen(true)
+    setProjectManagerTab('tag-add')
+    setDeviceManagerOpen(true)
   }
 
-  function openTagCreateDialog() {
+  function openTagCreateTab() {
     if (!config) return
     const deviceIds = Object.keys(config.rawConfig.devices).filter((id) => id !== '0')
     const deviceId = deviceIds.includes(managedDeviceId)
@@ -1249,8 +1249,8 @@ function App() {
       ? getNextAvailableAddress(config.rawConfig.devices[deviceId], tagCreateMemaddress)
       : 1)
     setTagCreateAlsoAddView(true)
-    setDeviceManagerOpen(false)
-    setTagCreateDialogOpen(true)
+    setProjectManagerTab('tag-create')
+    setDeviceManagerOpen(true)
   }
 
   function toggleVisibleAlarmTags(checked: boolean) {
@@ -1462,6 +1462,183 @@ function App() {
     )
   }
 
+  function renderTagCreateForm() {
+    return (
+      <Space orientation="vertical" size="middle" className="tag-create-manager">
+        <Text type="secondary">
+          每行輸入一個 Tag 名稱；也可貼上逗號或 Tab 分隔資料。名稱須全專案唯一，可直接在下方預覽修改；重複位址僅提示。
+        </Text>
+        <div className="tag-create-settings">
+          <label>
+            目標設備
+            <Select
+              aria-label="批次建立 Tag 目標設備"
+              value={tagCreateDeviceId || undefined}
+              placeholder="選擇設備"
+              options={config
+                ? Object.entries(config.rawConfig.devices)
+                  .filter(([id]) => id !== '0')
+                  .map(([id, value]) => ({
+                    value: id,
+                    label: `${String(isRecord(value) ? value.name || id : id)} (${id})`,
+                  }))
+                : []}
+              onChange={(deviceId: string) => {
+                setTagCreateDeviceId(deviceId)
+                setTagCreateStartAddress(
+                  getNextAvailableAddress(
+                    config?.rawConfig.devices[deviceId],
+                    tagCreateMemaddress,
+                  ),
+                )
+              }}
+            />
+          </label>
+          <label>
+            記憶體區段
+            <Select
+              aria-label="Tag 記憶體區段"
+              value={tagCreateMemaddress}
+              options={[
+                { value: '000000', label: '000000 · Coils' },
+                { value: '100000', label: '100000 · Discrete Inputs' },
+                { value: '300000', label: '300000 · Input Registers' },
+                { value: '400000', label: '400000 · Holding Registers' },
+              ]}
+              onChange={setTagCreateMemaddress}
+            />
+          </label>
+          <label>
+            預設型別
+            <Select
+              aria-label="Tag 預設型別"
+              value={tagCreateType}
+              options={[
+                { value: 'Bool', label: 'Bool' },
+                { value: 'number', label: 'number' },
+                { value: 'string', label: 'string' },
+              ]}
+              onChange={setTagCreateType}
+            />
+          </label>
+          <label>
+            起始位址
+            <InputNumber
+              aria-label="Tag 起始位址"
+              min={0}
+              precision={0}
+              value={tagCreateStartAddress}
+              onChange={(value) => setTagCreateStartAddress(value ?? 0)}
+            />
+          </label>
+          <label>
+            遞增步長
+            <InputNumber
+              aria-label="Tag 遞增步長"
+              min={1}
+              precision={0}
+              value={tagCreateStep}
+              onChange={(value) => setTagCreateStep(value ?? 1)}
+            />
+          </label>
+          <label>
+            預設樓層
+            <Input
+              aria-label="Tag 批次預設樓層"
+              value={tagCreateFloor}
+              placeholder="例如：4F"
+              onChange={(event) => setTagCreateFloor(event.target.value)}
+            />
+          </label>
+        </div>
+        <Input.TextArea
+          aria-label="批次 Tag 資料"
+          rows={6}
+          value={tagCreateInput}
+          onChange={(event) => {
+            setTagCreateInput(event.target.value)
+            setTagCreateNameOverrides({})
+          }}
+          placeholder={'泵浦運轉\n風機告警\n也可用欄位：名稱, 位址, 型別, 區段, 備註, 樓層'}
+        />
+        <div className="tag-create-preview-heading">
+          <Text strong>建立預覽</Text>
+          <Text type="secondary">{tagCreateSpecs.length} 筆 Tag</Text>
+        </div>
+        {tagCreateSpecs.length ? (
+          <div className="tag-create-preview">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Tag 名稱</th>
+                  <th>位址</th>
+                  <th>區段</th>
+                  <th>型別</th>
+                  <th>樓層</th>
+                  <th>名稱檢查</th>
+                  <th>位址檢查</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tagCreateSpecs.map((spec: TagBatchSpec, index) => (
+                  <tr key={`${spec.name}-${index}`}>
+                    <td>{index + 1}</td>
+                    <td>
+                      <Input
+                        aria-label={`第 ${index + 1} 筆 Tag 名稱`}
+                        status={tagCreateDuplicateNameRows.has(index)
+                          || tagCreateInvalidNameRows.has(index) ? 'error' : undefined}
+                        maxLength={120}
+                        value={spec.name}
+                        onChange={(event) => setTagCreateNameOverrides((current) => ({
+                          ...current,
+                          [index]: event.target.value,
+                        }))}
+                      />
+                    </td>
+                    <td>{spec.address}</td>
+                    <td>{spec.memaddress}</td>
+                    <td>{spec.type}</td>
+                    <td>{spec.floor || '未設定'}</td>
+                    <td>
+                      {tagCreateInvalidNameRows.has(index)
+                        ? <Text type="danger">名稱不可空白或過長</Text>
+                        : tagCreateDuplicateNameRows.has(index)
+                        ? <Text type="danger">名稱重複</Text>
+                        : <Text type="success">正常</Text>}
+                    </td>
+                    <td>
+                      {tagCreateDuplicateAddressRows.has(index)
+                        ? <Text type="warning">位址重複</Text>
+                        : <Text type="success">正常</Text>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="輸入或貼上 Tag 名稱以預覽。" />
+        )}
+        <Checkbox
+          checked={tagCreateAlsoAddView}
+          disabled={!selectedView || !selectedModel}
+          onChange={(event) => setTagCreateAlsoAddView(event.target.checked)}
+        >
+          同時將建立的 Tag 作為元件加入目前 View
+        </Checkbox>
+        {tagCreateAlsoAddView && tagCreateSpecs.some((spec) =>
+          spec.memaddress.trim() === '000000'
+          && ['bool', 'boolean'].includes(spec.type.toLocaleLowerCase())) && (
+          <Text type="secondary">
+            Boolean Coil Tag 會建立為 Switch，並顯示 Tag 名稱標籤。
+          </Text>
+        )}
+      </Space>
+    )
+  }
+
   function handleCreateTags() {
     if (!config || !tagCreateDeviceId) {
       messageApi.warning('請先選取目標設備。')
@@ -1580,13 +1757,116 @@ function App() {
         viewId: selectedView.id,
         model: nextModels,
       })
-      setBatchDialogOpen(false)
+      setDeviceManagerOpen(false)
       setBatchSelection(new Set())
       messageApi.success(`已加入 ${selectedTags.length} 筆 Tag 元件。`)
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error)
       messageApi.error(`批次加入 Tag 失敗：${detail}`)
     }
+  }
+
+  function renderBatchAddForm() {
+    return (
+      <>
+        <Text type="secondary">
+          Tag 會沿用配置中的樓層；未設定樓層的 Tag 會歸入「未設定樓層」。
+        </Text>
+        <Select
+          aria-label="批次圖形"
+          value={batchGraphic}
+          options={getComponentGraphicChoices(
+            iconLibrary,
+            {
+              key: 'batch',
+              seq: 0,
+              tagId: selectedBatchTags[0]?.id ?? '',
+              label: '',
+              template: 'rect',
+              shapeId: '',
+              managed: true,
+            },
+            batchCanUseBooleanGraphic,
+          )}
+          onChange={setBatchGraphic}
+          style={{ width: '100%', marginTop: 12 }}
+        />
+        {selectedCoilTags.length > 0 && (
+          <Space orientation="vertical" size={4} style={{ marginTop: 12 }}>
+            <Checkbox
+              checked={batchCoilSwitchEnabled}
+              onChange={(event) => setBatchCoilSwitchEnabled(event.target.checked)}
+            >
+              Coil Tag 建立為 Switch，並顯示 Tag 名稱標籤
+            </Checkbox>
+            <Text type="secondary">
+              {batchCoilSwitchEnabled
+                ? `將建立 ${selectedCoilSwitchTags.length} 個 Switch、${selectedBatchTags.length - selectedCoilSwitchTags.length} 個一般元件。`
+                : `將建立 ${selectedBatchTags.length} 個一般元件。`}
+            </Text>
+            {selectedCoilSwitchTags.length < selectedCoilTags.length && (
+              <Text type="warning">
+                非 Boolean 型別的 Coil 不可轉為 Switch。
+              </Text>
+            )}
+          </Space>
+        )}
+        {batchGraphic.startsWith('multi:') && (
+          <Text type="secondary">
+            每筆 Tag 各建立一個元件，並綁定至所選多狀態圖示組的最高優先狀態。
+          </Text>
+        )}
+        <Input
+          aria-label="搜尋 Tag"
+          allowClear
+          placeholder="搜尋設備、Tag 名稱、型別或 ID"
+          value={batchSearch}
+          onChange={(event) => setBatchSearch(event.target.value)}
+          style={{ margin: '16px 0 12px' }}
+        />
+        <div className="batch-tag-toolbar">
+          <Checkbox
+            checked={filteredBatchTags.length > 0 && selectedBatchCount === filteredBatchTags.length}
+            indeterminate={selectedBatchCount > 0 && selectedBatchCount < filteredBatchTags.length}
+            disabled={filteredBatchTags.length === 0}
+            onChange={(event) => handleBatchSelectAll(event.target.checked)}
+          >
+            全選目前搜尋結果
+          </Checkbox>
+          <Text type="secondary">
+            已選 {batchSelection.size} 筆 / {batchableTags.length} 筆
+          </Text>
+        </div>
+        <div className="batch-tag-list" role="group" aria-label="可加入的 Tag">
+          {filteredBatchTags.length ? filteredBatchTags.map((tag) => (
+            <Checkbox
+              key={tag.id}
+              checked={batchSelection.has(tag.id)}
+              onChange={(event) => {
+                setBatchSelection((current) => {
+                  const next = new Set(current)
+                  if (event.target.checked) next.add(tag.id)
+                  else next.delete(tag.id)
+                  return next
+                })
+              }}
+            >
+              <span className="batch-tag-option">
+                <span>{tag.deviceName} / {tag.name} ({tag.type || '未設定型別'})</span>
+                <Text type="secondary">
+                  {tag.floor || '未設定樓層'} · {tag.memaddress || '未設定區段'}
+                  {isCoilTag(tag) ? ' · Coil' : ''}
+                  {' · '}{tag.id}
+                  {usedTagIds.has(tag.id) ? ' · 此 View 已使用' : ''}
+                </Text>
+              </span>
+            </Checkbox>
+          )) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="沒有符合的 Tag。" />
+          )}
+        </div>
+      </>
+    )
   }
 
   function openDeviceManager() {
@@ -3035,22 +3315,59 @@ function App() {
                 設定 {tagAlarmTagIds.length} 個告警
               </Button>,
             ]
+            : projectManagerTab === 'tag-create'
+              ? [
+                <Button key="cancel" onClick={() => setDeviceManagerOpen(false)}>
+                  關閉
+                </Button>,
+                <Button
+                  key="create-tags"
+                  type="primary"
+                  disabled={!tagCreateDeviceId
+                    || tagCreateSpecs.length === 0
+                    || hasTagCreateDuplicateNames
+                    || hasTagCreateInvalidNames}
+                  onClick={handleCreateTags}
+                >
+                  建立 {tagCreateSpecs.length} 個 Tag
+                </Button>,
+              ]
+              : projectManagerTab === 'tag-add'
+                ? [
+                  <Button key="cancel" onClick={() => setDeviceManagerOpen(false)}>
+                    關閉
+                  </Button>,
+                  <Button
+                    key="add-tags"
+                    type="primary"
+                    disabled={batchSelection.size === 0}
+                    onClick={handleBatchAdd}
+                  >
+                    加入 {batchSelection.size} 筆
+                  </Button>,
+                ]
             : [
-            <Button key="close" onClick={() => setDeviceManagerOpen(false)}>
-              關閉
-            </Button>,
-          ]}
+              <Button key="close" onClick={() => setDeviceManagerOpen(false)}>
+                關閉
+              </Button>,
+            ]}
         onCancel={() => setDeviceManagerOpen(false)}
         onOk={projectManagerTab === 'devices'
           ? () => deviceManagerForm.submit()
-          : undefined}
-        width={900}
+          : projectManagerTab === 'tag-create'
+            ? handleCreateTags
+            : projectManagerTab === 'tag-add'
+              ? handleBatchAdd
+            : undefined}
+        width={projectManagerTab === 'tag-create' ? 1000 : 900}
         destroyOnHidden
       >
         <Tabs
           activeKey={projectManagerTab}
           onChange={(key) => setProjectManagerTab(
-            key === 'floors' || key === 'alarms' ? key : 'devices',
+            key === 'floors' || key === 'alarms' || key === 'tag-create' || key === 'tag-add'
+              ? key
+              : 'devices',
           )}
           items={[
             {
@@ -3086,15 +3403,14 @@ function App() {
           <Button
             disabled={!selectedModel || batchableTags.length === 0}
             onClick={() => {
-              setDeviceManagerOpen(false)
-              openBatchDialog()
+              openBatchAddTab()
             }}
           >
             批次加入 Tag
           </Button>
           <Button
             disabled={!config || Object.keys(config.rawConfig.devices).every((id) => id === '0')}
-            onClick={openTagCreateDialog}
+            onClick={openTagCreateTab}
           >
             批次建立 Tag
           </Button>
@@ -3264,6 +3580,16 @@ function App() {
               key: 'alarms',
               label: '告警設定',
               children: renderTagAlarmSettings(),
+            },
+            {
+              key: 'tag-create',
+              label: '批次建立 Tag',
+              children: renderTagCreateForm(),
+            },
+            {
+              key: 'tag-add',
+              label: '批次加入 Tag',
+              children: renderBatchAddForm(),
             },
             {
               key: 'floors',
@@ -3451,303 +3777,6 @@ function App() {
             <Input placeholder="例如 4F" />
           </Form.Item>
         </Form>
-      </Modal>
-      <Modal
-        open={tagCreateDialogOpen}
-        title="批次建立 Tag"
-        okText={`建立 ${tagCreateSpecs.length} 個 Tag`}
-        cancelText="取消"
-        okButtonProps={{
-          disabled: !tagCreateDeviceId
-            || tagCreateSpecs.length === 0
-            || hasTagCreateDuplicateNames
-            || hasTagCreateInvalidNames,
-        }}
-        onCancel={() => setTagCreateDialogOpen(false)}
-        onOk={handleCreateTags}
-        width={900}
-        destroyOnHidden
-      >
-        <Space orientation="vertical" size="middle" className="tag-create-manager">
-          <Text type="secondary">
-            每行輸入一個 Tag 名稱；也可貼上逗號或 Tab 分隔資料。名稱須全專案唯一，可直接在下方預覽修改；重複位址僅提示。
-          </Text>
-          <div className="tag-create-settings">
-            <label>
-              目標設備
-              <Select
-                aria-label="批次建立 Tag 目標設備"
-                value={tagCreateDeviceId || undefined}
-                placeholder="選擇設備"
-                options={config
-                  ? Object.entries(config.rawConfig.devices)
-                    .filter(([id]) => id !== '0')
-                    .map(([id, value]) => ({
-                      value: id,
-                      label: `${String(isRecord(value) ? value.name || id : id)} (${id})`,
-                    }))
-                  : []}
-                onChange={(deviceId: string) => {
-                  setTagCreateDeviceId(deviceId)
-                  setTagCreateStartAddress(
-                    getNextAvailableAddress(
-                      config?.rawConfig.devices[deviceId],
-                      tagCreateMemaddress,
-                    ),
-                  )
-                }}
-              />
-            </label>
-            <label>
-              記憶體區段
-              <Select
-                aria-label="Tag 記憶體區段"
-                value={tagCreateMemaddress}
-                options={[
-                  { value: '000000', label: '000000 · Coils' },
-                  { value: '100000', label: '100000 · Discrete Inputs' },
-                  { value: '300000', label: '300000 · Input Registers' },
-                  { value: '400000', label: '400000 · Holding Registers' },
-                ]}
-                onChange={setTagCreateMemaddress}
-              />
-            </label>
-            <label>
-              預設型別
-              <Select
-                aria-label="Tag 預設型別"
-                value={tagCreateType}
-                options={[
-                  { value: 'Bool', label: 'Bool' },
-                  { value: 'number', label: 'number' },
-                  { value: 'string', label: 'string' },
-                ]}
-                onChange={setTagCreateType}
-              />
-            </label>
-            <label>
-              起始位址
-              <InputNumber
-                aria-label="Tag 起始位址"
-                min={0}
-                precision={0}
-                value={tagCreateStartAddress}
-                onChange={(value) => setTagCreateStartAddress(value ?? 0)}
-              />
-            </label>
-            <label>
-              遞增步長
-              <InputNumber
-                aria-label="Tag 遞增步長"
-                min={1}
-                precision={0}
-                value={tagCreateStep}
-                onChange={(value) => setTagCreateStep(value ?? 1)}
-              />
-            </label>
-            <label>
-              預設樓層
-              <Input
-                aria-label="Tag 批次預設樓層"
-                value={tagCreateFloor}
-                placeholder="例如：4F"
-                onChange={(event) => setTagCreateFloor(event.target.value)}
-              />
-            </label>
-          </div>
-          <Input.TextArea
-            aria-label="批次 Tag 資料"
-            rows={6}
-            value={tagCreateInput}
-            onChange={(event) => {
-              setTagCreateInput(event.target.value)
-              setTagCreateNameOverrides({})
-            }}
-            placeholder={'泵浦運轉\n風機告警\n也可用欄位：名稱, 位址, 型別, 區段, 備註, 樓層'}
-          />
-          <div className="tag-create-preview-heading">
-            <Text strong>建立預覽</Text>
-            <Text type="secondary">{tagCreateSpecs.length} 筆 Tag</Text>
-          </div>
-          {tagCreateSpecs.length ? (
-            <div className="tag-create-preview">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Tag 名稱</th>
-                    <th>位址</th>
-                    <th>區段</th>
-                    <th>型別</th>
-                    <th>樓層</th>
-                    <th>名稱檢查</th>
-                    <th>位址檢查</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tagCreateSpecs.map((spec: TagBatchSpec, index) => (
-                    <tr key={`${spec.name}-${index}`}>
-                      <td>{index + 1}</td>
-                      <td>
-                        <Input
-                          aria-label={`第 ${index + 1} 筆 Tag 名稱`}
-                          status={tagCreateDuplicateNameRows.has(index)
-                            || tagCreateInvalidNameRows.has(index) ? 'error' : undefined}
-                          maxLength={120}
-                          value={spec.name}
-                          onChange={(event) => setTagCreateNameOverrides((current) => ({
-                            ...current,
-                            [index]: event.target.value,
-                          }))}
-                        />
-                      </td>
-                      <td>{spec.address}</td>
-                      <td>{spec.memaddress}</td>
-                      <td>{spec.type}</td>
-                      <td>{spec.floor || '未設定'}</td>
-                      <td>
-                        {tagCreateInvalidNameRows.has(index)
-                          ? <Text type="danger">名稱不可空白或過長</Text>
-                          : tagCreateDuplicateNameRows.has(index)
-                          ? <Text type="danger">名稱重複</Text>
-                          : <Text type="success">正常</Text>}
-                      </td>
-                      <td>
-                        {tagCreateDuplicateAddressRows.has(index)
-                          ? <Text type="warning">位址重複</Text>
-                          : <Text type="success">正常</Text>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="輸入或貼上 Tag 名稱以預覽。" />
-          )}
-          <Checkbox
-            checked={tagCreateAlsoAddView}
-            disabled={!selectedView || !selectedModel}
-            onChange={(event) => setTagCreateAlsoAddView(event.target.checked)}
-          >
-            同時將建立的 Tag 作為元件加入目前 View
-          </Checkbox>
-          {tagCreateAlsoAddView && tagCreateSpecs.some((spec) =>
-            spec.memaddress.trim() === '000000'
-            && ['bool', 'boolean'].includes(spec.type.toLocaleLowerCase())) && (
-            <Text type="secondary">
-              Boolean Coil Tag 會建立為 Switch，並顯示 Tag 名稱標籤。
-            </Text>
-          )}
-        </Space>
-      </Modal>
-      <Modal
-        open={batchDialogOpen}
-        title="批次加入 Tag"
-        okText={`加入 ${batchSelection.size} 筆`}
-        cancelText="取消"
-        okButtonProps={{ disabled: batchSelection.size === 0 }}
-        onCancel={() => setBatchDialogOpen(false)}
-        onOk={handleBatchAdd}
-        width={720}
-        destroyOnHidden
-      >
-        <Text type="secondary">
-          Tag 會沿用配置中的樓層；未設定樓層的 Tag 會歸入「未設定樓層」。
-        </Text>
-        <Select
-          aria-label="批次圖形"
-          value={batchGraphic}
-          options={getComponentGraphicChoices(
-            iconLibrary,
-            {
-              key: 'batch',
-              seq: 0,
-              tagId: selectedBatchTags[0]?.id ?? '',
-              label: '',
-              template: 'rect',
-              shapeId: '',
-              managed: true,
-            },
-            batchCanUseBooleanGraphic,
-          )}
-          onChange={setBatchGraphic}
-          style={{ width: '100%', marginTop: 12 }}
-        />
-        {selectedCoilTags.length > 0 && (
-          <Space orientation="vertical" size={4} style={{ marginTop: 12 }}>
-            <Checkbox
-              checked={batchCoilSwitchEnabled}
-              onChange={(event) => setBatchCoilSwitchEnabled(event.target.checked)}
-            >
-              Coil Tag 建立為 Switch，並顯示 Tag 名稱標籤
-            </Checkbox>
-            <Text type="secondary">
-              {batchCoilSwitchEnabled
-                ? `將建立 ${selectedCoilSwitchTags.length} 個 Switch、${selectedBatchTags.length - selectedCoilSwitchTags.length} 個一般元件。`
-                : `將建立 ${selectedBatchTags.length} 個一般元件。`}
-            </Text>
-            {selectedCoilSwitchTags.length < selectedCoilTags.length && (
-              <Text type="warning">
-                非 Boolean 型別的 Coil 不可轉為 Switch。
-              </Text>
-            )}
-          </Space>
-        )}
-        {batchGraphic.startsWith('multi:') && (
-          <Text type="secondary">
-            每筆 Tag 各建立一個元件，並綁定至所選多狀態圖示組的最高優先狀態。
-          </Text>
-        )}
-        <Input
-          aria-label="搜尋 Tag"
-          allowClear
-          placeholder="搜尋設備、Tag 名稱、型別或 ID"
-          value={batchSearch}
-          onChange={(event) => setBatchSearch(event.target.value)}
-          style={{ margin: '16px 0 12px' }}
-        />
-        <div className="batch-tag-toolbar">
-          <Checkbox
-            checked={filteredBatchTags.length > 0 && selectedBatchCount === filteredBatchTags.length}
-            indeterminate={selectedBatchCount > 0 && selectedBatchCount < filteredBatchTags.length}
-            disabled={filteredBatchTags.length === 0}
-            onChange={(event) => handleBatchSelectAll(event.target.checked)}
-          >
-            全選目前搜尋結果
-          </Checkbox>
-          <Text type="secondary">
-            已選 {batchSelection.size} 筆 / {batchableTags.length} 筆
-          </Text>
-        </div>
-        <div className="batch-tag-list" role="group" aria-label="可加入的 Tag">
-          {filteredBatchTags.length ? filteredBatchTags.map((tag) => (
-            <Checkbox
-              key={tag.id}
-              checked={batchSelection.has(tag.id)}
-              onChange={(event) => {
-                setBatchSelection((current) => {
-                  const next = new Set(current)
-                  if (event.target.checked) next.add(tag.id)
-                  else next.delete(tag.id)
-                  return next
-                })
-              }}
-            >
-              <span className="batch-tag-option">
-                <span>{tag.deviceName} / {tag.name} ({tag.type || '未設定型別'})</span>
-                <Text type="secondary">
-                  {tag.floor || '未設定樓層'} · {tag.memaddress || '未設定區段'}
-                  {isCoilTag(tag) ? ' · Coil' : ''}
-                  {' · '}{tag.id}
-                  {usedTagIds.has(tag.id) ? ' · 此 View 已使用' : ''}
-                </Text>
-              </span>
-            </Checkbox>
-          )) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="沒有符合的 Tag。" />
-          )}
-        </div>
       </Modal>
       <Layout className="editor-shell">
         <Header className="editor-header">
@@ -4091,7 +4120,7 @@ function App() {
                             <Button
                               size="small"
                               disabled={!selectedModel || tags.length === 0}
-                              onClick={openBatchDialog}
+                              onClick={openBatchAddTab}
                             >
                               批次加入 Tag
                             </Button>
