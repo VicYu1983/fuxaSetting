@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FuxaConfig, SourceTextFormat } from '../../src/domain/config/types'
-import { prepareFuxaConfigExport } from '../../src/domain/config/prepareFuxaConfigExport'
+import {
+  needsVoiceScriptUpdate,
+  prepareFuxaConfigExport,
+  VOICE_SCRIPT_CODE,
+} from '../../src/domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from '../../src/domain/config/fuxaConfigExportDependencies'
 import type {
   ExportViewModel,
@@ -21,6 +25,17 @@ function config(): FuxaConfig {
         { id: 'view-2', name: 'Other', items: {}, svgcontent: '<svg/>' },
       ],
     },
+    scripts: [{
+      id: 's_voice',
+      name: 'voice',
+      sync: false,
+      parameters: [
+        { name: 'message', type: 'value' },
+        { name: 'count', type: 'value' },
+      ],
+      mode: 'CLIENT',
+      code: VOICE_SCRIPT_CODE,
+    }],
     extra: { customField: { keep: true } },
   }
 }
@@ -107,6 +122,76 @@ describe('prepareFuxaConfigExport', () => {
     expect(result.text).toBe(originalText)
     expect(result.config).toBe(original)
     expect(result.dirty).toBe(false)
+  })
+
+  it('fills the existing voice script code during export without other edits', () => {
+    const original = config()
+    const voiceScript = {
+      name: 'voice',
+      parameters: [{ name: 'message', type: 'value' }, { name: 'count', type: 'value' }],
+      mode: 'CLIENT',
+      code: '// here is voice script',
+    }
+    const otherScript = { name: 'other', code: 'keep this script' }
+    original.scripts = [
+      voiceScript,
+      otherScript,
+    ]
+
+    const result = prepareFuxaConfigExport(input({ config: original }), {
+      validate: vi.fn(),
+    })
+    const scripts = JSON.parse(result.text).scripts
+
+    expect(result.dirty).toBe(true)
+    expect(scripts[0].code).toBe(VOICE_SCRIPT_CODE)
+    expect(scripts[0].parameters).toEqual(voiceScript.parameters)
+    expect(scripts[1]).toEqual(otherScript)
+    expect(voiceScript.code).toBe('// here is voice script')
+  })
+
+  it('adds the voice script with the FUXA method schema when one is missing', () => {
+    const noVoiceScript = config()
+    delete noVoiceScript.scripts
+    expect(needsVoiceScriptUpdate(noVoiceScript)).toBe(true)
+
+    noVoiceScript.scripts = [{ id: 's_existing', name: 'other', code: 'keep this script' }]
+    const result = prepareFuxaConfigExport(input({ config: noVoiceScript }), {
+      validate: vi.fn(),
+    })
+    const scripts = JSON.parse(result.text).scripts
+
+    expect(result.dirty).toBe(true)
+    expect(scripts).toHaveLength(2)
+    expect(scripts[0]).toEqual({ id: 's_existing', name: 'other', code: 'keep this script' })
+    expect(scripts[1]).toMatchObject({
+      name: 'voice',
+      sync: false,
+      parameters: [
+        { name: 'message', type: 'value' },
+        { name: 'count', type: 'value' },
+      ],
+      mode: 'CLIENT',
+      code: VOICE_SCRIPT_CODE,
+    })
+    expect(scripts[1].id).toMatch(/^s_[0-9a-f]{8}-[0-9a-f]{8}$/)
+    expect(needsVoiceScriptUpdate(JSON.parse(result.text))).toBe(false)
+    expect(noVoiceScript.scripts).toHaveLength(1)
+  })
+
+  it('does not alter exports when the voice script code is current', () => {
+    const current = config()
+    current.scripts = [{ name: 'voice', code: VOICE_SCRIPT_CODE }]
+    expect(needsVoiceScriptUpdate(current)).toBe(false)
+    expect(prepareFuxaConfigExport(input({ config: current })).text)
+      .toBe('{\r\n  "raw": true\r\n}\r\n')
+  })
+
+  it('rejects malformed scripts instead of replacing them during export', () => {
+    const malformed = config()
+    malformed.scripts = {}
+    expect(() => needsVoiceScriptUpdate(malformed))
+      .toThrow('FUXA scripts 欄位格式無效')
   })
 
   it('sorts device Tags by numeric address in JSON export, even without other edits', () => {

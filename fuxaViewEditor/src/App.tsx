@@ -54,7 +54,11 @@ import type {
   TagAlarmLevel,
   TagAlarmMessageLevel,
 } from './domain/alarms/manageTagAlarms'
-import { findLegacySwitchViewIds, prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
+import {
+  findLegacySwitchViewIds,
+  needsVoiceScriptUpdate,
+  prepareFuxaConfigExport,
+} from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
 import { deleteView, renameView, validateViewName } from './domain/views/viewManagement'
@@ -809,6 +813,7 @@ function App() {
         || findLegacySwitchViewIds([...models.values()]).size > 0
         || floorFrameLayoutNeedsUpdate
         || deviceTagsNeedAddressSorting(config.rawConfig)
+        || needsVoiceScriptUpdate(config.rawConfig)
       const dependencies = exportDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
           Parser: DOMParser,
