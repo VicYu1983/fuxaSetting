@@ -2,12 +2,14 @@ import type { FuxaConfig } from '../config/types'
 import { isRecord } from '../config/validateFuxaConfig'
 
 export type TagAlarmLevel = 'highhigh' | 'high' | 'low' | 'info'
+export type TagAlarmMessageLevel = 'info' | 'success' | 'warning' | 'error'
 
 export interface TagAlarmDraft {
   tagId: string
   tagName: string
   text: string
   level: TagAlarmLevel
+  messageLevel: TagAlarmMessageLevel
   viewId: string
 }
 
@@ -29,13 +31,22 @@ export function updateExistingTagAlarmTexts(
     if (!tagName) continue
 
     let changed = false
+    const text = `${tagName}異常`
+    let hasEnabledLevel = false
     for (const level of ['highhigh', 'high', 'low', 'info'] as const) {
       const setting = alarm[level]
       if (!isRecord(setting) || setting.enabled !== true) continue
-      const text = `${tagName}異常`
+      hasEnabledLevel = true
       if (setting.text === text) continue
       setting.text = text
       changed = true
+    }
+    if (hasEnabledLevel && isRecord(alarm.actions) && Array.isArray(alarm.actions.values)) {
+      for (const action of alarm.actions.values) {
+        if (!isRecord(action) || action.type !== 'toastMessage' || action.actparam === text) continue
+        action.actparam = text
+        changed = true
+      }
     }
     if (changed) updated += 1
   }
@@ -112,6 +123,9 @@ export function applyTagAlarms(
     if (!Object.hasOwn(ALARM_LEVEL_DEFAULTS, draft.level)) {
       throw new Error(`Tag「${tagName}」的告警等級無效。`)
     }
+    if (!['info', 'success', 'warning', 'error'].includes(draft.messageLevel)) {
+      throw new Error(`Tag「${tagName}」的訊息層級無效。`)
+    }
     if (seenTagIds.has(tagId)) throw new Error(`Tag「${tagName}」重複選取。`)
     seenTagIds.add(tagId)
 
@@ -136,7 +150,7 @@ export function applyTagAlarms(
         enabled: true,
         values: [
           ...previousValues.filter((value) => (
-            !isRecord(value) || value.type !== 'setView'
+            !isRecord(value) || (value.type !== 'setView' && value.type !== 'toastMessage')
           )),
           {
             min: 1,
@@ -146,6 +160,15 @@ export function applyTagAlarms(
             actoptions: { type: 'warning' },
             checkdelay: 1,
             timedelay: 1,
+          },
+          {
+            min: 1,
+            max: 1,
+            type: 'toastMessage',
+            actparam: text,
+            actoptions: { type: draft.messageLevel },
+            checkdelay: 1,
+            timedelay: 0,
           },
         ],
       },

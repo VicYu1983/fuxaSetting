@@ -49,7 +49,10 @@ import {
   applyTagAlarms,
   updateExistingTagAlarmTexts,
 } from './domain/alarms/manageTagAlarms'
-import type { TagAlarmLevel } from './domain/alarms/manageTagAlarms'
+import type {
+  TagAlarmLevel,
+  TagAlarmMessageLevel,
+} from './domain/alarms/manageTagAlarms'
 import { findLegacySwitchViewIds, prepareFuxaConfigExport } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
@@ -171,6 +174,13 @@ const TAG_ALARM_LEVEL_OPTIONS: { value: TagAlarmLevel; label: string }[] = [
   { value: 'high', label: '高 (High)' },
   { value: 'low', label: '低 (Low)' },
   { value: 'info', label: '資訊 (Info)' },
+]
+
+const TAG_ALARM_MESSAGE_LEVEL_OPTIONS: { value: TagAlarmMessageLevel; label: string }[] = [
+  { value: 'error', label: '錯誤' },
+  { value: 'warning', label: '警告' },
+  { value: 'success', label: '成功' },
+  { value: 'info', label: '資訊' },
 ]
 
 const TAG_ALARM_LEVEL_LABELS: Record<TagAlarmLevel, string> = {
@@ -337,6 +347,7 @@ function App() {
   const [tagAlarmSearch, setTagAlarmSearch] = useState('')
   const [tagAlarmText, setTagAlarmText] = useState('設備異常告警')
   const [tagAlarmLevel, setTagAlarmLevel] = useState<TagAlarmLevel>('highhigh')
+  const [tagAlarmMessageLevel, setTagAlarmMessageLevel] = useState<TagAlarmMessageLevel>('error')
   const [tagAlarmTargetViewIds, setTagAlarmTargetViewIds] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [editor, dispatchEditor] = useReducer(
@@ -1337,6 +1348,7 @@ function App() {
           tagName: tag.name,
           text: tagAlarmText,
           level: tagAlarmLevel,
+          messageLevel: tagAlarmMessageLevel,
           viewId: tagAlarmTargetViewIds[tag.id] ?? '',
         })),
       )
@@ -1501,6 +1513,15 @@ function App() {
             value={tagAlarmLevel}
             options={TAG_ALARM_LEVEL_OPTIONS}
             onChange={setTagAlarmLevel}
+          />
+        </label>
+        <label>
+          Message 層級（套用至所有選取 Tag）
+          <Select
+            aria-label="Message 層級"
+            value={tagAlarmMessageLevel}
+            options={TAG_ALARM_MESSAGE_LEVEL_OPTIONS}
+            onChange={setTagAlarmMessageLevel}
           />
         </label>
         {selectedAlarmTags.length > 0 && (

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FuxaConfig } from '../../src/domain/config/types'
+import type { TagAlarmDraft } from '../../src/domain/alarms/manageTagAlarms'
 import {
   applyTagAlarms,
   updateExistingTagAlarmTexts,
@@ -21,6 +22,7 @@ describe('applyTagAlarms', () => {
         tagName: '水箱水位',
         text: '水位異常',
         level: 'highhigh',
+        messageLevel: 'error',
         viewId: 'view-water',
       },
       {
@@ -28,6 +30,7 @@ describe('applyTagAlarms', () => {
         tagName: '水箱溫度',
         text: '水位異常',
         level: 'highhigh',
+        messageLevel: 'error',
         viewId: 'view-water',
       },
     ])
@@ -42,7 +45,18 @@ describe('applyTagAlarms', () => {
       info: { enabled: false },
       actions: {
         enabled: true,
-        values: [{ type: 'setView', actparam: 'view-water' }],
+        values: [
+          { type: 'setView', actparam: 'view-water' },
+          {
+            min: 1,
+            max: 1,
+            type: 'toastMessage',
+            actparam: '水位異常',
+            actoptions: { type: 'error' },
+            checkdelay: 1,
+            timedelay: 0,
+          },
+        ],
       },
       property: { variableId: 'tag-1' },
       name: '水箱水位告警',
@@ -56,7 +70,11 @@ describe('applyTagAlarms', () => {
       property: { variableId: 'tag-1', retained: true },
       actions: {
         enabled: false,
-        values: [{ type: 'notify', actparam: 'keep' }, { type: 'setView', actparam: 'old' }],
+        values: [
+          { type: 'notify', actparam: 'keep' },
+          { type: 'setView', actparam: 'old' },
+          { type: 'toastMessage', actparam: 'old message', actoptions: { type: 'info' } },
+        ],
       },
       custom: 'preserved',
     }]
@@ -66,6 +84,7 @@ describe('applyTagAlarms', () => {
       tagName: '水箱水位',
       text: '低水位',
       level: 'low',
+      messageLevel: 'error',
       viewId: 'view-water',
     }])
     const alarms = result.config.alarms as Record<string, unknown>[]
@@ -80,6 +99,11 @@ describe('applyTagAlarms', () => {
         values: [
           { type: 'notify', actparam: 'keep' },
           { type: 'setView', actparam: 'view-water' },
+          {
+            type: 'toastMessage',
+            actparam: '低水位',
+            actoptions: { type: 'error' },
+          },
         ],
       },
       custom: 'preserved',
@@ -94,6 +118,7 @@ describe('applyTagAlarms', () => {
       tagName: '水箱水位',
       text: '水位異常',
       level: 'highhigh' as const,
+      messageLevel: 'warning' as const,
       viewId: 'view-water',
     }
 
@@ -101,6 +126,10 @@ describe('applyTagAlarms', () => {
       .toThrow('告警文字不可空白')
     expect(() => applyTagAlarms(source, [{ ...base, viewId: '' }]))
       .toThrow('尚未指定告警動作目標頁面')
+    expect(() => applyTagAlarms(source, [{
+      ...base,
+      messageLevel: 'critical' as TagAlarmDraft['messageLevel'],
+    }])).toThrow('訊息層級無效')
     expect(() => applyTagAlarms(source, [base, base]))
       .toThrow('重複選取')
     source.alarms = {}
@@ -117,7 +146,13 @@ describe('updateExistingTagAlarmTexts', () => {
         property: { variableId: 'tag-1' },
         highhigh: { enabled: true, text: '舊文字', custom: true },
         high: { enabled: false, text: '停用文字' },
-        actions: { enabled: true },
+        actions: {
+          enabled: true,
+          values: [
+            { type: 'toastMessage', actparam: '舊訊息', actoptions: { type: 'warning' } },
+            { type: 'notify', actparam: '保留' },
+          ],
+        },
       },
       {
         property: { variableId: 'unknown-tag' },
@@ -135,7 +170,13 @@ describe('updateExistingTagAlarmTexts', () => {
     expect(alarms[0]).toMatchObject({
       highhigh: { enabled: true, text: '水箱水位異常', custom: true },
       high: { enabled: false, text: '停用文字' },
-      actions: { enabled: true },
+      actions: {
+        enabled: true,
+        values: [
+          { type: 'toastMessage', actparam: '水箱水位異常', actoptions: { type: 'warning' } },
+          { type: 'notify', actparam: '保留' },
+        ],
+      },
     })
     expect(alarms[1]).toMatchObject({
       high: { enabled: true, text: '維持原狀' },
