@@ -9,6 +9,7 @@ import {
   updateExistingTagAlarmTexts,
   updateTagAlarmInversion,
 } from '../../src/domain/alarms/manageTagAlarms'
+import { updateVoiceBridge } from '../../src/domain/config/prepareFuxaConfigExport'
 
 function createConfig(): FuxaConfig {
   return {
@@ -321,6 +322,57 @@ describe('updateExistingTagAlarmTexts', () => {
       high: { text: '原告警文字' },
       actions: { enabled: false },
     }])
+  })
+
+  it('adds voice bridge settings using the quick-set alarm text and preserves other actions', () => {
+    const source = createConfig()
+    source.devices = {
+      server: {
+        type: 'FuxaServer',
+        tags: {},
+      },
+    }
+    source.alarms = [{
+      property: { variableId: 'tag-1' },
+      high: { enabled: true, min: 0, max: 0, text: '舊文字' },
+      actions: {
+        enabled: true,
+        values: [{ type: 'notify', actparam: '保留' }],
+      },
+    }]
+
+    const result = updateExistingTagAlarmTexts(
+      source,
+      new Map([['tag-1', '水箱水位']]),
+      'error',
+    )
+    updateVoiceBridge(result.config)
+
+    const alarm = (result.config.alarms as Record<string, unknown>[])[0]!
+    const server = result.config.devices.server as Record<string, unknown>
+    const voiceScript = (result.config.scripts as Record<string, unknown>[])[0]!
+    const actions = (alarm.actions as { values: Record<string, unknown>[] }).values
+    const messageTagId = Object.entries(server.tags as Record<string, Record<string, unknown>>)
+      .find(([, tag]) => tag.name === 'voiceMessage')?.[0]
+
+    expect(messageTagId).toBeDefined()
+    expect(voiceScript).toMatchObject({
+      name: 'voice',
+      mode: 'CLIENT',
+      scheduling: { mode: 'interval', interval: 1 },
+    })
+    expect(actions).toContainEqual({ type: 'notify', actparam: '保留' })
+    expect(actions).toContainEqual(expect.objectContaining({
+      type: 'setValue',
+      variableId: messageTagId,
+      actparam: '水箱水位異常',
+      min: 0,
+      max: 0,
+    }))
+    expect(actions).toContainEqual(expect.objectContaining({
+      type: 'toastMessage',
+      actparam: '水箱水位異常',
+    }))
   })
 
   it('does not count alarms with no enabled level or unchanged text', () => {

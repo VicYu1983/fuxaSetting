@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FuxaConfig, SourceTextFormat } from '../../src/domain/config/types'
 import {
-  needsVoiceScriptUpdate,
+  buildVoiceScriptCode,
+  needsVoiceBridgeUpdate,
   prepareFuxaConfigExport,
-  VOICE_SCRIPT_CODE,
 } from '../../src/domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from '../../src/domain/config/fuxaConfigExportDependencies'
 import type {
@@ -17,8 +17,32 @@ const sourceFormat: SourceTextFormat = {
 }
 
 function config(): FuxaConfig {
+  const voiceOnId = 't_voiceOn'
+  const voiceMessageId = 't_voiceMessage'
   return {
-    devices: {},
+    devices: {
+      '0': {
+        id: '0',
+        name: 'FUXA',
+        enabled: true,
+        property: { delay: 10 },
+        type: 'FuxaServer',
+        polling: 1000,
+        tags: {
+          [voiceOnId]: {
+            id: voiceOnId,
+            name: 'voiceOn',
+            type: 'boolean',
+            init: '0',
+          },
+          [voiceMessageId]: {
+            id: voiceMessageId,
+            name: 'voiceMessage',
+            type: 'string',
+          },
+        },
+      },
+    },
     hmi: {
       views: [
         { id: 'view-1', name: 'Main', items: {}, svgcontent: '<svg/>' },
@@ -29,12 +53,10 @@ function config(): FuxaConfig {
       id: 's_voice',
       name: 'voice',
       sync: false,
-      parameters: [
-        { name: 'message', type: 'value' },
-        { name: 'count', type: 'value' },
-      ],
+      parameters: [],
       mode: 'CLIENT',
-      code: VOICE_SCRIPT_CODE,
+      code: buildVoiceScriptCode(voiceOnId, voiceMessageId),
+      scheduling: { mode: 'interval', interval: 1, schedules: [] },
     }],
     extra: { customField: { keep: true } },
   }
@@ -127,6 +149,7 @@ describe('prepareFuxaConfigExport', () => {
   it('fills the existing voice script code during export without other edits', () => {
     const original = config()
     const voiceScript = {
+      id: 's_voice',
       name: 'voice',
       parameters: [{ name: 'message', type: 'value' }, { name: 'count', type: 'value' }],
       mode: 'CLIENT',
@@ -144,45 +167,79 @@ describe('prepareFuxaConfigExport', () => {
     const scripts = JSON.parse(result.text).scripts
 
     expect(result.dirty).toBe(true)
-    expect(scripts[0].code).toBe(VOICE_SCRIPT_CODE)
-    expect(scripts[0].parameters).toEqual(voiceScript.parameters)
+    expect(scripts[0].code).toBe(buildVoiceScriptCode('t_voiceOn', 't_voiceMessage'))
+    expect(scripts[0].parameters).toEqual([])
+    expect(scripts[0].scheduling).toEqual({ mode: 'interval', interval: 1, schedules: [] })
     expect(scripts[1]).toEqual(otherScript)
     expect(voiceScript.code).toBe('// here is voice script')
   })
 
-  it('adds the voice script with the FUXA method schema when one is missing', () => {
-    const noVoiceScript = config()
-    delete noVoiceScript.scripts
-    expect(needsVoiceScriptUpdate(noVoiceScript)).toBe(true)
+  it('adds bridge Tags, a polling CLIENT script, and Server setValue alarm actions', () => {
+    const missingBridge = config()
+    const server = missingBridge.devices['0'] as Record<string, unknown>
+    server.tags = {}
+    delete missingBridge.scripts
+    missingBridge.alarms = [{
+      highhigh: {
+        enabled: true,
+        min: 1,
+        max: 1,
+        text: '水箱蓋異常',
+      },
+      high: { enabled: false },
+      actions: {
+        enabled: true,
+        values: [{ type: 'setView', actparam: 'view-1', min: 1, max: 1 }],
+      },
+      property: { variableId: 'tag-water' },
+    }]
+    expect(needsVoiceBridgeUpdate(missingBridge)).toBe(true)
 
-    noVoiceScript.scripts = [{ id: 's_existing', name: 'other', code: 'keep this script' }]
-    const result = prepareFuxaConfigExport(input({ config: noVoiceScript }), {
+    const result = prepareFuxaConfigExport(input({ config: missingBridge }), {
       validate: vi.fn(),
     })
-    const scripts = JSON.parse(result.text).scripts
+    const exported = JSON.parse(result.text)
+    const tags = (exported.devices['0'] as { tags: Record<string, Record<string, unknown>> }).tags
+    const voiceOn = Object.values(tags).find((tag) => tag.name === 'voiceOn')
+    const voiceMessage = Object.values(tags).find((tag) => tag.name === 'voiceMessage')
+    const scripts = exported.scripts
+    const actions = exported.alarms[0].actions.values
 
     expect(result.dirty).toBe(true)
-    expect(scripts).toHaveLength(2)
-    expect(scripts[0]).toEqual({ id: 's_existing', name: 'other', code: 'keep this script' })
-    expect(scripts[1]).toMatchObject({
+    expect(voiceOn).toMatchObject({ type: 'boolean', init: '0' })
+    expect(voiceMessage).toMatchObject({ type: 'string' })
+    expect(scripts).toHaveLength(1)
+    expect(scripts[0]).toMatchObject({
       name: 'voice',
       sync: false,
-      parameters: [
-        { name: 'message', type: 'value' },
-        { name: 'count', type: 'value' },
-      ],
+      parameters: [],
       mode: 'CLIENT',
-      code: VOICE_SCRIPT_CODE,
+      code: buildVoiceScriptCode(voiceOn!.id as string, voiceMessage!.id as string),
+      scheduling: { mode: 'interval', interval: 1, schedules: [] },
     })
-    expect(scripts[1].id).toMatch(/^s_[0-9a-f]{8}-[0-9a-f]{8}$/)
-    expect(needsVoiceScriptUpdate(JSON.parse(result.text))).toBe(false)
-    expect(noVoiceScript.scripts).toHaveLength(1)
+    expect(actions).toHaveLength(3)
+    expect(actions[0]).toMatchObject({ type: 'setView', actparam: 'view-1' })
+    expect(actions[1]).toMatchObject({
+      type: 'setValue',
+      actparam: 'true',
+      variableId: voiceOn!.id,
+      min: 1,
+      max: 1,
+    })
+    expect(actions[2]).toMatchObject({
+      type: 'setValue',
+      actparam: '水箱蓋異常',
+      variableId: voiceMessage!.id,
+      min: 1,
+      max: 1,
+    })
+    expect(needsVoiceBridgeUpdate(exported)).toBe(false)
+    expect((missingBridge.devices['0'] as { tags: object }).tags).toEqual({})
   })
 
-  it('does not alter exports when the voice script code is current', () => {
+  it('does not alter exports when the full voice bridge is already configured', () => {
     const current = config()
-    current.scripts = [{ name: 'voice', code: VOICE_SCRIPT_CODE }]
-    expect(needsVoiceScriptUpdate(current)).toBe(false)
+    expect(needsVoiceBridgeUpdate(current)).toBe(false)
     expect(prepareFuxaConfigExport(input({ config: current })).text)
       .toBe('{\r\n  "raw": true\r\n}\r\n')
   })
@@ -190,20 +247,18 @@ describe('prepareFuxaConfigExport', () => {
   it('rejects malformed scripts instead of replacing them during export', () => {
     const malformed = config()
     malformed.scripts = {}
-    expect(() => needsVoiceScriptUpdate(malformed))
+    expect(() => needsVoiceBridgeUpdate(malformed))
       .toThrow('FUXA scripts 欄位格式無效')
   })
 
   it('sorts device Tags by numeric address in JSON export, even without other edits', () => {
     const original = config()
-    original.devices = {
-      device1: {
+    original.devices.device1 = {
         type: 'ModbusTCP',
         tags: {
           later: { id: 'later', address: 20 },
           earlier: { id: 'earlier', address: 3 },
         },
-      },
     }
 
     const result = prepareFuxaConfigExport(input({ config: original }), {

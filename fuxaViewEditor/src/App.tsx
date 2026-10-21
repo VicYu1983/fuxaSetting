@@ -56,8 +56,9 @@ import type {
 } from './domain/alarms/manageTagAlarms'
 import {
   findLegacySwitchViewIds,
-  needsVoiceScriptUpdate,
+  needsVoiceBridgeUpdate,
   prepareFuxaConfigExport,
+  updateVoiceBridge,
 } from './domain/config/prepareFuxaConfigExport'
 import { createFuxaConfigExportDependencies } from './domain/config/fuxaConfigExportDependencies'
 import { buildViewEditorModels } from './domain/views/buildViewEditorModels'
@@ -813,7 +814,7 @@ function App() {
         || findLegacySwitchViewIds([...models.values()]).size > 0
         || floorFrameLayoutNeedsUpdate
         || deviceTagsNeedAddressSorting(config.rawConfig)
-        || needsVoiceScriptUpdate(config.rawConfig)
+        || needsVoiceBridgeUpdate(config.rawConfig)
       const dependencies = exportDirty
         ? createFuxaConfigExportDependencies(config.rawConfig, {
           Parser: DOMParser,
@@ -1430,17 +1431,19 @@ function App() {
         new Map(tags.map((tag) => [tag.id, tag.name])),
         tagAlarmMessageLevel,
       )
-      if (!result.updated && !result.toastMessagesAdded) {
-        messageApi.info('既有告警文字與 toastMessage 都已是最新設定。')
+      const voiceBridgeNeedsUpdate = needsVoiceBridgeUpdate(result.config)
+      if (!result.updated && !result.toastMessagesAdded && !voiceBridgeNeedsUpdate) {
+        messageApi.info('告警文字、toastMessage 與語音觸發設定都已是最新狀態。')
         return
       }
+      updateVoiceBridge(result.config)
       dispatchEditor({
         type: 'document-edit',
         document: parseUpdatedConfig(result.config, config),
         models,
       })
       messageApi.success(
-        `已更新 ${result.updated} 筆告警，並新增 ${result.toastMessagesAdded} 個 toastMessage。`,
+        `已更新 ${result.updated} 筆告警，新增 ${result.toastMessagesAdded} 個 toastMessage，並同步語音觸發設定。`,
       )
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error)
