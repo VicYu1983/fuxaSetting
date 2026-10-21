@@ -25,7 +25,9 @@ import {
   Space,
   Statistic,
   Switch,
+  Tabs,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from 'antd'
@@ -33,7 +35,9 @@ import zhTW from 'antd/locale/zh_TW'
 import {
   DeleteOutlined,
   DownOutlined,
+  RedoOutlined,
   SwapOutlined,
+  UndoOutlined,
   UpOutlined,
 } from '@ant-design/icons'
 import {
@@ -292,7 +296,7 @@ function App() {
   const [tagCreateType, setTagCreateType] = useState('Bool')
   const [tagCreateFloor, setTagCreateFloor] = useState('')
   const [tagCreateAlsoAddView, setTagCreateAlsoAddView] = useState(true)
-  const [floorManagerOpen, setFloorManagerOpen] = useState(false)
+  const [projectManagerTab, setProjectManagerTab] = useState<'devices' | 'floors'>('devices')
   const [floorSearch, setFloorSearch] = useState('')
   const [floorDisplayMode, setFloorDisplayMode] = useState<'group' | 'list'>('group')
   const [floorSelection, setFloorSelection] = useState<Set<string>>(new Set())
@@ -312,8 +316,8 @@ function App() {
     Record<string, MultiStateIconDraft>
   >({})
   const [deviceManagerOpen, setDeviceManagerOpen] = useState(false)
-  const [floorFrameDialogOpen, setFloorFrameDialogOpen] = useState(false)
-  const [viewPropertiesDialogOpen, setViewPropertiesDialogOpen] = useState(false)
+  const [viewSettingsOpen, setViewSettingsOpen] = useState(false)
+  const [viewSettingsTab, setViewSettingsTab] = useState<'floor-frame' | 'view-properties'>('floor-frame')
   const [deviceManagerMode, setDeviceManagerMode] = useState<'create' | 'edit'>('edit')
   const [managedDeviceId, setManagedDeviceId] = useState('')
   const [deviceTagSearch, setDeviceTagSearch] = useState('')
@@ -1447,7 +1451,12 @@ function App() {
   }
 
   function openDeviceManager() {
+    setProjectManagerTab('devices')
     setDeviceTagSearch('')
+    setFloorSearch('')
+    setFloorSelection(new Set())
+    setBulkFloor('')
+    setFloorDisplayMode('group')
     const firstDevice = modbusDevices[0]
     if (firstDevice) {
       setDeviceManagerMode('edit')
@@ -1796,14 +1805,6 @@ function App() {
     }
   }
 
-  function openFloorManager() {
-    setFloorSearch('')
-    setFloorSelection(new Set())
-    setBulkFloor('')
-    setFloorDisplayMode('group')
-    setFloorManagerOpen(true)
-  }
-
   function toggleVisibleFloorTags(checked: boolean) {
     setFloorSelection((current) => {
       const next = new Set(current)
@@ -1851,7 +1852,24 @@ function App() {
       ...settings,
       fillOpacityPercent: Math.round(settings.fillOpacity * 100),
     })
-    setFloorFrameDialogOpen(true)
+    const selected = getSelectedView(config.views, selectedViewId)
+    const index = selected ? config.views.indexOf(selected) : 0
+    try {
+      const titleStyle = getViewTitleLabelSettings(
+        config.rawConfig,
+        selected?.id,
+        DOMParser,
+      )
+      viewPropertiesForm.setFieldsValue({
+        bkcolor: getViewBackgroundInputColor(config.rawConfig, Math.max(index, 0)),
+        viewTitleColor: titleStyle.color,
+        viewTitleFontSize: titleStyle.fontSize,
+      })
+    } catch (error) {
+      messageApi.error(`讀取 View 屬性失敗：${error instanceof Error ? error.message : String(error)}`)
+    }
+    setViewSettingsTab('floor-frame')
+    setViewSettingsOpen(true)
   }
 
   function handleFloorFrameSubmit(values: FloorGroupFrameFormValues) {
@@ -1862,7 +1880,7 @@ function App() {
         fillOpacity: values.fillOpacityPercent / 100,
       })
       if (!result.changed) {
-        setFloorFrameDialogOpen(false)
+        setViewSettingsOpen(false)
         messageApi.info('樓層底框設定沒有變更。')
         return
       }
@@ -1878,31 +1896,10 @@ function App() {
         document: parseUpdatedConfig(result.config, config),
         models: nextModels,
       })
-      setFloorFrameDialogOpen(false)
+      setViewSettingsOpen(false)
       messageApi.success('已更新所有 View 的樓層底框設定。')
     } catch (error) {
       messageApi.error(`更新樓層底框設定失敗：${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  function openViewPropertiesDialog() {
-    if (!config) return
-    const selected = getSelectedView(config.views, selectedViewId)
-    const index = selected ? config.views.indexOf(selected) : 0
-    try {
-      const titleStyle = getViewTitleLabelSettings(
-        config.rawConfig,
-        selected?.id,
-        DOMParser,
-      )
-      viewPropertiesForm.setFieldsValue({
-        bkcolor: getViewBackgroundInputColor(config.rawConfig, Math.max(index, 0)),
-        viewTitleColor: titleStyle.color,
-        viewTitleFontSize: titleStyle.fontSize,
-      })
-      setViewPropertiesDialogOpen(true)
-    } catch (error) {
-      messageApi.error(`讀取 View 屬性失敗：${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -1917,7 +1914,7 @@ function App() {
         (doc) => new XMLSerializer().serializeToString(doc),
       )
       if (!backgroundResult.changed && !titleResult.changed) {
-        setViewPropertiesDialogOpen(false)
+        setViewSettingsOpen(false)
         messageApi.info('View 屬性沒有變更。')
         return
       }
@@ -1926,7 +1923,7 @@ function App() {
         document: parseUpdatedConfig(titleResult.config, config),
         models,
       })
-      setViewPropertiesDialogOpen(false)
+      setViewSettingsOpen(false)
       messageApi.success('已更新所有 View 的背景色與名稱標籤樣式。')
     } catch (error) {
       messageApi.error(`更新 View 屬性失敗：${error instanceof Error ? error.message : String(error)}`)
@@ -2456,14 +2453,28 @@ function App() {
         </Form>
       </Modal>
       <Modal
-        open={floorFrameDialogOpen}
-        title="樓層 Group 底框設定"
+        open={viewSettingsOpen}
+        title="View 設定"
         okText="套用所有 View"
         cancelText="取消"
-        onCancel={() => setFloorFrameDialogOpen(false)}
-        onOk={() => floorFrameForm.submit()}
+        onCancel={() => setViewSettingsOpen(false)}
+        onOk={() => {
+          if (viewSettingsTab === 'floor-frame') floorFrameForm.submit()
+          else viewPropertiesForm.submit()
+        }}
+        width={640}
         destroyOnHidden
       >
+        <Tabs
+          activeKey={viewSettingsTab}
+          onChange={(key) => setViewSettingsTab(
+            key === 'view-properties' ? 'view-properties' : 'floor-frame',
+          )}
+          items={[
+            {
+              key: 'floor-frame',
+              label: '樓層框樣式',
+              children: <>
         <Text type="secondary">
           設定會套用至所有 View 的樓層 Group 底框；左右固定內縮 10px，上下可調整內距，並可使用 Undo/Redo 還原。
         </Text>
@@ -2517,16 +2528,12 @@ function App() {
             <InputNumber min={0} max={200} step={1} />
           </Form.Item>
         </Form>
-      </Modal>
-      <Modal
-        open={viewPropertiesDialogOpen}
-        title="View 屬性"
-        okText="套用所有 View"
-        cancelText="取消"
-        onCancel={() => setViewPropertiesDialogOpen(false)}
-        onOk={() => viewPropertiesForm.submit()}
-        destroyOnHidden
-      >
+              </>,
+            },
+            {
+              key: 'view-properties',
+              label: 'View 屬性',
+              children: <>
         <Text type="secondary">
           背景色與 View 名稱標籤樣式會套用至所有 View；名稱標籤設定會保存於匯出 JSON 的 extra，並可使用 Undo/Redo 還原。
         </Text>
@@ -2552,6 +2559,10 @@ function App() {
             <InputNumber min={8} max={72} step={1} aria-label="View 名稱標籤大小" />
           </Form.Item>
         </Form>
+              </>,
+            },
+          ]}
+        />
       </Modal>
       <Modal
         open={iconLibraryOpen}
@@ -2864,14 +2875,31 @@ function App() {
       </Modal>
       <Modal
         open={deviceManagerOpen}
-        title="設備與 Tag 管理"
+        title="專案管理"
         okText={deviceManagerMode === 'create' ? '建立設備' : '儲存設備'}
         cancelText="關閉"
+        footer={projectManagerTab === 'devices'
+          ? undefined
+          : [
+            <Button key="close" onClick={() => setDeviceManagerOpen(false)}>
+              關閉
+            </Button>,
+          ]}
         onCancel={() => setDeviceManagerOpen(false)}
-        onOk={() => deviceManagerForm.submit()}
-        width={720}
+        onOk={projectManagerTab === 'devices'
+          ? () => deviceManagerForm.submit()
+          : undefined}
+        width={900}
         destroyOnHidden
       >
+        <Tabs
+          activeKey={projectManagerTab}
+          onChange={(key) => setProjectManagerTab(key === 'floors' ? 'floors' : 'devices')}
+          items={[
+            {
+              key: 'devices',
+              label: '設備與 Tag',
+              children: <>
         <div className="device-manager-toolbar">
           <Select
             aria-label="選擇 ModbusTCP 設備"
@@ -3079,6 +3107,121 @@ function App() {
         <Text type="secondary">
           儲存 addressCount 時會以目前最小有效位址為起點，複製其 Tag 範本補齊相同 memaddress 區段的缺漏；位址 +1/-1 會先檢查整台設備的所有 Tag，超出 0–65535 時整批取消。
         </Text>
+              </>,
+            },
+            {
+              key: 'floors',
+              label: '樓層管理',
+              children: <>
+        <Input
+          aria-label="搜尋樓層 Tag"
+          allowClear
+          placeholder="搜尋設備、Tag、型別、ID 或樓層"
+          value={floorSearch}
+          onChange={(event) => setFloorSearch(event.target.value)}
+          style={{ margin: '12px 0' }}
+        />
+        <div className="floor-manager-toolbar">
+          <Radio.Group
+            aria-label="樓層顯示方式"
+            optionType="button"
+            buttonStyle="solid"
+            value={floorDisplayMode}
+            onChange={(event) => setFloorDisplayMode(event.target.value)}
+            options={[
+              { label: '依樓層分組', value: 'group' },
+              { label: '平面清單', value: 'list' },
+            ]}
+          />
+          <Text type="secondary">{tags.length} 個 Tag · 已選 {floorSelection.size} 個</Text>
+        </div>
+        <div className="floor-bulk-toolbar">
+          <Checkbox
+            checked={filteredFloorTags.length > 0
+              && filteredFloorTags.every((tag) => floorSelection.has(tag.id))}
+            indeterminate={filteredFloorTags.some((tag) => floorSelection.has(tag.id))
+              && !filteredFloorTags.every((tag) => floorSelection.has(tag.id))}
+            disabled={filteredFloorTags.length === 0}
+            onChange={(event) => toggleVisibleFloorTags(event.target.checked)}
+          >
+            全選可見 Tag
+          </Checkbox>
+          <Input
+            aria-label="批次設定樓層"
+            list="known-floor-options"
+            placeholder="輸入或選擇樓層"
+            value={bulkFloor}
+            onChange={(event) => setBulkFloor(event.target.value)}
+            style={{ maxWidth: 220 }}
+          />
+          <datalist id="known-floor-options">
+            {allFloors.map((floor) => <option key={floor} value={floor} />)}
+          </datalist>
+          <Button
+            type="primary"
+            disabled={!floorSelection.size}
+            onClick={handleApplyBulkFloor}
+          >
+            套用至選取項目
+          </Button>
+        </div>
+        <div className="floor-tag-list" role="group" aria-label="Tag 樓層清單">
+          {filteredFloorTags.length ? floorTagGroups.map((group) => (
+            <section className="floor-tag-group" key={group.floor || 'all'}>
+              {group.title && (
+                <div className="floor-tag-group-title">
+                  {group.title} · {group.items.length} 個 Tag
+                </div>
+              )}
+              {group.items.map((tag) => (
+                <div className="floor-tag-row" key={tag.id}>
+                  <Checkbox
+                    aria-label={`選取 ${tag.deviceName}／${tag.name}`}
+                    checked={floorSelection.has(tag.id)}
+                    onChange={(event) => {
+                      setFloorSelection((current) => {
+                        const next = new Set(current)
+                        if (event.target.checked) next.add(tag.id)
+                        else next.delete(tag.id)
+                        return next
+                      })
+                    }}
+                  />
+                  <span className="floor-tag-name" title={tag.name}>{tag.name}</span>
+                  <Text className="floor-tag-device" type="secondary" title={tag.deviceName}>
+                    {tag.deviceName}
+                  </Text>
+                  <Text
+                    className="floor-tag-address"
+                    type="secondary"
+                    title={`Address: ${String(tag.record.address ?? '未設定')}`}
+                  >
+                    Address: {String(tag.record.address ?? '未設定')}
+                  </Text>
+                  <Input
+                    aria-label={`${tag.name} 的樓層`}
+                    key={`${tag.id}-${tag.floor}`}
+                    defaultValue={tag.floor}
+                    placeholder="未設定樓層"
+                    onPressEnter={(event) => event.currentTarget.blur()}
+                    onBlur={(event) => {
+                      const value = normalizeFloor(event.currentTarget.value)
+                      if (value !== tag.floor || event.currentTarget.value.trim() !== value) {
+                        applyFloorChange([tag.id], value)
+                      }
+                    }}
+                  />
+                </div>
+              ))}
+            </section>
+          )) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="沒有符合條件的 Tag。" />
+          )}
+        </div>
+              </>,
+            },
+          ]}
+        />
       </Modal>
       <Modal
         open={deviceTagDialogOpen}
@@ -3505,121 +3648,6 @@ function App() {
         </Space>
       </Modal>
       <Modal
-        open={floorManagerOpen}
-        title="Tag 樓層管理"
-        cancelText="關閉"
-        footer={null}
-        onCancel={() => setFloorManagerOpen(false)}
-        width={820}
-        destroyOnHidden
-      >
-        <Input
-          aria-label="搜尋樓層 Tag"
-          allowClear
-          placeholder="搜尋設備、Tag、型別、ID 或樓層"
-          value={floorSearch}
-          onChange={(event) => setFloorSearch(event.target.value)}
-          style={{ margin: '12px 0' }}
-        />
-        <div className="floor-manager-toolbar">
-          <Radio.Group
-            aria-label="樓層顯示方式"
-            optionType="button"
-            buttonStyle="solid"
-            value={floorDisplayMode}
-            onChange={(event) => setFloorDisplayMode(event.target.value)}
-            options={[
-              { label: '依樓層分組', value: 'group' },
-              { label: '平面清單', value: 'list' },
-            ]}
-          />
-          <Text type="secondary">{tags.length} 個 Tag · 已選 {floorSelection.size} 個</Text>
-        </div>
-        <div className="floor-bulk-toolbar">
-          <Checkbox
-            checked={filteredFloorTags.length > 0
-              && filteredFloorTags.every((tag) => floorSelection.has(tag.id))}
-            indeterminate={filteredFloorTags.some((tag) => floorSelection.has(tag.id))
-              && !filteredFloorTags.every((tag) => floorSelection.has(tag.id))}
-            disabled={filteredFloorTags.length === 0}
-            onChange={(event) => toggleVisibleFloorTags(event.target.checked)}
-          >
-            全選可見 Tag
-          </Checkbox>
-          <Input
-            aria-label="批次設定樓層"
-            list="known-floor-options"
-            placeholder="輸入或選擇樓層"
-            value={bulkFloor}
-            onChange={(event) => setBulkFloor(event.target.value)}
-            style={{ maxWidth: 220 }}
-          />
-          <datalist id="known-floor-options">
-            {allFloors.map((floor) => <option key={floor} value={floor} />)}
-          </datalist>
-          <Button
-            type="primary"
-            disabled={!floorSelection.size}
-            onClick={handleApplyBulkFloor}
-          >
-            套用至選取項目
-          </Button>
-        </div>
-        <div className="floor-tag-list" role="group" aria-label="Tag 樓層清單">
-          {filteredFloorTags.length ? floorTagGroups.map((group) => (
-            <section className="floor-tag-group" key={group.floor || 'all'}>
-              {group.title && (
-                <div className="floor-tag-group-title">
-                  {group.title} · {group.items.length} 個 Tag
-                </div>
-              )}
-              {group.items.map((tag) => (
-                <div className="floor-tag-row" key={tag.id}>
-                  <Checkbox
-                    aria-label={`選取 ${tag.deviceName}／${tag.name}`}
-                    checked={floorSelection.has(tag.id)}
-                    onChange={(event) => {
-                      setFloorSelection((current) => {
-                        const next = new Set(current)
-                        if (event.target.checked) next.add(tag.id)
-                        else next.delete(tag.id)
-                        return next
-                      })
-                    }}
-                  />
-                  <span className="floor-tag-name" title={tag.name}>{tag.name}</span>
-                  <Text className="floor-tag-device" type="secondary" title={tag.deviceName}>
-                    {tag.deviceName}
-                  </Text>
-                  <Text
-                    className="floor-tag-address"
-                    type="secondary"
-                    title={`Address: ${String(tag.record.address ?? '未設定')}`}
-                  >
-                    Address: {String(tag.record.address ?? '未設定')}
-                  </Text>
-                  <Input
-                    aria-label={`${tag.name} 的樓層`}
-                    key={`${tag.id}-${tag.floor}`}
-                    defaultValue={tag.floor}
-                    placeholder="未設定樓層"
-                    onPressEnter={(event) => event.currentTarget.blur()}
-                    onBlur={(event) => {
-                      const value = normalizeFloor(event.currentTarget.value)
-                      if (value !== tag.floor || event.currentTarget.value.trim() !== value) {
-                        applyFloorChange([tag.id], value)
-                      }
-                    }}
-                  />
-                </div>
-              ))}
-            </section>
-          )) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="沒有符合條件的 Tag。" />
-          )}
-        </div>
-      </Modal>
-      <Modal
         open={batchDialogOpen}
         title="批次加入 Tag"
         okText={`加入 ${batchSelection.size} 筆`}
@@ -3746,18 +3774,22 @@ function App() {
               onChange={(event) => setProjectName(event.target.value)}
               title="載入時使用 JSON 最外層的 name；匯出時也會同步更新該欄位。"
             />
-            <Button
-              disabled={editor.past.length === 0}
-              onClick={() => dispatchEditor({ type: 'undo' })}
-            >
-              復原
-            </Button>
-            <Button
-              disabled={editor.future.length === 0}
-              onClick={() => dispatchEditor({ type: 'redo' })}
-            >
-              重做
-            </Button>
+            <Tooltip title="復原">
+              <Button
+                aria-label="復原"
+                icon={<UndoOutlined />}
+                disabled={editor.past.length === 0}
+                onClick={() => dispatchEditor({ type: 'undo' })}
+              />
+            </Tooltip>
+            <Tooltip title="重做">
+              <Button
+                aria-label="重做"
+                icon={<RedoOutlined />}
+                disabled={editor.future.length === 0}
+                onClick={() => dispatchEditor({ type: 'redo' })}
+              />
+            </Tooltip>
             <input
               ref={fileInputRef}
               className="visually-hidden"
@@ -3779,19 +3811,13 @@ function App() {
               {isDirty ? '匯出修改' : '另存新 JSON'}
             </Button>
             <Button disabled={!config} onClick={openDeviceManager}>
-              設備與 Tag
-            </Button>
-            <Button disabled={!config} onClick={openFloorManager}>
-              樓層管理
+              專案管理
             </Button>
             <Button disabled={!config} onClick={() => setIconLibraryOpen(true)}>
               圖示庫
             </Button>
             <Button disabled={!config} onClick={openFloorFrameDialog}>
-              樓層框樣式
-            </Button>
-            <Button disabled={!config} onClick={openViewPropertiesDialog}>
-              View 屬性
+              View 設定
             </Button>
           </Space>
         </Header>
