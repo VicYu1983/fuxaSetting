@@ -7,6 +7,7 @@ import type {
 import {
   applyTagAlarms,
   updateExistingTagAlarmTexts,
+  updateTagAlarmInversion,
 } from '../../src/domain/alarms/manageTagAlarms'
 
 function createConfig(): FuxaConfig {
@@ -26,6 +27,7 @@ describe('applyTagAlarms', () => {
         text: '水位異常',
         level: 'highhigh',
         messageLevel: 'error',
+        invertState: false,
         viewId: 'view-water',
       },
       {
@@ -34,6 +36,7 @@ describe('applyTagAlarms', () => {
         text: '水位異常',
         level: 'highhigh',
         messageLevel: 'error',
+        invertState: false,
         viewId: 'view-water',
       },
     ])
@@ -49,7 +52,7 @@ describe('applyTagAlarms', () => {
       actions: {
         enabled: true,
         values: [
-          { type: 'setView', actparam: 'view-water' },
+          { min: 1, max: 1, type: 'setView', actparam: 'view-water' },
           {
             min: 1,
             max: 1,
@@ -88,6 +91,7 @@ describe('applyTagAlarms', () => {
       text: '低水位',
       level: 'low',
       messageLevel: 'error',
+      invertState: false,
       viewId: 'view-water',
     }])
     const alarms = result.config.alarms as Record<string, unknown>[]
@@ -122,6 +126,7 @@ describe('applyTagAlarms', () => {
       text: '水位異常',
       level: 'highhigh' as const,
       messageLevel: 'warning' as const,
+      invertState: false,
       viewId: 'view-water',
     }
 
@@ -138,6 +143,89 @@ describe('applyTagAlarms', () => {
     source.alarms = {}
     expect(() => applyTagAlarms(source, [base]))
       .toThrow('FUXA alarms 欄位格式無效')
+  })
+
+  it('creates an inverted alarm that triggers when the Boolean Tag is zero', () => {
+    const result = applyTagAlarms(createConfig(), [{
+      tagId: 'tag-1',
+      tagName: '水箱水位',
+      text: '水位異常',
+      level: 'highhigh',
+      messageLevel: 'error',
+      invertState: true,
+      viewId: 'view-water',
+    }])
+    const alarms = result.config.alarms as Record<string, unknown>[]
+
+    expect(alarms[0]).toMatchObject({
+      highhigh: { enabled: true, min: 0, max: 0 },
+      high: { enabled: false, min: 1, max: 1 },
+      actions: {
+        values: [
+          { min: 0, max: 0, type: 'setView' },
+          { min: 0, max: 0, type: 'toastMessage' },
+        ],
+      },
+    })
+  })
+})
+
+describe('updateTagAlarmInversion', () => {
+  it('updates every enabled alarm threshold and preserves disabled levels', () => {
+    const source = createConfig()
+    source.alarms = [{
+      property: { variableId: 'tag-1' },
+      highhigh: { enabled: true, min: 1, max: 1, text: '高高' },
+      low: { enabled: true, min: 1, max: 1, text: '低' },
+      high: { enabled: false, min: 1, max: 1, text: '停用' },
+      actions: {
+        enabled: true,
+        values: [
+          { min: 1, max: 1, type: 'setView' },
+          { min: 1, max: 1, type: 'toastMessage' },
+          { min: 1, max: 1, type: 'customAction' },
+        ],
+      },
+    }]
+
+    const result = updateTagAlarmInversion(source, 'tag-1', true)
+    const alarms = result.config.alarms as Record<string, unknown>[]
+
+    expect(result.updated).toBe(true)
+    expect(alarms[0]).toMatchObject({
+      highhigh: { enabled: true, min: 0, max: 0, text: '高高' },
+      low: { enabled: true, min: 0, max: 0, text: '低' },
+      high: { enabled: false, min: 1, max: 1, text: '停用' },
+      actions: {
+        values: [
+          { min: 0, max: 0, type: 'setView' },
+          { min: 0, max: 0, type: 'toastMessage' },
+          { min: 0, max: 0, type: 'customAction' },
+        ],
+      },
+    })
+    expect(source.alarms).toMatchObject([{
+      highhigh: { min: 1, max: 1 },
+    }])
+
+    const restored = updateTagAlarmInversion(result.config, 'tag-1', false)
+    expect(restored.config.alarms).toMatchObject([{
+      highhigh: { min: 1, max: 1 },
+      low: { min: 1, max: 1 },
+      actions: {
+        values: [
+          { min: 1, max: 1, type: 'setView' },
+          { min: 1, max: 1, type: 'toastMessage' },
+          { min: 1, max: 1, type: 'customAction' },
+        ],
+      },
+    }])
+  })
+
+  it('returns unchanged when the Tag has no active alarm', () => {
+    const result = updateTagAlarmInversion(createConfig(), 'tag-1', true)
+
+    expect(result.updated).toBe(false)
   })
 })
 
@@ -194,7 +282,7 @@ describe('updateExistingTagAlarmTexts', () => {
     const source = createConfig()
     source.alarms = [{
       property: { variableId: 'tag-1' },
-      high: { enabled: true, text: '原告警文字' },
+      high: { enabled: true, min: 0, max: 0, text: '原告警文字' },
       actions: {
         enabled: false,
         values: [{ type: 'notify', actparam: '保留' }],
@@ -218,8 +306,8 @@ describe('updateExistingTagAlarmTexts', () => {
         values: [
           { type: 'notify', actparam: '保留' },
           {
-            min: 1,
-            max: 1,
+            min: 0,
+            max: 0,
             type: 'toastMessage',
             actparam: '水箱水位異常',
             actoptions: { type: 'error' },

@@ -14,7 +14,49 @@ export interface TagAlarmDraft {
   text: string
   level: TagAlarmLevel
   messageLevel: TagAlarmMessageLevel
+  invertState: boolean
   viewId: string
+}
+
+export function updateTagAlarmInversion(
+  source: FuxaConfig,
+  tagId: string,
+  inverted: boolean,
+): { config: FuxaConfig; updated: boolean } {
+  const config = structuredClone(source)
+  if (config.alarms !== undefined && !Array.isArray(config.alarms)) {
+    throw new Error('FUXA alarms 欄位格式無效，無法反轉告警狀態。')
+  }
+  if (!Array.isArray(config.alarms)) return { config, updated: false }
+
+  const alarm = config.alarms.find((candidate) => (
+    isRecord(candidate)
+    && isRecord(candidate.property)
+    && candidate.property.variableId === tagId
+  ))
+  if (!isRecord(alarm)) return { config, updated: false }
+
+  let updated = false
+  let hasEnabledLevel = false
+  const value = inverted ? 0 : 1
+  for (const level of ['highhigh', 'high', 'low', 'info'] as const) {
+    const setting = alarm[level]
+    if (!isRecord(setting) || setting.enabled !== true) continue
+    hasEnabledLevel = true
+    if (setting.min === value && setting.max === value) continue
+    setting.min = value
+    setting.max = value
+    updated = true
+  }
+  if (hasEnabledLevel && isRecord(alarm.actions) && Array.isArray(alarm.actions.values)) {
+    for (const action of alarm.actions.values) {
+      if (!isRecord(action) || (action.min === value && action.max === value)) continue
+      action.min = value
+      action.max = value
+      updated = true
+    }
+  }
+  return { config, updated }
 }
 
 export function updateExistingTagAlarmTexts(
@@ -42,9 +84,15 @@ export function updateExistingTagAlarmTexts(
     let changed = false
     const text = `${tagName}異常`
     let hasEnabledLevel = false
+    let actionMin = 1
+    let actionMax = 1
     for (const level of ['highhigh', 'high', 'low', 'info'] as const) {
       const setting = alarm[level]
       if (!isRecord(setting) || setting.enabled !== true) continue
+      if (!hasEnabledLevel) {
+        actionMin = typeof setting.min === 'number' ? setting.min : 1
+        actionMax = typeof setting.max === 'number' ? setting.max : 1
+      }
       hasEnabledLevel = true
       if (setting.text === text) continue
       setting.text = text
@@ -68,8 +116,8 @@ export function updateExistingTagAlarmTexts(
           values: [
             ...previousValues,
             {
-              min: 1,
-              max: 1,
+              min: actionMin,
+              max: actionMax,
               type: 'toastMessage',
               actparam: text,
               actoptions: { type: messageLevel },
@@ -123,9 +171,15 @@ const ALARM_LEVEL_DEFAULTS: Record<TagAlarmLevel, Record<string, unknown>> = {
   },
 }
 
-function createAlarmLevel(level: TagAlarmLevel, text: string, enabled: boolean) {
+function createAlarmLevel(
+  level: TagAlarmLevel,
+  text: string,
+  enabled: boolean,
+  inverted: boolean,
+) {
   return {
     ...ALARM_LEVEL_DEFAULTS[level],
+    ...(enabled && inverted ? { min: 0, max: 0 } : {}),
     enabled,
     text,
   }
@@ -175,10 +229,10 @@ export function applyTagAlarms(
       : []
     const alarm = {
       ...existing,
-      highhigh: createAlarmLevel('highhigh', text, draft.level === 'highhigh'),
-      high: createAlarmLevel('high', text, draft.level === 'high'),
-      low: createAlarmLevel('low', text, draft.level === 'low'),
-      info: createAlarmLevel('info', text, draft.level === 'info'),
+      highhigh: createAlarmLevel('highhigh', text, draft.level === 'highhigh', draft.invertState),
+      high: createAlarmLevel('high', text, draft.level === 'high', draft.invertState),
+      low: createAlarmLevel('low', text, draft.level === 'low', draft.invertState),
+      info: createAlarmLevel('info', text, draft.level === 'info', draft.invertState),
       actions: {
         ...previousActions,
         enabled: true,
@@ -187,8 +241,8 @@ export function applyTagAlarms(
             !isRecord(value) || (value.type !== 'setView' && value.type !== 'toastMessage')
           )),
           {
-            min: 1,
-            max: 1,
+            min: draft.invertState ? 0 : 1,
+            max: draft.invertState ? 0 : 1,
             type: 'setView',
             actparam: viewId,
             actoptions: { type: 'warning' },
@@ -196,8 +250,8 @@ export function applyTagAlarms(
             timedelay: 1,
           },
           {
-            min: 1,
-            max: 1,
+            min: draft.invertState ? 0 : 1,
+            max: draft.invertState ? 0 : 1,
             type: 'toastMessage',
             actparam: text,
             actoptions: { type: draft.messageLevel },

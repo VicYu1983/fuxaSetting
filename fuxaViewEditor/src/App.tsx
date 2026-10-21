@@ -48,6 +48,7 @@ import { normalizeProjectName, projectFileName } from './domain/config/serializa
 import {
   applyTagAlarms,
   updateExistingTagAlarmTexts,
+  updateTagAlarmInversion,
 } from './domain/alarms/manageTagAlarms'
 import type {
   TagAlarmLevel,
@@ -344,6 +345,7 @@ function App() {
   const [editingDeviceTagId, setEditingDeviceTagId] = useState('')
   const [deviceTagDialogOpen, setDeviceTagDialogOpen] = useState(false)
   const [tagAlarmTagIds, setTagAlarmTagIds] = useState<string[]>([])
+  const [tagAlarmInversionDrafts, setTagAlarmInversionDrafts] = useState<Record<string, boolean>>({})
   const [tagAlarmSearch, setTagAlarmSearch] = useState('')
   const [tagAlarmText, setTagAlarmText] = useState('設備異常告警')
   const [tagAlarmLevel, setTagAlarmLevel] = useState<TagAlarmLevel>('highhigh')
@@ -470,6 +472,28 @@ function App() {
       }
     }
     return settingsByTag
+  }, [config])
+  const alarmInversionByTag = useMemo(() => {
+    const inversionByTag = new Map<string, boolean>()
+    const alarms = config?.rawConfig.alarms
+    if (!Array.isArray(alarms)) return inversionByTag
+
+    for (const alarm of alarms) {
+      if (!isRecord(alarm) || !isRecord(alarm.property)
+          || typeof alarm.property.variableId !== 'string') continue
+      const activeLevels = (['highhigh', 'high', 'low', 'info'] as const)
+        .flatMap((key) => {
+          const level = alarm[key]
+          return isRecord(level) && level.enabled === true ? [level] : []
+        })
+      if (activeLevels.length) {
+        inversionByTag.set(
+          alarm.property.variableId,
+          activeLevels.every((level) => level.min === 0 && level.max === 0),
+        )
+      }
+    }
+    return inversionByTag
   }, [config])
   const filteredAlarmTags = useMemo(() => {
     const query = tagAlarmSearch.trim().toLocaleLowerCase()
@@ -1325,6 +1349,33 @@ function App() {
     }
   }
 
+  function handleToggleAlarmTagInversion(tagId: string, inverted: boolean) {
+    if (!config) return
+    if (!alarmSettingsByTag.has(tagId)) {
+      setTagAlarmInversionDrafts((current) => ({ ...current, [tagId]: inverted }))
+      return
+    }
+
+    try {
+      const result = updateTagAlarmInversion(config.rawConfig, tagId, inverted)
+      if (!result.updated) return
+      dispatchEditor({
+        type: 'document-edit',
+        document: parseUpdatedConfig(result.config, config),
+        models,
+      })
+      setTagAlarmInversionDrafts((current) => {
+        const next = { ...current }
+        delete next[tagId]
+        return next
+      })
+      messageApi.success(`已更新 Tag「${tags.find((tag) => tag.id === tagId)?.name ?? tagId}」的告警狀態。`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      messageApi.error(`更新告警狀態失敗：${detail}`)
+    }
+  }
+
   function handleCreateTagAlarms() {
     if (!config) return
     if (!tagAlarmTagIds.length) {
@@ -1349,6 +1400,9 @@ function App() {
           text: tagAlarmText,
           level: tagAlarmLevel,
           messageLevel: tagAlarmMessageLevel,
+          invertState: alarmInversionByTag.get(tag.id)
+            ?? tagAlarmInversionDrafts[tag.id]
+            ?? false,
           viewId: tagAlarmTargetViewIds[tag.id] ?? '',
         })),
       )
@@ -1394,7 +1448,7 @@ function App() {
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <Space align="center" wrap style={{ width: '100%', justifyContent: 'space-between' }}>
           <Text type="secondary">
-            多選要設定的 Tag，告警文字與等級會套用至全部選取項目。告警觸發時會跳轉至各 Tag 指定的 View。
+            多選要設定的 Tag，告警文字與等級會套用至全部選取項目。布林 Tag 可反轉告警狀態（由 1 改為 0），告警觸發時會跳轉至指定 View。
           </Text>
           <Button
             disabled={alarmSettingsByTag.size === 0}
@@ -1473,6 +1527,21 @@ function App() {
                   >
                     Address: {String(tag.record.address ?? '未設定')}
                   </Text>
+                  {['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()) && (
+                    <Checkbox
+                      aria-label={`${tag.name} 反轉狀態`}
+                      title="啟用中的告警條件由 Tag 值 1 改為 0"
+                      checked={alarmInversionByTag.get(tag.id)
+                        ?? tagAlarmInversionDrafts[tag.id]
+                        ?? false}
+                      onChange={(event) => handleToggleAlarmTagInversion(
+                        tag.id,
+                        event.target.checked,
+                      )}
+                    >
+                      反轉狀態
+                    </Checkbox>
+                  )}
                   <div className="alarm-tag-settings" aria-label={`${tag.name} 已設定告警`}>
                     {alarmSettingsByTag.get(tag.id)?.length ? (
                       alarmSettingsByTag.get(tag.id)?.map(({ level, text }, index) => (
