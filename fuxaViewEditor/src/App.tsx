@@ -276,6 +276,7 @@ function App() {
   const [tagCreateDialogOpen, setTagCreateDialogOpen] = useState(false)
   const [tagCreateDeviceId, setTagCreateDeviceId] = useState('')
   const [tagCreateInput, setTagCreateInput] = useState('')
+  const [tagCreateNameOverrides, setTagCreateNameOverrides] = useState<Record<number, string>>({})
   const [tagCreateStartAddress, setTagCreateStartAddress] = useState(1)
   const [tagCreateStep, setTagCreateStep] = useState(1)
   const [tagCreateMemaddress, setTagCreateMemaddress] = useState('000000')
@@ -436,7 +437,7 @@ function App() {
     ['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))
   const batchCanUseBooleanGraphic = selectedBatchTags.length > 0
     && selectedBatchTags.every((tag) => ['bool', 'boolean'].includes(tag.type.toLocaleLowerCase()))
-  const tagCreateSpecs = useMemo(() => parseTagBatchInput(tagCreateInput, {
+  const parsedTagCreateSpecs = useMemo(() => parseTagBatchInput(tagCreateInput, {
     startAddress: tagCreateStartAddress,
     step: tagCreateStep,
     defaultMemAddress: tagCreateMemaddress,
@@ -450,27 +451,56 @@ function App() {
     tagCreateStep,
     tagCreateType,
   ])
+  const tagCreateSpecs = useMemo(() => parsedTagCreateSpecs.map((spec, index) => ({
+    ...spec,
+    name: tagCreateNameOverrides[index] ?? spec.name,
+  })), [parsedTagCreateSpecs, tagCreateNameOverrides])
   const tagCreateDevice = config && isRecord(config.rawConfig.devices[tagCreateDeviceId])
     ? config.rawConfig.devices[tagCreateDeviceId]
     : undefined
-  const tagCreateDuplicateRows = useMemo(() => {
+  const tagCreateDuplicateNameRows = useMemo(() => {
+    const duplicateRows = new Set<number>()
+    const names = new Set<string>()
+    if (config) {
+      for (const candidate of Object.values(config.rawConfig.devices)) {
+        if (!isRecord(candidate) || !isRecord(candidate.tags)) continue
+        for (const tag of Object.values(candidate.tags)) {
+          if (!isRecord(tag)) continue
+          const name = typeof tag.name === 'string' ? tag.name.trim().toLocaleLowerCase() : ''
+          if (name) names.add(name)
+        }
+      }
+    }
+    tagCreateSpecs.forEach((spec, index) => {
+      const name = spec.name.trim().toLocaleLowerCase()
+      if (!name) return
+      if (names.has(name)) duplicateRows.add(index)
+      names.add(name)
+    })
+    return duplicateRows
+  }, [config, tagCreateSpecs])
+  const tagCreateInvalidNameRows = useMemo(() => new Set(
+    tagCreateSpecs.flatMap((spec, index) => (
+      !spec.name.trim() || spec.name.trim().length > 120 ? [index] : []
+    )),
+  ), [tagCreateSpecs])
+  const tagCreateDuplicateAddressRows = useMemo(() => {
     const duplicateRows = new Set<number>()
     const existingTags = tagCreateDevice && isRecord(tagCreateDevice.tags)
       ? Object.values(tagCreateDevice.tags).filter(isRecord)
       : []
-    const names = new Set(existingTags.map((tag) => String(tag.name || '').toLocaleLowerCase()))
     const addresses = new Set(existingTags.map(
       (tag) => `${String(tag.memaddress || '')}_${String(tag.address ?? '')}`,
     ))
     tagCreateSpecs.forEach((spec, index) => {
-      const name = spec.name.toLocaleLowerCase()
       const address = `${spec.memaddress}_${spec.address}`
-      if (names.has(name) || addresses.has(address)) duplicateRows.add(index)
-      names.add(name)
+      if (addresses.has(address)) duplicateRows.add(index)
       addresses.add(address)
     })
     return duplicateRows
   }, [tagCreateDevice, tagCreateSpecs])
+  const hasTagCreateDuplicateNames = tagCreateDuplicateNameRows.size > 0
+  const hasTagCreateInvalidNames = tagCreateInvalidNameRows.size > 0
   const usedTagIds = new Set(selectedModel?.components.map((component) => component.tagId) ?? [])
   const filteredFloorTags = useMemo(() => {
     const query = floorSearch.trim().toLocaleLowerCase()
@@ -1123,6 +1153,7 @@ function App() {
       : deviceIds[0] ?? ''
     setTagCreateDeviceId(deviceId)
     setTagCreateInput('')
+    setTagCreateNameOverrides({})
     setTagCreateStartAddress(deviceId
       ? getNextAvailableAddress(config.rawConfig.devices[deviceId], tagCreateMemaddress)
       : 1)
@@ -1138,6 +1169,14 @@ function App() {
     }
     if (!tagCreateSpecs.length) {
       messageApi.warning('未解析出任何有效的 Tag 項目。')
+      return
+    }
+    if (hasTagCreateInvalidNames) {
+      messageApi.warning('Tag 名稱不可空白或超過 120 個字元。')
+      return
+    }
+    if (hasTagCreateDuplicateNames) {
+      messageApi.warning('Tag 名稱不可重複，請先修改預覽中標示的名稱。')
       return
     }
 
@@ -1173,6 +1212,7 @@ function App() {
       }
       dispatchEditor({ type: 'document-edit', document, models: nextModels })
       setTagCreateInput('')
+      setTagCreateNameOverrides({})
       setTagCreateStartAddress(
         getNextAvailableAddress(result.config.devices[tagCreateDeviceId], tagCreateMemaddress),
       )
@@ -2915,7 +2955,12 @@ function App() {
         title="批次建立 Tag"
         okText={`建立 ${tagCreateSpecs.length} 個 Tag`}
         cancelText="取消"
-        okButtonProps={{ disabled: !tagCreateDeviceId || tagCreateSpecs.length === 0 }}
+        okButtonProps={{
+          disabled: !tagCreateDeviceId
+            || tagCreateSpecs.length === 0
+            || hasTagCreateDuplicateNames
+            || hasTagCreateInvalidNames,
+        }}
         onCancel={() => setTagCreateDialogOpen(false)}
         onOk={handleCreateTags}
         width={900}
@@ -2923,7 +2968,7 @@ function App() {
       >
         <Space orientation="vertical" size="middle" className="tag-create-manager">
           <Text type="secondary">
-            每行輸入一個 Tag 名稱；也可貼上逗號或 Tab 分隔資料。重複名稱／位址會提示，但仍可建立。
+            每行輸入一個 Tag 名稱；也可貼上逗號或 Tab 分隔資料。名稱須全專案唯一，可直接在下方預覽修改；重複位址僅提示。
           </Text>
           <div className="tag-create-settings">
             <label>
@@ -3012,7 +3057,10 @@ function App() {
             aria-label="批次 Tag 資料"
             rows={6}
             value={tagCreateInput}
-            onChange={(event) => setTagCreateInput(event.target.value)}
+            onChange={(event) => {
+              setTagCreateInput(event.target.value)
+              setTagCreateNameOverrides({})
+            }}
             placeholder={'泵浦運轉\n風機告警\n也可用欄位：名稱, 位址, 型別, 區段, 備註, 樓層'}
           />
           <div className="tag-create-preview-heading">
@@ -3030,21 +3078,41 @@ function App() {
                     <th>區段</th>
                     <th>型別</th>
                     <th>樓層</th>
-                    <th>檢查</th>
+                    <th>名稱檢查</th>
+                    <th>位址檢查</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tagCreateSpecs.map((spec: TagBatchSpec, index) => (
                     <tr key={`${spec.name}-${index}`}>
                       <td>{index + 1}</td>
-                      <td>{spec.name}</td>
+                      <td>
+                        <Input
+                          aria-label={`第 ${index + 1} 筆 Tag 名稱`}
+                          status={tagCreateDuplicateNameRows.has(index)
+                            || tagCreateInvalidNameRows.has(index) ? 'error' : undefined}
+                          maxLength={120}
+                          value={spec.name}
+                          onChange={(event) => setTagCreateNameOverrides((current) => ({
+                            ...current,
+                            [index]: event.target.value,
+                          }))}
+                        />
+                      </td>
                       <td>{spec.address}</td>
                       <td>{spec.memaddress}</td>
                       <td>{spec.type}</td>
                       <td>{spec.floor || '未設定'}</td>
                       <td>
-                        {tagCreateDuplicateRows.has(index)
-                          ? <Text type="warning">重複名稱／位址</Text>
+                        {tagCreateInvalidNameRows.has(index)
+                          ? <Text type="danger">名稱不可空白或過長</Text>
+                          : tagCreateDuplicateNameRows.has(index)
+                          ? <Text type="danger">名稱重複</Text>
+                          : <Text type="success">正常</Text>}
+                      </td>
+                      <td>
+                        {tagCreateDuplicateAddressRows.has(index)
+                          ? <Text type="warning">位址重複</Text>
                           : <Text type="success">正常</Text>}
                       </td>
                     </tr>

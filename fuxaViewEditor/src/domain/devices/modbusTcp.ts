@@ -203,6 +203,7 @@ export function fillModbusTcpAddressGaps(
   usedTagIds: Set<string>,
   cryptoProvider: RandomValuesProvider,
   now = Date.now,
+  reservedNames: Iterable<string> = [],
 ): ModbusAddressFillPlan & { created: FuxaTag[] } {
   const plan = getModbusTcpAddressFillPlan(device)
   if (!plan.hasAnchor || plan.missing.length === 0) return { ...plan, created: [] }
@@ -211,6 +212,7 @@ export function fillModbusTcpAddressGaps(
   const existingNames = new Set(Object.values(tags)
     .filter(isRecord)
     .map((tag) => String(tag.name || '').toLocaleLowerCase()))
+  for (const name of reservedNames) existingNames.add(name.trim().toLocaleLowerCase())
   const template = plan.template
   if (!template) throw new Error('Modbus 位址補位缺少可複製的 Tag 範本。')
   const created: FuxaTag[] = []

@@ -20,6 +20,15 @@ function isModbusTcpDevice(value: unknown): value is ModbusTcpDevice {
   return isRecord(value) && value.type === 'ModbusTCP'
 }
 
+function getConfigTagNames(config: FuxaConfig): string[] {
+  return Object.values(config.devices).flatMap((device) => {
+    if (!isRecord(device) || !isRecord(device.tags)) return []
+    return Object.values(device.tags)
+      .filter(isRecord)
+      .flatMap((tag) => typeof tag.name === 'string' ? [tag.name] : [])
+  })
+}
+
 export interface ManageModbusDeviceResult {
   config: FuxaConfig
   deviceId: string
@@ -59,7 +68,13 @@ export function saveModbusDevice(
   if (!resultDeviceId) throw new Error('建立設備時未產生有效 ID。')
   if (typeof device.name !== 'string') throw new Error('設備名稱不可空白。')
   syncDeviceConnectionTag(config, resultDeviceId, device.name, cryptoProvider, usedTagIds)
-  const fill = fillModbusTcpAddressGaps(device, usedTagIds, cryptoProvider)
+  const fill = fillModbusTcpAddressGaps(
+    device,
+    usedTagIds,
+    cryptoProvider,
+    undefined,
+    getConfigTagNames(config),
+  )
   return { config, deviceId: resultDeviceId, created, fill }
 }
 
@@ -93,7 +108,13 @@ export function fillModbusDeviceAddressGaps(
   const device = config.devices[deviceId]
   if (!isModbusTcpDevice(device)) throw new Error('找不到要補位的 ModbusTCP 設備。')
   const usedTagIds = new Set(buildTagIndex(config).keys())
-  const fill = fillModbusTcpAddressGaps(device, usedTagIds, cryptoProvider)
+  const fill = fillModbusTcpAddressGaps(
+    device,
+    usedTagIds,
+    cryptoProvider,
+    undefined,
+    getConfigTagNames(config),
+  )
   return { config, deviceId, created: false, fill }
 }
 

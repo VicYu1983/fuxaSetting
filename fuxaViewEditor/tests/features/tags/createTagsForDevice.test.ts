@@ -80,4 +80,77 @@ describe('createTagsForDevice', () => {
     )).toThrow('超出 Modbus 位址範圍')
     expect((source.devices['device-1'] as { tags: object }).tags).toEqual({})
   })
+
+  it('rejects Tag names duplicated anywhere in the project or within the batch', () => {
+    const source: FuxaConfig = {
+      devices: {
+        'device-1': {
+          id: 'device-1',
+          type: 'ModbusTCP',
+          tags: {},
+        },
+        'device-2': {
+          id: 'device-2',
+          type: 'ModbusRTU',
+          tags: {
+            existing: { id: 'existing', name: 'Pump' },
+          },
+        },
+      },
+      hmi: { views: [] },
+    }
+    const duplicateExistingName = parseTagBatchInput(' pump ')
+    const duplicateBatchNames = parseTagBatchInput('Fan\n fan ')
+
+    expect(() => createTagsForDevice(
+      source,
+      'device-1',
+      duplicateExistingName,
+      incrementingRandom(),
+    )).toThrow('Tag 名稱「pump」已存在')
+    expect(() => createTagsForDevice(
+      source,
+      'device-1',
+      duplicateBatchNames,
+      incrementingRandom(),
+    )).toThrow('Tag 名稱「fan」已存在')
+    expect((source.devices['device-1'] as { tags: object }).tags).toEqual({})
+  })
+
+  it('keeps automatically filled Tag names unique across devices', () => {
+    const source: FuxaConfig = {
+      devices: {
+        'device-1': {
+          id: 'device-1',
+          type: 'ModbusTCP',
+          property: { addressCount: 3 },
+          tags: {
+            existing: {
+              id: 'existing',
+              name: 'Existing',
+              type: 'Bool',
+              memaddress: '000000',
+              address: 10,
+            },
+          },
+        },
+        'device-2': {
+          id: 'device-2',
+          type: 'ModbusTCP',
+          tags: {
+            other: { id: 'other', name: '補位_12' },
+          },
+        },
+      },
+      hmi: { views: [] },
+    }
+    const specs = parseTagBatchInput('New Tag', {
+      startAddress: 11,
+      defaultMemAddress: '000000',
+    })
+
+    const result = createTagsForDevice(source, 'device-1', specs, incrementingRandom())
+
+    expect(result.autoFilled[0]).toMatchObject({ name: '補位_12 (2)', address: 12 })
+  })
 })

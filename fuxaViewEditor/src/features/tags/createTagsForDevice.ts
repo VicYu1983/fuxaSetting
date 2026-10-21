@@ -20,6 +20,10 @@ export interface CreateTagsForDeviceResult {
   autoFilled: FuxaTag[]
 }
 
+function normalizeTagName(name: unknown): string {
+  return typeof name === 'string' ? name.trim().toLocaleLowerCase() : ''
+}
+
 export function createTagsForDevice(
   source: FuxaConfig,
   deviceId: string,
@@ -29,6 +33,24 @@ export function createTagsForDevice(
   const config = structuredClone(source)
   const device = config.devices[deviceId]
   if (!isRecord(device)) throw new Error('請先選取目標設備。')
+
+  const usedNames = new Set<string>()
+  for (const candidate of Object.values(config.devices)) {
+    if (!isRecord(candidate) || !isRecord(candidate.tags)) continue
+    for (const tag of Object.values(candidate.tags)) {
+      if (!isRecord(tag)) continue
+      const name = normalizeTagName(tag.name)
+      if (name) usedNames.add(name)
+    }
+  }
+  for (const spec of specs) {
+    const name = normalizeTagName(spec.name)
+    if (!name) throw new Error('Tag 名稱不可空白。')
+    if (usedNames.has(name)) {
+      throw new Error(`Tag 名稱「${spec.name.trim()}」已存在，請修改名稱後再建立。`)
+    }
+    usedNames.add(name)
+  }
 
   if (isModbusTcpDevice(device)) {
     const currentTags = isRecord(device.tags) ? device.tags : {}
@@ -45,7 +67,7 @@ export function createTagsForDevice(
   const usedTagIds = new Set(buildTagIndex(config).keys())
   const created = batchCreateTags(device, specs, usedTagIds, cryptoProvider)
   const autoFilled = isModbusTcpDevice(device)
-    ? fillModbusTcpAddressGaps(device, usedTagIds, cryptoProvider).created
+    ? fillModbusTcpAddressGaps(device, usedTagIds, cryptoProvider, undefined, usedNames).created
     : []
 
   return { config, created, autoFilled }
