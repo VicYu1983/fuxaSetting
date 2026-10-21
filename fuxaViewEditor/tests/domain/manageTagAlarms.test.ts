@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { FuxaConfig } from '../../src/domain/config/types'
-import type { TagAlarmDraft } from '../../src/domain/alarms/manageTagAlarms'
+import type {
+  TagAlarmDraft,
+  TagAlarmMessageLevel,
+} from '../../src/domain/alarms/manageTagAlarms'
 import {
   applyTagAlarms,
   updateExistingTagAlarmTexts,
@@ -163,10 +166,11 @@ describe('updateExistingTagAlarmTexts', () => {
     const result = updateExistingTagAlarmTexts(
       source,
       new Map([['tag-1', '水箱水位']]),
+      'warning',
     )
     const alarms = result.config.alarms as Record<string, unknown>[]
 
-    expect(result.updated).toBe(1)
+    expect(result).toMatchObject({ updated: 1, toastMessagesAdded: 0 })
     expect(alarms[0]).toMatchObject({
       highhigh: { enabled: true, text: '水箱水位異常', custom: true },
       high: { enabled: false, text: '停用文字' },
@@ -186,17 +190,70 @@ describe('updateExistingTagAlarmTexts', () => {
     })
   })
 
+  it('adds a toastMessage using the updated enabled alarm text when none exists', () => {
+    const source = createConfig()
+    source.alarms = [{
+      property: { variableId: 'tag-1' },
+      high: { enabled: true, text: '原告警文字' },
+      actions: {
+        enabled: false,
+        values: [{ type: 'notify', actparam: '保留' }],
+        custom: true,
+      },
+    }]
+
+    const result = updateExistingTagAlarmTexts(
+      source,
+      new Map([['tag-1', '水箱水位']]),
+      'error',
+    )
+    const alarms = result.config.alarms as Record<string, unknown>[]
+
+    expect(result).toMatchObject({ updated: 1, toastMessagesAdded: 1 })
+    expect(alarms[0]).toMatchObject({
+      high: { enabled: true, text: '水箱水位異常' },
+      actions: {
+        enabled: true,
+        custom: true,
+        values: [
+          { type: 'notify', actparam: '保留' },
+          {
+            min: 1,
+            max: 1,
+            type: 'toastMessage',
+            actparam: '水箱水位異常',
+            actoptions: { type: 'error' },
+            checkdelay: 1,
+            timedelay: 0,
+          },
+        ],
+      },
+    })
+    expect(source.alarms).toMatchObject([{
+      high: { text: '原告警文字' },
+      actions: { enabled: false },
+    }])
+  })
+
   it('does not count alarms with no enabled level or unchanged text', () => {
     const source = createConfig()
     source.alarms = [{
       property: { variableId: 'tag-1' },
       highhigh: { enabled: true, text: '水箱水位異常' },
       high: { enabled: false, text: '舊文字' },
+      actions: {
+        enabled: true,
+        values: [{ type: 'toastMessage', actparam: '水箱水位異常' }],
+      },
     }]
 
-    const result = updateExistingTagAlarmTexts(source, new Map([['tag-1', '水箱水位']]))
+    const result = updateExistingTagAlarmTexts(
+      source,
+      new Map([['tag-1', '水箱水位']]),
+      'warning',
+    )
 
-    expect(result.updated).toBe(0)
+    expect(result).toMatchObject({ updated: 0, toastMessagesAdded: 0 })
     expect(result.config.alarms).toEqual(source.alarms)
   })
 
@@ -204,7 +261,16 @@ describe('updateExistingTagAlarmTexts', () => {
     const source = createConfig()
     source.alarms = {}
 
-    expect(() => updateExistingTagAlarmTexts(source, new Map()))
+    expect(() => updateExistingTagAlarmTexts(source, new Map(), 'error'))
       .toThrow('FUXA alarms 欄位格式無效')
+  })
+
+  it('rejects an invalid message level', () => {
+    expect(() => updateExistingTagAlarmTexts(
+      createConfig(),
+      new Map(),
+      'critical' as TagAlarmMessageLevel,
+    ))
+      .toThrow('告警訊息層級無效')
   })
 })

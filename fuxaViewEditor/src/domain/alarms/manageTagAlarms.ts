@@ -4,6 +4,10 @@ import { isRecord } from '../config/validateFuxaConfig'
 export type TagAlarmLevel = 'highhigh' | 'high' | 'low' | 'info'
 export type TagAlarmMessageLevel = 'info' | 'success' | 'warning' | 'error'
 
+function isTagAlarmMessageLevel(value: unknown): value is TagAlarmMessageLevel {
+  return value === 'info' || value === 'success' || value === 'warning' || value === 'error'
+}
+
 export interface TagAlarmDraft {
   tagId: string
   tagName: string
@@ -16,14 +20,19 @@ export interface TagAlarmDraft {
 export function updateExistingTagAlarmTexts(
   source: FuxaConfig,
   tagNames: ReadonlyMap<string, string>,
-): { config: FuxaConfig; updated: number } {
+  messageLevel: TagAlarmMessageLevel,
+): { config: FuxaConfig; updated: number; toastMessagesAdded: number } {
   const config = structuredClone(source)
   if (config.alarms !== undefined && !Array.isArray(config.alarms)) {
     throw new Error('FUXA alarms 欄位格式無效，無法更新告警文字。')
   }
-  if (!Array.isArray(config.alarms)) return { config, updated: 0 }
+  if (!isTagAlarmMessageLevel(messageLevel)) {
+    throw new Error('告警訊息層級無效，無法新增訊息動作。')
+  }
+  if (!Array.isArray(config.alarms)) return { config, updated: 0, toastMessagesAdded: 0 }
 
   let updated = 0
+  let toastMessagesAdded = 0
   for (const alarm of config.alarms) {
     if (!isRecord(alarm) || !isRecord(alarm.property)
         || typeof alarm.property.variableId !== 'string') continue
@@ -41,16 +50,41 @@ export function updateExistingTagAlarmTexts(
       setting.text = text
       changed = true
     }
-    if (hasEnabledLevel && isRecord(alarm.actions) && Array.isArray(alarm.actions.values)) {
-      for (const action of alarm.actions.values) {
-        if (!isRecord(action) || action.type !== 'toastMessage' || action.actparam === text) continue
+    if (hasEnabledLevel) {
+      const previousActions = isRecord(alarm.actions) ? alarm.actions : {}
+      const previousValues = Array.isArray(previousActions.values) ? previousActions.values : []
+      let hasToastMessage = false
+      for (const action of previousValues) {
+        if (!isRecord(action) || action.type !== 'toastMessage') continue
+        hasToastMessage = true
+        if (action.actparam === text) continue
         action.actparam = text
+        changed = true
+      }
+      if (!hasToastMessage) {
+        alarm.actions = {
+          ...previousActions,
+          enabled: true,
+          values: [
+            ...previousValues,
+            {
+              min: 1,
+              max: 1,
+              type: 'toastMessage',
+              actparam: text,
+              actoptions: { type: messageLevel },
+              checkdelay: 1,
+              timedelay: 0,
+            },
+          ],
+        }
+        toastMessagesAdded += 1
         changed = true
       }
     }
     if (changed) updated += 1
   }
-  return { config, updated }
+  return { config, updated, toastMessagesAdded }
 }
 
 const ALARM_LEVEL_DEFAULTS: Record<TagAlarmLevel, Record<string, unknown>> = {
@@ -123,7 +157,7 @@ export function applyTagAlarms(
     if (!Object.hasOwn(ALARM_LEVEL_DEFAULTS, draft.level)) {
       throw new Error(`Tag「${tagName}」的告警等級無效。`)
     }
-    if (!['info', 'success', 'warning', 'error'].includes(draft.messageLevel)) {
+    if (!isTagAlarmMessageLevel(draft.messageLevel)) {
       throw new Error(`Tag「${tagName}」的訊息層級無效。`)
     }
     if (seenTagIds.has(tagId)) throw new Error(`Tag「${tagName}」重複選取。`)

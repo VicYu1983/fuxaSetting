@@ -1369,9 +1369,10 @@ function App() {
       const result = updateExistingTagAlarmTexts(
         config.rawConfig,
         new Map(tags.map((tag) => [tag.id, tag.name])),
+        tagAlarmMessageLevel,
       )
-      if (!result.updated) {
-        messageApi.info('沒有需要更新的既有告警文字。')
+      if (!result.updated && !result.toastMessagesAdded) {
+        messageApi.info('既有告警文字與 toastMessage 都已是最新設定。')
         return
       }
       dispatchEditor({
@@ -1379,7 +1380,9 @@ function App() {
         document: parseUpdatedConfig(result.config, config),
         models,
       })
-      messageApi.success(`已更新 ${result.updated} 筆告警文字為「Tag 名稱異常」。`)
+      messageApi.success(
+        `已更新 ${result.updated} 筆告警，並新增 ${result.toastMessagesAdded} 個 toastMessage。`,
+      )
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error)
       messageApi.error(`快速更新告警文字失敗：${detail}`)
